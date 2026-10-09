@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"strconv"
 	"strings"
 
@@ -24,24 +25,36 @@ func RuneValue(c rune) Value {
 }
 
 var TypeRune = ValueTypeDescr{
-	Name:              ConstHook(runeTypeName),                                                    // PURE by contract
-	String:            func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },            // PURE by contract
-	Format:            runeTypeFormat,                                                             // PURE by contract
-	Interface:         func(v Value) any { return rune(v.Data) },                                  // PURE by contract
-	EncodeJSON:        runeTypeEncodeJSON,                                                         // PURE by contract
-	EncodeBinary:      runeTypeEncodeBinary,                                                       // PURE by contract
-	DecodeBinary:      runeTypeDecodeBinary,                                                       // IMPURE by contract (mutates target)
-	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                    // PURE by contract
-	Len:               ConstHook(int64(1)),                                                        // PURE by contract
-	Equal:             runeTypeEqual,                                                              // PURE by contract
-	BinaryOp:          runeTypeBinaryOp,                                                           // PURE by contract
-	CallNamedMethod:   runeTypeCallNamedMethod,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return EncodeRuneText(rune(v.Data)), true }, // PURE by contract
-	AsInt:             func(v Value) (int64, bool) { return int64(v.Data), true },                 // PURE by contract
-	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true },                    // PURE by contract
-	AsRune:            func(v Value) (rune, bool) { return rune(v.Data), true },                   // PURE by contract
-	AsByte:            runeTypeAsByte,                                                             // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                          // All methods are expected to be pure.
+	Name:         ConstHook(runeTypeName),                                                    // PURE by contract
+	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },            // PURE by contract
+	Format:       runeTypeFormat,                                                             // PURE by contract
+	Interface:    func(v Value) any { return rune(v.Data) },                                  // PURE by contract
+	EncodeJSON:   runeTypeEncodeJSON,                                                         // PURE by contract
+	EncodeBinary: runeTypeEncodeBinary,                                                       // PURE by contract
+	DecodeBinary: runeTypeDecodeBinary,                                                       // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                    // PURE by contract
+	Len:          ConstHook(int64(1)),                                                        // PURE by contract
+	Equal:        runeTypeEqual,                                                              // PURE by contract
+	BinaryOp:     runeTypeBinaryOp,                                                           // PURE by contract
+	AsString:     func(v Value) (string, bool) { return EncodeRuneText(rune(v.Data)), true }, // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                 // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                    // PURE by contract
+	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },                   // PURE by contract
+	AsByte:       runeTypeAsByte,                                                             // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
+		members.String:  {Fn: runeString, Pure: true},
+		members.Format:  {Fn: runeFormat, Pure: true},
+		members.Copy:    {Fn: runeCopy, Pure: true},
+		members.Freeze:  {Fn: runeFreeze, Pure: true},
+		members.Runes:   {Fn: runeRunes, Pure: true},
+		members.Int:     {Fn: runeInt, Pure: true},
+		members.Byte:    {Fn: runeByte, Pure: true},
+		members.Rune:    {Fn: runeRune, Pure: true},
+		members.IsASCII: {Fn: runeIsASCII, Pure: true},
+		members.IsValid: {Fn: runeIsValid, Pure: true},
+	},
 }
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {
@@ -297,80 +310,4 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	}
 
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func runeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "rune":
-		return convMember(name, runeTypeName, args, true, v)
-
-	case "int":
-		return convMember(name, runeTypeName, args, true, IntValue(int64(v.Data)))
-
-	case "byte":
-		b, ok := v.AsByte()
-		return convMember(name, runeTypeName, args, ok, ByteValue(b))
-
-	case "string":
-		// total — the default slot never fires, but every conversion carries it. An escape rune
-		// answers the single octet it stands for, so it round-trips back to the data it came from
-		return convMember(name, runeTypeName, args, true, NewStringValue(EncodeRuneText(rune(v.Data))))
-
-	case "runes":
-		// the text targets compose through string: 'A'.runes() ≡ 'A'.string().runes()
-		return convMember(name, runeTypeName, args, true, NewRunesValue([]rune{rune(v.Data)}, false))
-
-	case "is_valid":
-		// a real symbol, as opposed to an escape standing for an octet that is not one
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(RuneIsValid(rune(v.Data))), nil
-
-	case "is_ascii":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(rune(v.Data) < 0x80), nil
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := runeTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }

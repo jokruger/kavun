@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jokruger/kavun/core/member/members"
+
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -23,27 +25,39 @@ func ByteValue(v byte) Value {
 }
 
 var TypeByte = ValueTypeDescr{
-	Name:            ConstHook(byteTypeName),                                         // PURE by contract
-	String:          func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) }, // PURE by contract
-	Format:          byteTypeFormat,                                                  // PURE by contract
-	Interface:       func(v Value) any { return byte(v.Data) },                       // PURE by contract
-	EncodeJSON:      byteTypeEncodeJSON,                                              // PURE by contract
-	EncodeBinary:    byteTypeEncodeBinary,                                            // PURE by contract
-	DecodeBinary:    byteTypeDecodeBinary,                                            // IMPURE by contract (mutates target)
-	IsTrue:          func(v Value) (bool, error) { return v.Data != 0, nil },         // PURE by contract
-	Len:             ConstHook(int64(1)),                                             // PURE by contract
-	Equal:           byteTypeEqual,                                                   // PURE by contract
-	BinaryOp:        byteTypeBinaryOp,                                                // PURE by contract
-	UnaryOp:         byteTypeUnaryOp,                                                 // PURE by contract
-	CallNamedMethod: byteTypeCallNamedMethod,                                         // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	Name:         ConstHook(byteTypeName),                                         // PURE by contract
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) }, // PURE by contract
+	Format:       byteTypeFormat,                                                  // PURE by contract
+	Interface:    func(v Value) any { return byte(v.Data) },                       // PURE by contract
+	EncodeJSON:   byteTypeEncodeJSON,                                              // PURE by contract
+	EncodeBinary: byteTypeEncodeBinary,                                            // PURE by contract
+	DecodeBinary: byteTypeDecodeBinary,                                            // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },         // PURE by contract
+	Len:          ConstHook(int64(1)),                                             // PURE by contract
+	Equal:        byteTypeEqual,                                                   // PURE by contract
+	UnaryOp:      byteTypeUnaryOp,                                                 // PURE by contract
+	BinaryOp:     byteTypeBinaryOp,                                                // PURE by contract
+
 	// A byte's canonical TEXT is its ASCII symbol, matching .string() — so a byte dict key stores under "A",
 	// join renders the symbol, and a high octet (0x80-0xFF) has no text form and declines (the consumer raises).
 	// Display renders stay numeric: String (byte(65)), Format, EncodeJSON.
-	AsString:          func(v Value) (string, bool) { return ByteSymbolString(byte(v.Data)) }, // PURE by contract
-	AsInt:             func(v Value) (int64, bool) { return int64(v.Data), true },             // PURE by contract
-	AsRune:            byteTypeAsRune,                                                         // PURE by contract
-	AsByte:            func(v Value) (byte, bool) { return byte(v.Data), true },               // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                      // All methods are expected to be pure.
+	AsString: func(v Value) (string, bool) { return ByteSymbolString(byte(v.Data)) }, // PURE by contract
+	AsInt:    func(v Value) (int64, bool) { return int64(v.Data), true },             // PURE by contract
+	AsRune:   byteTypeAsRune,                                                         // PURE by contract
+	AsByte:   func(v Value) (byte, bool) { return byte(v.Data), true },               // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
+		members.String:  {Fn: byteString, Pure: true},
+		members.Format:  {Fn: byteFormat, Pure: true},
+		members.Copy:    {Fn: byteCopy, Pure: true},
+		members.Freeze:  {Fn: byteFreeze, Pure: true},
+		members.Runes:   {Fn: byteRunes, Pure: true},
+		members.Int:     {Fn: byteInt, Pure: true},
+		members.Byte:    {Fn: byteByte, Pure: true},
+		members.Rune:    {Fn: byteRune, Pure: true},
+		members.IsASCII: {Fn: byteIsASCII, Pure: true},
+	},
 }
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
@@ -320,74 +334,5 @@ func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	}
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func byteTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "byte":
-		return convMember(name, byteTypeName, args, true, v)
-
-	case "int":
-		i, ok := v.AsInt()
-		return convMember(name, byteTypeName, args, ok, IntValue(i))
-
-	case "rune":
-		c, ok := v.AsRune()
-		return convMember(name, byteTypeName, args, ok, RuneValue(c))
-
-	case "string":
-		// TOTAL: a byte always has text content — its ASCII symbol below 0x80, and above it the
-		// one-octet text that decodes to this octet's escape. The render is unmoved: b'A'.format() -> "65"
-		return convMember(name, byteTypeName, args, true, NewStringValue(string([]byte{byte(v.Data)})))
-
-	case "runes":
-		return convMember(name, byteTypeName, args, true, NewRunesValue(DecodeOctets([]byte{byte(v.Data)}), false))
-
-	case "is_ascii":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(byte(v.Data) < 0x80), nil
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := byteTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
 	}
 }
