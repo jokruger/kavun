@@ -26,7 +26,7 @@ var TypeUndefined = ValueTypeDescr{
 	UnaryOp:             undefinedTypeUnaryOp,                                                      // PURE by contract
 	CallNamedMethod:     undefinedTypeCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
 	AccessIndex:         func(Value, Value) (Value, error) { return Undefined, nil },               // PURE by contract
-	AccessNamedProperty: func(Value, string) (Value, error) { return Undefined, nil },              // PURE by contract
+	AccessNamedProperty: func(VM, Value, string) (Value, error) { return Undefined, nil },          // PURE by contract
 	Slice:               func(Value, Value, Value) (Value, error) { return Undefined, nil },        // PURE by contract
 	SliceStep:           func(Value, Value, Value, Value) (Value, error) { return Undefined, nil }, // PURE by contract
 	AsBool:              func(Value) (bool, bool) { return false, true },                           // PURE by contract
@@ -63,7 +63,7 @@ func undefinedTypeUnaryOp(Value, token.Token) (Value, error) {
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func undefinedTypeCallNamedMethod(_ VM, v Value, name string, args []Value) (Value, error) {
+func undefinedTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "bool", "byte", "rune", "int", "float", "decimal", "time", "date",
 		"string", "runes", "bytes", "array", "dict", "record":
@@ -102,6 +102,6 @@ func undefinedTypeCallNamedMethod(_ VM, v Value, name string, args []Value) (Val
 		return NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

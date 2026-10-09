@@ -12,7 +12,7 @@ import (
 	"github.com/jokruger/kavun/ast/expression/scalar"
 	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/vm"
 )
@@ -653,7 +653,7 @@ func evalConstantExprUnsafe(expr ast.Expression, fset *ast.SourceFileSet) (core.
 	assign := &statement.Assign{
 		LHS:      []ast.Expression{target},
 		RHS:      []ast.Expression{expr},
-		Token:    token.Define,
+		Token:    tokens.Define,
 		TokenPos: pos,
 	}
 	file := &ast.File{InputFile: srcFile, Stmts: []ast.Statement{assign}}
@@ -708,7 +708,7 @@ func isTerminatorStmt(s ast.Statement) bool {
 	case *statement.Return:
 		return true
 	case *statement.Branch:
-		return t.Token == token.Break || t.Token == token.Continue
+		return t.Token == tokens.Break || t.Token == tokens.Continue
 	}
 	return false
 }
@@ -902,7 +902,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 				walkE(rh, true)
 			}
 			// Compound assignments (+=, etc.) also read the LHS.
-			if n.Token != token.Assign && n.Token != token.Define {
+			if n.Token != tokens.Assign && n.Token != tokens.Define {
 				for _, lh := range n.LHS {
 					if id, ok := lh.(*expression.Identifier); ok {
 						u := get(id.Name)

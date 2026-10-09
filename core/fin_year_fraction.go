@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/fin128/daycount"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -185,7 +186,7 @@ func finYearFractionTypeBinaryOp(v Value, other Value, op token.Token, reflected
 	f := FinYearFractionOf(v)
 	if reflected {
 		// n * f
-		if other.Type == value.Int && op == token.Mul {
+		if other.Type == value.Int && op == tokens.Mul {
 			return finYearFractionResult("*", f.Scaled(int64(other.Data)))
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
@@ -194,20 +195,20 @@ func finYearFractionTypeBinaryOp(v Value, other Value, op token.Token, reflected
 	case value.FinYearFraction:
 		g := FinYearFractionOf(other)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return finYearFractionResult("+", f.Add(g))
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(finYearFractionCompare(f, g) < 0), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(finYearFractionCompare(f, g) > 0), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(finYearFractionCompare(f, g) <= 0), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(finYearFractionCompare(f, g) >= 0), nil
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
 	case value.Int:
-		if op == token.Mul {
+		if op == tokens.Mul {
 			return finYearFractionResult("*", f.Scaled(int64(other.Data)))
 		}
 	}
@@ -294,5 +295,5 @@ func finYearFractionTypeCallNamedMethod(vm VM, v Value, name string, args []Valu
 		n, _ := f.Rational()
 		return BoolValue(n > 0), nil
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }

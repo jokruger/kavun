@@ -9,11 +9,11 @@ import (
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/fspec"
 )
 
-// parseFStringLit parses a token.FString token (already in p.tokenLit / p.pos). The literal is the original source
+// parseFStringLit parses a tokens.FString token (already in p.tokenLit / p.pos). The literal is the original source
 // including surrounding double quotes — i.e. for `f"hello {x:>5}"` the literal is `"hello {x:>5}"` and p.pos points to
 // the opening `"` (the leading `f` is one byte before).
 //
@@ -400,11 +400,11 @@ func (p *Parser) parseFStringExpr(exprText string, origin core.Pos) (ast.Express
 	src := []byte(exprText)
 	// Add a trailing newline so the sub-parser's expression scan terminates cleanly at EOF.
 	sub := NewParser(subFile, src, nil)
-	if sub.token == token.EOF {
+	if sub.token == tokens.EOF {
 		return nil, fmt.Errorf("f-string: empty expression in '{}'")
 	}
 	expr := sub.parseExpr()
-	if sub.token != token.EOF && !(sub.token == token.Semicolon && sub.tokenLit == "\n") {
+	if sub.token != tokens.EOF && !(sub.token == tokens.Semicolon && sub.tokenLit == "\n") {
 		return nil, fmt.Errorf("f-string: unexpected token %q after expression %q", sub.tokenLit, exprText)
 	}
 	if sub.errors.Len() > 0 {

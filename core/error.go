@@ -296,7 +296,7 @@ func errorTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

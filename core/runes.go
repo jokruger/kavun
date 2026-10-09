@@ -14,6 +14,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -234,19 +235,19 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		switch other.Type {
 		case value.String:
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				l := *(*string)(other.Ptr)
 				r := EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l < r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				l := *(*string)(other.Ptr)
 				r := EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l <= r), nil
-			case token.Greater:
+			case tokens.Greater:
 				l := *(*string)(other.Ptr)
 				r := EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l > r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				l := *(*string)(other.Ptr)
 				r := EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l >= r), nil
@@ -254,7 +255,7 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 		case value.Rune:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := []rune{rune(other.Data)}
 				r := (*Runes)(v.Ptr).Elements
 				t := make([]rune, len(l)+len(r))
@@ -266,7 +267,7 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		case value.Byte:
 			// a scalar on the left takes the sequence's type; an octet is a symbol only in ASCII
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				if other.Data > 0x7F {
 					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
 				}
@@ -280,19 +281,19 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	switch other.Type {
 	case value.Runes:
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l < r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l <= r), nil
-		case token.Greater:
+		case tokens.Greater:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l > r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l >= r), nil
@@ -300,19 +301,19 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 	case value.String:
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l < r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l <= r), nil
-		case token.Greater:
+		case tokens.Greater:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l > r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			l := EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l >= r), nil
@@ -323,7 +324,7 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
 	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
 	// the sequence", `n * seq` has no such reading
-	if op == token.Mul {
+	if op == tokens.Mul {
 		n, isCount, err := SeqRepeatOperand(other)
 		if err != nil {
 			return Undefined, err
@@ -347,14 +348,14 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
 	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
 	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
-	if op == token.Add || op == token.Sub {
+	if op == tokens.Add || op == tokens.Sub {
 		s, ok, err := textOperandString(other)
 		if err != nil {
 			return Undefined, err
 		}
 		if ok {
 			l := EncodeText((*Runes)(v.Ptr).Elements)
-			if op == token.Add {
+			if op == tokens.Add {
 				return NewRunesValue(DecodeText(l+s), false), nil
 			}
 			if s == "" {
@@ -868,7 +869,7 @@ func runesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return runesPadEndInPlace(vm, v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

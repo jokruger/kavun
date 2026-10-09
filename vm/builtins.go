@@ -11,8 +11,10 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -379,7 +381,7 @@ func builtinMin(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("min", "1 or more", 0)
 	}
-	return minMaxReduce(args, token.Less)
+	return minMaxReduce(args, tokens.Less)
 }
 
 // max(args...) => largest argument, by BinaryOp(Greater); 0 args => undefined, 1 arg => that arg unchanged.
@@ -387,7 +389,7 @@ func builtinMax(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("max", "1 or more", 0)
 	}
-	return minMaxReduce(args, token.Greater)
+	return minMaxReduce(args, tokens.Greater)
 }
 
 func minMaxReduce(args []core.Value, op token.Token) (core.Value, error) {
@@ -1112,7 +1114,7 @@ func ctorSameType(src core.Value) (core.Value, bool) {
 // implemented AS that member call, so validation (lossless int count, non-negative) and semantics can
 // never drift from repeat's.
 func ctorRepeat(vm core.VM, seq core.Value, count core.Value) (core.Value, error) {
-	return seq.CallMember(vm, member.Unknown, "repeat", []core.Value{count})
+	return seq.CallMember(vm, members.Repeat, member.ID(members.Repeat).String(), []core.Value{count})
 }
 
 // the numeric targets share one source set: the numerics themselves, text, and time

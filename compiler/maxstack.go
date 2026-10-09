@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 )
 
 const (
@@ -85,61 +86,61 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 
 	switch ci.Op {
 	// No input, no output
-	case bc.AbortCheck, bc.Suspend:
+	case opcodes.AbortCheck, opcodes.Suspend:
 		e.net = 0
 
 	// 1 input, 1 output
-	case bc.UnaryBitNot, bc.UnaryNeg, bc.UnaryNot, bc.Immutable, bc.FormatStaticSpec:
+	case opcodes.UnaryBitNot, opcodes.UnaryNeg, opcodes.UnaryNot, opcodes.Immutable, opcodes.FormatStaticSpec:
 		e.net = 0
 
 	// 1 input, 1 output
-	case bc.IterInit, bc.IterNext, bc.IterKey, bc.IterValue, bc.IterElem:
+	case opcodes.IterInit, opcodes.IterNext, opcodes.IterKey, opcodes.IterValue, opcodes.IterElem:
 		e.net = 0
 
 	// 0 input, 1 output
-	case bc.PushUndefined, bc.PushBool, bc.PushByte, bc.PushRune, bc.PushInt:
+	case opcodes.PushUndefined, opcodes.PushBool, opcodes.PushByte, opcodes.PushRune, opcodes.PushInt:
 		e.net = 1
 
 	// 0 input, 1 output
-	case bc.LoadStaticDecimal, bc.LoadStaticString, bc.LoadStaticRunes, bc.LoadStaticBytes, bc.LoadStaticTime, bc.LoadStaticFormatSpec, bc.LoadStaticCompiledFunction, bc.LoadStaticPrimitive, bc.LoadStaticRange:
+	case opcodes.LoadStaticDecimal, opcodes.LoadStaticString, opcodes.LoadStaticRunes, opcodes.LoadStaticBytes, opcodes.LoadStaticTime, opcodes.LoadStaticFormatSpec, opcodes.LoadStaticCompiledFunction, opcodes.LoadStaticPrimitive, opcodes.LoadStaticRange:
 		e.net = 1
 
 	// 0 input, 1 output
-	case bc.LoadLocal, bc.LoadLocalPtr, bc.LoadFree, bc.LoadFreePtr, bc.LoadGlobal:
+	case opcodes.LoadLocal, opcodes.LoadLocalPtr, opcodes.LoadFree, opcodes.LoadFreePtr, opcodes.LoadGlobal:
 		e.net = 1
 
 	// 0 input, 1 output
-	case bc.LoadBuiltinFunction, bc.ImportBuiltinModule:
+	case opcodes.LoadBuiltinFunction, opcodes.ImportBuiltinModule:
 		e.net = 1
 
 	// 1 input, 0 output
-	case bc.Pop, bc.DefineLocal, bc.StoreLocal, bc.StoreFree, bc.StoreGlobal:
+	case opcodes.Pop, opcodes.DefineLocal, opcodes.StoreLocal, opcodes.StoreFree, opcodes.StoreGlobal:
 		e.net = -1
 
 	// 2 inputs, 1 output
-	case bc.BinaryOp, bc.Equal, bc.NotEqual, bc.Contains, bc.AccessIndex, bc.FormatRuntimeSpec:
+	case opcodes.BinaryOp, opcodes.Equal, opcodes.NotEqual, opcodes.Contains, opcodes.AccessIndex, opcodes.FormatRuntimeSpec:
 		e.net = -1
 
 	// 3 inputs, 1 output
-	case bc.Slice:
+	case opcodes.Slice:
 		e.net = -2
 
 	// 4 inputs, 1 output
-	case bc.SliceStep:
+	case opcodes.SliceStep:
 		e.net = -3
 
 	// Jump unconditional, no stack effect, target in Op3
-	case bc.Jump:
+	case opcodes.Jump:
 		e.net = 0
 		e.target = int(ci.Op3)
 
 	// Jump conditional, pops condition then branches; target in Op3
-	case bc.JumpFalsy, bc.AndJump, bc.OrJump:
+	case opcodes.JumpFalsy, opcodes.AndJump, opcodes.OrJump:
 		e.net = -1
 		e.target = int(ci.Op3)
 
 	// Return, no or 1 output depending on 8-bit operand
-	case bc.Return:
+	case opcodes.Return:
 		if ci.Op1 != 0 {
 			e.net = -1
 		} else {
@@ -147,15 +148,15 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		}
 
 	// N inputs, 1 output, count in Op3 (record uses 2 * num pairs)
-	case bc.MakeArray, bc.MakeRecord:
+	case opcodes.MakeArray, opcodes.MakeRecord:
 		e.net = 1 - int(ci.Op3)
 
 	// 1 input, N outputs; count in Op1, name-list index in Op3
-	case bc.Unpack:
+	case opcodes.Unpack:
 		e.net = int(ci.Op1) - 1
 
 	// Call function: 1 + N inputs, 1 output
-	case bc.CallFunction:
+	case opcodes.CallFunction:
 		if ci.Op1 != 0 {
 			e.net = spreadNet
 		} else {
@@ -163,35 +164,35 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		}
 
 	// Call member: receiver + N inputs, 1 output; arg count in Op1
-	case bc.CallMember:
+	case opcodes.CallMember:
 		e.net = -int(ci.Op1)
 
 	// Call member with a spread last argument: the expanded count is only known at runtime
-	case bc.CallMemberSpread:
+	case opcodes.CallMemberSpread:
 		e.net = spreadNet
 
 	// 1 input, 1 output
-	case bc.AccessProperty:
+	case opcodes.AccessProperty:
 		e.net = 0
 
 	// 2 inputs (value, receiver), 0 outputs
-	case bc.AssignProperty:
+	case opcodes.AssignProperty:
 		e.net = -2
 
 	// 3 inputs (value, receiver, key), 0 outputs
-	case bc.AssignIndex:
+	case opcodes.AssignIndex:
 		e.net = -3
 
 	// Make closure: N inputs, 1 output; static function index in Op3, free-count in Op2
-	case bc.MakeClosure:
+	case opcodes.MakeClosure:
 		e.net = 1 - int(ci.Op2)
 
 	// receiver + N inputs, 0 outputs; arg count in Op1
-	case bc.DeferMember:
+	case opcodes.DeferMember:
 		e.net = 0 - 1 - int(ci.Op1)
 
 	// 1 + N inputs, 0 outputs
-	case bc.Defer:
+	case opcodes.Defer:
 		e.net = 0 - 1 - int(ci.Op2)
 
 	default:

@@ -8,8 +8,10 @@ import (
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -17,7 +19,7 @@ import (
 )
 
 var (
-	callbackTrampolineInstructions = bc.Instructions{bc.Instruction{Op: bc.Suspend}}
+	callbackTrampolineInstructions = bc.Instructions{bc.Instruction{Op: opcodes.Suspend}}
 	callbackTrampolineFn           = &core.CompiledFunction{Instructions: callbackTrampolineInstructions[:]}
 )
 
@@ -417,15 +419,15 @@ func (v *VM) run() {
 	for {
 		v.ip++
 		switch v.curInsts[v.ip].Op {
-		case bc.AbortCheck:
+		case opcodes.AbortCheck:
 			if atomic.LoadInt64(&v.abort) != 0 {
 				return
 			}
 
-		case bc.Suspend:
+		case opcodes.Suspend:
 			return
 
-		case bc.Return:
+		case opcodes.Return:
 			hasResult := v.curInsts[v.ip].Op1 == 1
 			var res core.Value // default is core.Undefined
 			if hasResult {
@@ -472,10 +474,10 @@ func (v *VM) run() {
 			v.sp = v.frames[v.framesIndex].basePointer
 			v.stack[v.sp-1] = res
 
-		case bc.Jump:
+		case opcodes.Jump:
 			v.ip = int(v.curInsts[v.ip].Op3) - 1
 
-		case bc.JumpFalsy:
+		case opcodes.JumpFalsy:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
@@ -494,7 +496,7 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.AndJump:
+		case opcodes.AndJump:
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case value.Bool: // fast track for booleans
@@ -516,7 +518,7 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.OrJump:
+		case opcodes.OrJump:
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case value.Bool: // fast track for booleans
@@ -538,10 +540,10 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.Pop:
+		case opcodes.Pop:
 			v.sp--
 
-		case bc.Unpack:
+		case opcodes.Unpack:
 			n := int(v.curInsts[v.ip].Op1)
 			names := v.static.NameLists[v.curInsts[v.ip].Op3]
 			rhs := v.stack[v.sp-1]
@@ -580,7 +582,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case bc.Immutable:
+		case opcodes.Immutable:
 			if v.curInsts[v.ip].Op1 == 1 {
 				// Deep form (export): flips Immutable on the slot and everything reachable through it in place.
 				v.stack[v.sp-1].MarkImmutableDeep()
@@ -595,13 +597,13 @@ func (v *VM) run() {
 				v.stack[v.sp-1] = t
 			}
 
-		case bc.UnaryNeg:
+		case opcodes.UnaryNeg:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
 			case value.Int: // fast track for integers; MinInt64 has no negation and takes the raising slow path
 				if int64(l.Data) == math.MinInt64 {
-					res, err := l.UnaryOp(token.Sub)
+					res, err := l.UnaryOp(tokens.Sub)
 					if err != nil {
 						v.err = err
 						return
@@ -615,7 +617,7 @@ func (v *VM) run() {
 			case value.Float: // fast track for floats — a stored NaN/Inf must still raise, so only finite values take it
 				f := math.Float64frombits(l.Data)
 				if math.IsNaN(f) || math.IsInf(f, 0) {
-					res, err := l.UnaryOp(token.Sub)
+					res, err := l.UnaryOp(tokens.Sub)
 					if err != nil {
 						v.err = err
 						return
@@ -627,7 +629,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.FloatValue(-f)
 				v.sp++
 			default:
-				res, err := l.UnaryOp(token.Sub)
+				res, err := l.UnaryOp(tokens.Sub)
 				if err != nil {
 					v.err = err
 					return
@@ -636,7 +638,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.UnaryNot:
+		case opcodes.UnaryNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
@@ -653,7 +655,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.UnaryBitNot:
+		case opcodes.UnaryBitNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
@@ -661,7 +663,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.IntValue(^int64(l.Data))
 				v.sp++
 			default:
-				res, err := l.UnaryOp(token.Xor)
+				res, err := l.UnaryOp(tokens.Xor)
 				if err != nil {
 					v.err = err
 					return
@@ -670,21 +672,21 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.Equal:
+		case opcodes.Equal:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
 			v.sp++
 
-		case bc.NotEqual:
+		case opcodes.NotEqual:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
 			v.sp++
 
-		case bc.Contains:
+		case opcodes.Contains:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			found, err := r.Contains(l)
@@ -696,7 +698,7 @@ func (v *VM) run() {
 			v.stack[v.sp-2] = core.BoolValue(found)
 			v.sp--
 
-		case bc.Slice:
+		case opcodes.Slice:
 			high := v.stack[v.sp-1]
 			low := v.stack[v.sp-2]
 			l := v.stack[v.sp-3]
@@ -709,7 +711,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.SliceStep:
+		case opcodes.SliceStep:
 			step := v.stack[v.sp-1]
 			high := v.stack[v.sp-2]
 			low := v.stack[v.sp-3]
@@ -723,7 +725,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.IterInit:
+		case opcodes.IterInit:
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable() {
@@ -738,12 +740,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = it
 			v.sp++
 
-		case bc.IterNext:
+		case opcodes.IterNext:
 			it := v.stack[v.sp-1]
 			res := core.BoolValue(it.Next())
 			v.stack[v.sp-1] = res
 
-		case bc.IterKey:
+		case opcodes.IterKey:
 			it := v.stack[v.sp-1]
 			v.sp--
 			val, err := it.Key()
@@ -754,7 +756,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.IterValue:
+		case opcodes.IterValue:
 			it := v.stack[v.sp-1]
 			v.sp--
 			val, err := it.Value()
@@ -765,7 +767,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.IterElem:
+		case opcodes.IterElem:
 			// the single-variable for-in binding: the container's element — the value
 			// everywhere except maps, whose element is the key
 			it := v.stack[v.sp-1]
@@ -778,7 +780,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.AccessIndex:
+		case opcodes.AccessIndex:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
@@ -790,7 +792,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.AccessProperty:
+		case opcodes.AccessProperty:
 			ci := v.curInsts[v.ip]
 			res, err := v.stack[v.sp-1].AccessProperty(v, member.ID(ci.Op2), v.static.Strings[ci.Op3])
 			if err != nil {
@@ -799,7 +801,7 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp-1] = res
 
-		case bc.AssignIndex:
+		case opcodes.AssignIndex:
 			key := v.stack[v.sp-1]
 			recv := v.stack[v.sp-2]
 			val := v.stack[v.sp-3]
@@ -809,7 +811,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case bc.AssignProperty:
+		case opcodes.AssignProperty:
 			ci := v.curInsts[v.ip]
 			recv := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
@@ -819,7 +821,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case bc.BinaryOp:
+		case opcodes.BinaryOp:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip].Op1)
@@ -829,25 +831,25 @@ func (v *VM) run() {
 				switch tok {
 				// the checked forms: an overflowing pair falls through to the slow
 				// path, which raises int overflow (int wraps nowhere in the language)
-				case token.Add:
+				case tokens.Add:
 					if s, ok := core.IntAddChecked(li, ri); ok {
 						v.stack[v.sp-2] = core.IntValue(s)
 						v.sp--
 						continue
 					}
-				case token.Sub:
+				case tokens.Sub:
 					if s, ok := core.IntSubChecked(li, ri); ok {
 						v.stack[v.sp-2] = core.IntValue(s)
 						v.sp--
 						continue
 					}
-				case token.Mul:
+				case tokens.Mul:
 					if s, ok := core.IntMulChecked(li, ri); ok {
 						v.stack[v.sp-2] = core.IntValue(s)
 						v.sp--
 						continue
 					}
-				case token.Quo:
+				case tokens.Quo:
 					if ri == 0 {
 						v.sp -= 2
 						v.err = errs.NewDivisionByZeroError()
@@ -859,7 +861,7 @@ func (v *VM) run() {
 					v.stack[v.sp-2] = core.IntValue(li / ri)
 					v.sp--
 					continue
-				case token.Rem:
+				case tokens.Rem:
 					if ri == 0 {
 						v.sp -= 2
 						v.err = errs.NewDivisionByZeroError()
@@ -868,19 +870,19 @@ func (v *VM) run() {
 					v.stack[v.sp-2] = core.IntValue(li % ri)
 					v.sp--
 					continue
-				case token.Less:
+				case tokens.Less:
 					v.stack[v.sp-2] = core.BoolValue(li < ri)
 					v.sp--
 					continue
-				case token.Greater:
+				case tokens.Greater:
 					v.stack[v.sp-2] = core.BoolValue(li > ri)
 					v.sp--
 					continue
-				case token.LessEq:
+				case tokens.LessEq:
 					v.stack[v.sp-2] = core.BoolValue(li <= ri)
 					v.sp--
 					continue
-				case token.GreaterEq:
+				case tokens.GreaterEq:
 					v.stack[v.sp-2] = core.BoolValue(li >= ri)
 					v.sp--
 					continue
@@ -895,7 +897,7 @@ func (v *VM) run() {
 			v.stack[v.sp-2] = res
 			v.sp--
 
-		case bc.CallFunction:
+		case opcodes.CallFunction:
 			numArgs := int(v.curInsts[v.ip].Op2)
 			val := v.stack[v.sp-1-numArgs]
 			if val.Type != value.CompiledFunction && val.Type != value.BuiltinFunction && val.Type != value.BuiltinClosure && !val.IsCallable() {
@@ -962,7 +964,7 @@ func (v *VM) run() {
 				// as usual.
 				if callee == v.curFrame.fn && len(v.curFrame.defers) == 0 { // recursion
 					nextOp := v.curInsts[v.ip+1].Op
-					if nextOp == bc.Return || (nextOp == bc.Pop && v.curInsts[v.ip+2].Op == bc.Return) {
+					if nextOp == opcodes.Return || (nextOp == opcodes.Pop && v.curInsts[v.ip+2].Op == opcodes.Return) {
 						// Move new args into the first numArgs local slots (ownership transfer).
 						for p := 0; p < numArgs; p++ {
 							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
@@ -1030,7 +1032,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.CallMember:
+		case opcodes.CallMember:
 			ci := v.curInsts[v.ip]
 			numArgs := int(ci.Op1)
 			receiver := v.stack[v.sp-1-numArgs]
@@ -1043,7 +1045,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.CallMemberSpread:
+		case opcodes.CallMemberSpread:
 			ci := v.curInsts[v.ip]
 			numArgs := int(ci.Op1)
 			v.sp--
@@ -1075,7 +1077,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.Defer:
+		case opcodes.Defer:
 			numArgs := int(v.curInsts[v.ip].Op2)
 			// Stack layout: [..., callee, arg1, ..., argN]
 			argsStart := v.sp - numArgs
@@ -1090,7 +1092,7 @@ func (v *VM) run() {
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
 			v.sp = calleeIdx
 
-		case bc.DeferMember:
+		case opcodes.DeferMember:
 			ci := v.curInsts[v.ip]
 			numArgs := int(ci.Op1)
 			argsStart := v.sp - numArgs
@@ -1104,7 +1106,7 @@ func (v *VM) run() {
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, id: member.ID(ci.Op2), name: v.static.Strings[ci.Op3]})
 			v.sp = recvIdx
 
-		case bc.FormatRuntimeSpec:
+		case opcodes.FormatRuntimeSpec:
 			specVal := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
 			v.sp -= 2
@@ -1126,7 +1128,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewStringValue(s)
 			v.sp++
 
-		case bc.FormatStaticSpec:
+		case opcodes.FormatStaticSpec:
 			fs := v.static.FormatSpecs[v.curInsts[v.ip].Op3]
 			val := v.stack[v.sp-1]
 			s, err := val.Format(fs.Spec)
@@ -1137,7 +1139,7 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp-1] = core.NewStringValue(s)
 
-		case bc.ImportBuiltinModule:
+		case opcodes.ImportBuiltinModule:
 			m, err := stdlib.GetModule(int(v.curInsts[v.ip].Op3))
 			if err != nil {
 				v.err = err
@@ -1146,12 +1148,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = m
 			v.sp++
 
-		case bc.DefineLocal:
+		case opcodes.DefineLocal:
 			v.sp--
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip].Op3)
 			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
 
-		case bc.StoreLocal:
+		case opcodes.StoreLocal:
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip].Op3)
 			// update pointee of v.stack[sp] instead of replacing the pointer itself.
 			// this is needed because there can be free variables referencing the same local variables.
@@ -1164,15 +1166,15 @@ func (v *VM) run() {
 				v.stack[sp] = val // move val from local slot to stack
 			}
 
-		case bc.StoreFree:
+		case opcodes.StoreFree:
 			*v.curFrame.freeVars[v.curInsts[v.ip].Op3] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
 			v.sp--
 
-		case bc.StoreGlobal:
+		case opcodes.StoreGlobal:
 			v.sp--
 			v.globals[v.curInsts[v.ip].Op3] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
-		case bc.MakeClosure:
+		case opcodes.MakeClosure:
 			numFree := int(v.curInsts[v.ip].Op2)
 			free := make([]*core.Value, numFree)
 			for i := 0; i < numFree; i++ {
@@ -1185,7 +1187,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.NamedResult, fn.VarArgs)
 			v.sp++
 
-		case bc.MakeArray:
+		case opcodes.MakeArray:
 			n := int(v.curInsts[v.ip].Op3)
 			elements := make([]core.Value, 0, n)
 			for i := v.sp - n; i < v.sp; i++ {
@@ -1195,7 +1197,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewArrayValue(elements, false)
 			v.sp++
 
-		case bc.MakeRecord:
+		case opcodes.MakeRecord:
 			n := int(v.curInsts[v.ip].Op3)
 			kv := make(map[string]core.Value, n)
 			for i := v.sp - n; i < v.sp; i += 2 {
@@ -1217,27 +1219,27 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewRecordValue(kv, false)
 			v.sp++
 
-		case bc.PushUndefined:
+		case opcodes.PushUndefined:
 			v.stack[v.sp] = core.Undefined
 			v.sp++
 
-		case bc.PushBool:
+		case opcodes.PushBool:
 			v.stack[v.sp] = core.Value{Type: value.Bool, Immutable: true, Data: uint64(v.curInsts[v.ip].Op1)}
 			v.sp++
 
-		case bc.PushByte:
+		case opcodes.PushByte:
 			v.stack[v.sp] = core.Value{Type: value.Byte, Immutable: true, Data: uint64(v.curInsts[v.ip].Op1)}
 			v.sp++
 
-		case bc.PushRune:
+		case opcodes.PushRune:
 			v.stack[v.sp] = core.Value{Type: value.Rune, Immutable: true, Data: uint64(v.curInsts[v.ip].Op3)}
 			v.sp++
 
-		case bc.PushInt:
+		case opcodes.PushInt:
 			v.stack[v.sp] = core.Value{Type: value.Int, Immutable: true, Data: uint64(int64(int32(v.curInsts[v.ip].Op3)))}
 			v.sp++
 
-		case bc.LoadLocal:
+		case opcodes.LoadLocal:
 			e := v.stack[v.curFrame.basePointer+int(v.curInsts[v.ip].Op3)]
 			if e.Type == value.ValuePtr {
 				e = *(*core.Value)(e.Ptr)
@@ -1245,7 +1247,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = e // copy local value to stack
 			v.sp++
 
-		case bc.LoadLocalPtr:
+		case opcodes.LoadLocalPtr:
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip].Op3)
 			var freeVar *core.Value
 			if v.stack[sp].Type == value.ValuePtr {
@@ -1258,55 +1260,55 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
 			v.sp++
 
-		case bc.LoadFree:
+		case opcodes.LoadFree:
 			v.stack[v.sp] = *v.curFrame.freeVars[v.curInsts[v.ip].Op3]
 			v.sp++
 
-		case bc.LoadFreePtr:
+		case opcodes.LoadFreePtr:
 			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadBuiltinFunction:
+		case opcodes.LoadBuiltinFunction:
 			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip].Op3))
 			v.sp++
 
-		case bc.LoadGlobal:
+		case opcodes.LoadGlobal:
 			v.stack[v.sp] = v.globals[v.curInsts[v.ip].Op3]
 			v.sp++
 
-		case bc.LoadStaticDecimal:
+		case opcodes.LoadStaticDecimal:
 			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticString:
+		case opcodes.LoadStaticString:
 			v.stack[v.sp] = core.NewStaticStringValueCounted(&v.static.Strings[v.curInsts[v.ip].Op3], v.static.StringLens[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticRunes:
+		case opcodes.LoadStaticRunes:
 			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticBytes:
+		case opcodes.LoadStaticBytes:
 			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticTime:
+		case opcodes.LoadStaticTime:
 			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticFormatSpec:
+		case opcodes.LoadStaticFormatSpec:
 			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticRange:
+		case opcodes.LoadStaticRange:
 			v.stack[v.sp] = core.NewStaticIntRangeValue(&v.static.Ranges[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticCompiledFunction:
+		case opcodes.LoadStaticCompiledFunction:
 			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[v.curInsts[v.ip].Op3])
 			v.sp++
 
-		case bc.LoadStaticPrimitive:
+		case opcodes.LoadStaticPrimitive:
 			v.stack[v.sp] = v.static.Primitives[v.curInsts[v.ip].Op3].Value()
 			v.sp++
 

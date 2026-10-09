@@ -10,7 +10,7 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -426,7 +426,7 @@ func intRangeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Val
 		return NewArrayValue(chunks, false), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 
@@ -790,7 +790,7 @@ func intRangeAvg(_ VM, v Value, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return IntValue(sum).BinaryOp(token.Quo, IntValue(n))
+	return IntValue(sum).BinaryOp(tokens.Quo, IntValue(n))
 }
 
 // intRangeReverse is reverse(): the same elements in the opposite order, as a range.

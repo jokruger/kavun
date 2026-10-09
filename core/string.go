@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -155,7 +156,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		switch other.Type {
 		case value.Rune:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := EncodeRuneText(rune(other.Data))
 				r := *(*string)(v.Ptr)
 				return NewStringValue(l + r), nil
@@ -163,7 +164,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		case value.Byte:
 			// a scalar on the left takes the sequence's type; an octet is a symbol only in ASCII
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				if other.Data > 0x7F {
 					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
 				}
@@ -178,13 +179,13 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		l := *(*string)(v.Ptr)
 		r := *(*string)(other.Ptr)
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 	}
@@ -192,7 +193,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
 	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
 	// the sequence", `n * seq` has no such reading
-	if op == token.Mul {
+	if op == tokens.Mul {
 		n, isCount, err := SeqRepeatOperand(other)
 		if err != nil {
 			return Undefined, err
@@ -209,14 +210,14 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
 	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
 	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
-	if op == token.Add || op == token.Sub {
+	if op == tokens.Add || op == tokens.Sub {
 		s, ok, err := textOperandString(other)
 		if err != nil {
 			return Undefined, err
 		}
 		if ok {
 			l := *(*string)(v.Ptr)
-			if op == token.Add {
+			if op == tokens.Add {
 				return NewStringValue(l + s), nil
 			}
 			if s == "" {
@@ -591,7 +592,7 @@ func stringTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value
 		return stringFnSplitLines(v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

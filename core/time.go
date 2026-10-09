@@ -14,6 +14,7 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -267,7 +268,7 @@ func timeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		switch other.Type {
 		case value.Int:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := int64(other.Data)
 				r := (*time.Time)(v.Ptr)
 				return NewTimeValue(r.Add(time.Duration(l))), nil
@@ -281,25 +282,25 @@ func timeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		l := *(*time.Time)(v.Ptr)
 		r := *(*time.Time)(other.Ptr)
 		switch op {
-		case token.Sub:
+		case tokens.Sub:
 			return IntValue(int64(l.Sub(r))), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l.Before(r)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l.After(r)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l.Equal(r) || l.Before(r)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l.Equal(r) || l.After(r)), nil
 		}
 
 	case value.Int:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			l := (*time.Time)(v.Ptr)
 			r := int64(other.Data)
 			return NewTimeValue(l.Add(time.Duration(r))), nil
-		case token.Sub:
+		case tokens.Sub:
 			l := (*time.Time)(v.Ptr)
 			r := int64(other.Data)
 			return NewTimeValue(l.Add(time.Duration(-r))), nil
@@ -612,7 +613,7 @@ func timeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		return NewStringValue(name), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

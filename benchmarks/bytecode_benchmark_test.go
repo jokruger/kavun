@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -57,7 +57,7 @@ func runBytecode(bytecode []byte, static []core.Value) core.Value {
 		default:
 			panic("unknown opcode")
 		}
-		r, err = r.BinaryOp(token.Add, v)
+		r, err = r.BinaryOp(tokens.Add, v)
 		if err != nil {
 			panic(err)
 		}
@@ -114,7 +114,7 @@ func runBytecodeUnsafe(bytecode []byte, static []core.Value) core.Value {
 		default:
 			panic("unknown opcode")
 		}
-		r, err = r.BinaryOp(token.Add, v)
+		r, err = r.BinaryOp(tokens.Add, v)
 		if err != nil {
 			panic(err)
 		}

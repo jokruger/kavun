@@ -15,6 +15,8 @@ package member
 import "fmt"
 
 // ID identifies a member name. Unknown (0) means "not bound": the name is resolved at the call site instead.
+//
+// The builtin ids themselves are the enum in core/member/members (members.Len, members.IsTrue, …).
 type ID uint16
 
 const (
@@ -28,9 +30,18 @@ var (
 	ids   = make(map[string]ID)
 )
 
-// Define binds id to name. It panics on id == Unknown, id >= Max, an empty name, a name already bound or an id
-// already bound — every one of them a host setup mistake found at init, before any script runs.
+// Define binds an embedder id (FirstUserDefined…Max-1) to name. It panics on an id outside that range, an
+// empty name, a name already bound (builtin names included) or an id already bound — every one of them a host setup
+// mistake found at init, before any script runs.
 func Define(id ID, name string) {
+	if id < FirstUserDefined {
+		panic(fmt.Sprintf("member.Define(%d, %q): id below the embedder range (first: %d)", id, name, FirstUserDefined))
+	}
+	define(id, name)
+}
+
+// define binds any id; builtin.go uses it for the builtin range.
+func define(id ID, name string) {
 	switch {
 	case id == Unknown:
 		panic(fmt.Sprintf("member.Define(%d, %q): id 0 is Unknown and cannot be bound", id, name))
@@ -48,21 +59,16 @@ func Define(id ID, name string) {
 	ids[name] = id
 }
 
-// Name answers the name bound to id, or "" for Unknown and an unbound id.
-func Name(id ID) string {
+// String answers the name bound to id, or "" for Unknown and an unbound id. Go code that names a member by its
+// constant writes `member.X.String()` beside it, so the constant and the spelling can never disagree.
+func (id ID) String() string {
 	if id >= Max {
 		return ""
 	}
 	return names[id]
 }
 
-// String answers Name(id): Go code that names a member by its constant writes `member.X.String()` beside it, so
-// the constant and the spelling can never disagree.
-func (id ID) String() string {
-	return Name(id)
-}
-
-// Lookup answers the ID bound to name, or Unknown when the name is unbound.
+// Lookup answers the id bound to name, or Unknown when the name is unbound.
 func Lookup(name string) ID {
 	return ids[name]
 }

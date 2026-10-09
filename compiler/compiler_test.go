@@ -13,6 +13,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
@@ -104,9 +105,9 @@ func countOpcode(inst bc.Instructions, target bc.Opcode) int {
 func hasAbortCheckBeforeBackwardJump(inst bc.Instructions) bool {
 	for ip := 0; ip < len(inst); {
 		op := inst[ip].Op
-		if op == bc.Jump {
+		if op == opcodes.Jump {
 			target := int(inst[ip].Op3)
-			if target < ip && ip > 0 && inst[ip-1].Op == bc.AbortCheck {
+			if target < ip && ip > 0 && inst[ip-1].Op == opcodes.AbortCheck {
 				return true
 			}
 		}
@@ -1527,17 +1528,17 @@ r["x"] = {
 func TestCompiler_AbortCheckEmission(t *testing.T) {
 	loopRes, _, err := traceCompile(`for i := 0; i < 3; i++ {}`, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, countOpcode(loopRes.MainFunction.Instructions, bc.AbortCheck))
+	require.Equal(t, 1, countOpcode(loopRes.MainFunction.Instructions, opcodes.AbortCheck))
 	require.True(t, hasAbortCheckBeforeBackwardJump(loopRes.MainFunction.Instructions))
 
 	forInRes, _, err := traceCompile(`m := {}; for k, v in m {}`, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, countOpcode(forInRes.MainFunction.Instructions, bc.AbortCheck))
+	require.Equal(t, 1, countOpcode(forInRes.MainFunction.Instructions, opcodes.AbortCheck))
 	require.True(t, hasAbortCheckBeforeBackwardJump(forInRes.MainFunction.Instructions))
 
 	linearRes, _, err := traceCompile(`a := 1; b := 2; a + b`, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, countOpcode(linearRes.MainFunction.Instructions, bc.AbortCheck))
+	require.Equal(t, 0, countOpcode(linearRes.MainFunction.Instructions, opcodes.AbortCheck))
 }
 
 func TestCompilerErrorReport(t *testing.T) {

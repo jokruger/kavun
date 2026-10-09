@@ -125,6 +125,6 @@ func builtinFunctionTypeCallNamedMethod(vm VM, v Value, name string, args []Valu
 		return callableFormatMember(v, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

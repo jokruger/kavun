@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 )
 
 // byte order mark
@@ -116,7 +117,7 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 		if s.ch == '\'' && literal == "b" {
 			s.next() // consume '\''
 			insertSemi = true
-			tok = token.ByteChar
+			tok = tokens.ByteChar
 			literal = s.scanRune()
 			break
 		}
@@ -125,30 +126,30 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			insertSemi = true
 			switch literal {
 			case "u":
-				tok = token.RunesString
+				tok = tokens.RunesString
 				literal = s.scanString()
 			case "b":
-				tok = token.BytesString
+				tok = tokens.BytesString
 				literal = s.scanString()
 			case "t":
-				tok = token.TimeString
+				tok = tokens.TimeString
 				literal = s.scanString()
 			case "d":
-				tok = token.DateString
+				tok = tokens.DateString
 				literal = s.scanString()
 			case "r":
-				tok = token.RawString
+				tok = tokens.RawString
 				literal = s.scanRawDoubleQuoteString()
 			case "f":
-				tok = token.FString
+				tok = tokens.FString
 				literal = s.scanFString()
 			}
 			break
 		}
 		tok = token.Lookup(literal)
 		switch tok {
-		case token.Ident, token.Break, token.Continue, token.Return,
-			token.Export, token.True, token.False, token.Undefined:
+		case tokens.Ident, tokens.Break, tokens.Continue, tokens.Return,
+			tokens.Export, tokens.True, tokens.False, tokens.Undefined:
 			insertSemi = true
 		}
 	case ('0' <= ch && ch <= '9') || (ch == '.' && '0' <= s.peek() && s.peek() <= '9'):
@@ -161,9 +162,9 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 		case -1: // EOF
 			if s.insertSemi {
 				s.insertSemi = false // EOF consumed
-				return token.Semicolon, "\n", pos
+				return tokens.Semicolon, "\n", pos
 			}
-			tok = token.EOF
+			tok = tokens.EOF
 		case '\n':
 			// we only reach here if s.insertSemi was set in the first place
 			if s.continuesWithSelector() {
@@ -172,67 +173,67 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 				return s.Scan()
 			}
 			s.insertSemi = false // newline consumed
-			return token.Semicolon, "\n", pos
+			return tokens.Semicolon, "\n", pos
 		case '"':
 			insertSemi = true
-			tok = token.String
+			tok = tokens.String
 			literal = s.scanString()
 		case '\'':
 			insertSemi = true
-			tok = token.Char
+			tok = tokens.Char
 			literal = s.scanRune()
 		case '`':
 			insertSemi = true
-			tok = token.String
+			tok = tokens.String
 			literal = s.scanRawString()
 		case ':':
-			tok = s.switch2(token.Colon, token.Define)
+			tok = s.switch2(tokens.Colon, tokens.Define)
 		case '.':
-			tok = token.Period
+			tok = tokens.Period
 			if s.ch == '.' {
 				if s.peek() == '.' {
 					s.next()
 					s.next() // consume last '.'
-					tok = token.Ellipsis
+					tok = tokens.Ellipsis
 				} else {
 					s.next() // consume second '.'
-					tok = token.DotDot
+					tok = tokens.DotDot
 				}
 			}
 		case ',':
-			tok = token.Comma
+			tok = tokens.Comma
 		case '?':
-			tok = token.Question
+			tok = tokens.Question
 		case ';':
-			tok = token.Semicolon
+			tok = tokens.Semicolon
 			literal = ";"
 		case '(':
-			tok = token.LParen
+			tok = tokens.LParen
 		case ')':
 			insertSemi = true
-			tok = token.RParen
+			tok = tokens.RParen
 		case '[':
-			tok = token.LBrack
+			tok = tokens.LBrack
 		case ']':
 			insertSemi = true
-			tok = token.RBrack
+			tok = tokens.RBrack
 		case '{':
-			tok = token.LBrace
+			tok = tokens.LBrace
 		case '}':
 			insertSemi = true
-			tok = token.RBrace
+			tok = tokens.RBrace
 		case '+':
-			tok = s.switch3(token.Add, token.AddAssign, '+', token.Inc)
-			if tok == token.Inc {
+			tok = s.switch3(tokens.Add, tokens.AddAssign, '+', tokens.Inc)
+			if tok == tokens.Inc {
 				insertSemi = true
 			}
 		case '-':
-			tok = s.switch3(token.Sub, token.SubAssign, '-', token.Dec)
-			if tok == token.Dec {
+			tok = s.switch3(tokens.Sub, tokens.SubAssign, '-', tokens.Dec)
+			if tok == tokens.Dec {
 				insertSemi = true
 			}
 		case '*':
-			tok = s.switch2(token.Mul, token.MulAssign)
+			tok = s.switch2(tokens.Mul, tokens.MulAssign)
 		case '/':
 			if s.ch == '/' || s.ch == '*' {
 				// comment
@@ -242,7 +243,7 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 					s.offset = s.file.Offset(pos)
 					s.readOffset = s.offset + 1
 					s.insertSemi = false // newline consumed
-					return token.Semicolon, "\n", pos
+					return tokens.Semicolon, "\n", pos
 				}
 				comment := s.scanComment()
 				if s.mode&ScanComments == 0 {
@@ -250,43 +251,43 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 					s.insertSemi = false // newline consumed
 					return s.Scan()
 				}
-				tok = token.Comment
+				tok = tokens.Comment
 				literal = comment
 			} else {
-				tok = s.switch2(token.Quo, token.QuoAssign)
+				tok = s.switch2(tokens.Quo, tokens.QuoAssign)
 			}
 		case '%':
-			tok = s.switch2(token.Rem, token.RemAssign)
+			tok = s.switch2(tokens.Rem, tokens.RemAssign)
 		case '^':
-			tok = s.switch2(token.Xor, token.XorAssign)
+			tok = s.switch2(tokens.Xor, tokens.XorAssign)
 		case '<':
-			tok = s.switch4(token.Less, token.LessEq, '<',
-				token.Shl, token.ShlAssign)
+			tok = s.switch4(tokens.Less, tokens.LessEq, '<',
+				tokens.Shl, tokens.ShlAssign)
 		case '>':
-			tok = s.switch4(token.Greater, token.GreaterEq, '>',
-				token.Shr, token.ShrAssign)
+			tok = s.switch4(tokens.Greater, tokens.GreaterEq, '>',
+				tokens.Shr, tokens.ShrAssign)
 		case '=':
 			switch s.ch {
 			case '=':
 				s.next()
-				tok = token.Equal
+				tok = tokens.Equal
 			case '>':
 				s.next()
-				tok = token.Arrow
+				tok = tokens.Arrow
 			default:
-				tok = token.Assign
+				tok = tokens.Assign
 			}
 		case '!':
-			tok = s.switch2(token.Not, token.NotEqual)
+			tok = s.switch2(tokens.Not, tokens.NotEqual)
 		case '&':
 			if s.ch == '^' {
 				s.next()
-				tok = s.switch2(token.AndNot, token.AndNotAssign)
+				tok = s.switch2(tokens.AndNot, tokens.AndNotAssign)
 			} else {
-				tok = s.switch3(token.And, token.AndAssign, '&', token.LAnd)
+				tok = s.switch3(tokens.And, tokens.AndAssign, '&', tokens.LAnd)
 			}
 		case '|':
-			tok = s.switch3(token.Or, token.OrAssign, '|', token.LOr)
+			tok = s.switch3(tokens.Or, tokens.OrAssign, '|', tokens.LOr)
 		default:
 			// next reports unexpected BOMs - don't repeat
 			if ch != bom {
@@ -294,7 +295,7 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 					fmt.Sprintf("illegal character %#U", ch))
 			}
 			insertSemi = s.insertSemi // preserve insertSemi info
-			tok = token.Illegal
+			tok = tokens.Illegal
 			literal = string(ch)
 		}
 	}
@@ -470,7 +471,7 @@ func (s *Scanner) scanDigits(base int) {
 
 func (s *Scanner) scanNumber() (token.Token, string) {
 	offs := s.offset
-	tok := token.Int
+	var tok token.Token = tokens.Int
 	base := 10
 
 	// Determine base
@@ -495,14 +496,14 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	// Scan fractional part. A '.' followed by another '.' starts a range operator ('..'/'...'), not a decimal
 	// point, so leave both dots unconsumed for the next Scan() call.
 	if s.ch == '.' && s.peek() != '.' && (base == 10 || base == 16) {
-		tok = token.Float
+		tok = tokens.Float
 		s.next()
 		s.scanDigits(base)
 	}
 
 	// Scan exponent
 	if s.ch == 'e' || s.ch == 'E' || s.ch == 'p' || s.ch == 'P' {
-		tok = token.Float
+		tok = tokens.Float
 		s.next()
 		if s.ch == '-' || s.ch == '+' {
 			s.next()
@@ -517,10 +518,10 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	// Scan type suffix (base-10 only; f/d are valid hex digits in other bases)
 	if base == 10 {
 		if s.ch == 'f' {
-			tok = token.Float
+			tok = tokens.Float
 			s.next()
 		} else if s.ch == 'd' {
-			tok = token.Decimal
+			tok = tokens.Decimal
 			s.next()
 		}
 	}

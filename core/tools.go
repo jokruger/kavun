@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -894,9 +895,27 @@ func defaultBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func defaultCallNamedMethod(_ VM, v Value, name string, _ []Value) (Value, error) {
+// CallMemberByLookup is the last step of every name path for x.name(args): the name may still be in the type's
+// Methods table under an id the call site did not carry (bytecode compiled before the name was bound, a Go caller
+// passing member.Unknown); otherwise the member does not exist. Every name switch ends in it, and it is the default
+// CallNamedMethod, so the registry is consulted only on a miss — never on the id path or a name-switch hit.
+// METHOD-DEPENDENT by contract: purity varies per member (see docs/purity.md)
+func CallMemberByLookup(vm VM, v Value, name string, args []Value) (Value, error) {
+	d := &ValueTypes[v.Type]
+	if id := member.Lookup(name); id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
+		return d.Methods[id].Fn(vm, v, id, args)
+	}
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+}
+
+// PropertyByLookup is the last step of every name path for x.name and x.name = r: the type's Properties entry for
+// name, when the type tables it under an id the access site did not carry. Each type keeps its own miss error.
+func PropertyByLookup(v Value, name string) (PropertyEntry, member.ID, bool) {
+	d := &ValueTypes[v.Type]
+	if id := member.Lookup(name); id != member.Unknown && int(id) < len(d.Properties) {
+		return d.Properties[id], id, true
+	}
+	return PropertyEntry{}, member.Unknown, false
 }
 
 // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Delete)
@@ -905,12 +924,26 @@ func defaultDelete(v Value, _ Value, _ bool) (Value, error) {
 }
 
 // PURE by contract
-func defaultAccessNamedProperty(v Value, _ string) (Value, error) {
+func defaultAccessNamedProperty(vm VM, v Value, name string) (Value, error) {
+	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
+		return e.Get(vm, v, id)
+	}
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
+// IMPURE by contract (mutates target)
+func defaultAssignNamedProperty(vm VM, v Value, name string, r Value) error {
+	if e, id, ok := PropertyByLookup(v, name); ok && e.Set != nil {
+		return e.Set(vm, v, id, r)
+	}
+	return errs.NewNotAssignableError(v.TypeName())
+}
+
 // PURE by contract — x.name on a type whose only access is by index: names the property, quoted
-func noNamedProperty(v Value, name string) (Value, error) {
+func noNamedProperty(vm VM, v Value, name string) (Value, error) {
+	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
+		return e.Get(vm, v, id)
+	}
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), NewStringValue(name).String())
 }
 

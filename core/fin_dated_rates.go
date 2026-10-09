@@ -216,5 +216,5 @@ func finDatedRatesCallNamedMethod(vm VM, v Value, name string, args []Value) (Va
 		}
 		return NewArrayValue(res, false), nil
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }

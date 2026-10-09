@@ -156,5 +156,5 @@ func finDatedChargesCallNamedMethod(vm VM, v Value, name string, args []Value) (
 		d, err := t.At(on)
 		return finDecimal(name, d, err)
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }

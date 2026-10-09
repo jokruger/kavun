@@ -5,7 +5,7 @@ import (
 	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/ast/expression/composite"
 	"github.com/jokruger/kavun/ast/statement"
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -355,7 +355,7 @@ func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error
 		if !ok {
 			return e, false
 		}
-		if be.Token != token.LAnd && be.Token != token.LOr {
+		if be.Token != tokens.LAnd && be.Token != tokens.LOr {
 			return e, false
 		}
 		// Only fire when LHS is a scalar literal — we need to know its truthiness at compile time.
@@ -364,14 +364,14 @@ func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error
 			return e, false
 		}
 		switch be.Token {
-		case token.LAnd:
+		case tokens.LAnd:
 			if truthy {
 				// true && x → x
 				return be.RHS, true
 			}
 			// false && x → LHS (short-circuits, discards x)
 			return be.LHS, true
-		case token.LOr:
+		case tokens.LOr:
 			if truthy {
 				// true || x → LHS
 				return be.LHS, true
@@ -413,7 +413,7 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 		if len(as.LHS) != 1 || len(as.RHS) != 1 {
 			continue
 		}
-		if as.Token != token.Define {
+		if as.Token != tokens.Define {
 			continue
 		}
 		yIdent, yok := as.LHS[0].(*expression.Identifier)
@@ -517,7 +517,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 		if len(as.LHS) != 1 || len(as.RHS) != 1 {
 			continue
 		}
-		if as.Token != token.Define && as.Token != token.Assign {
+		if as.Token != tokens.Define && as.Token != tokens.Assign {
 			continue
 		}
 		id, ok := as.LHS[0].(*expression.Identifier)
@@ -794,7 +794,7 @@ func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, erro
 	out := file.Stmts[:0]
 	for _, s := range file.Stmts {
 		if as, ok := s.(*statement.Assign); ok {
-			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
+			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == tokens.Define {
 				if id, ok := as.LHS[0].(*expression.Identifier); ok {
 					u, uok := usage[id.Name]
 					sideEffectFree := as.RHS[0].IsScalarLiteral()

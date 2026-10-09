@@ -12,6 +12,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -399,13 +400,13 @@ func exactOrderFloat(cmp int, op token.Token) (Value, error) {
 		return BoolValue(false), nil
 	}
 	switch op {
-	case token.Less:
+	case tokens.Less:
 		return BoolValue(cmp < 0), nil
-	case token.Greater:
+	case tokens.Greater:
 		return BoolValue(cmp > 0), nil
-	case token.LessEq:
+	case tokens.LessEq:
 		return BoolValue(cmp <= 0), nil
-	default: // token.GreaterEq
+	default: // tokens.GreaterEq
 		return BoolValue(cmp >= 0), nil
 	}
 }
@@ -417,13 +418,13 @@ func floatOrderExact(cmp int, op token.Token) (Value, error) {
 		return BoolValue(false), nil
 	}
 	switch op {
-	case token.Less:
+	case tokens.Less:
 		return BoolValue(cmp > 0), nil
-	case token.Greater:
+	case tokens.Greater:
 		return BoolValue(cmp < 0), nil
-	case token.LessEq:
+	case tokens.LessEq:
 		return BoolValue(cmp >= 0), nil
-	default: // token.GreaterEq
+	default: // tokens.GreaterEq
 		return BoolValue(cmp <= 0), nil
 	}
 }
@@ -470,7 +471,7 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		switch other.Type {
 		case value.Bool, value.Byte, value.Rune:
 			switch op {
-			case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+			case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 				l := int64(other.Data)
 				r := math.Float64frombits(v.Data)
 				cmp := compareExactAndFloat(new(big.Rat).SetInt64(l), r)
@@ -478,7 +479,7 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			}
 		case value.Decimal:
 			switch op {
-			case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+			case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 				l := (*dec128.Dec128)(other.Ptr)
 				r := math.Float64frombits(v.Data)
 				cmp := compareDecimalAndFloat(l, r)
@@ -493,24 +494,24 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		l := math.Float64frombits(v.Data)
 		r := math.Float64frombits(other.Data)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return floatArithResult(l + r)
-		case token.Sub:
+		case tokens.Sub:
 			return floatArithResult(l - r)
-		case token.Mul:
+		case tokens.Mul:
 			return floatArithResult(l * r)
-		case token.Quo:
+		case tokens.Quo:
 			return floatArithResult(l / r)
-		case token.Rem:
+		case tokens.Rem:
 			return floatArithResult(math.Mod(l, r))
-		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+		case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 			cmp := compareFloatTotalOrder(l, r)
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(cmp < 0), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(cmp > 0), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(cmp <= 0), nil
 			default:
 				return BoolValue(cmp >= 0), nil
@@ -522,24 +523,24 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		i := int64(other.Data)
 		r := float64(i)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return floatArithResult(l + r)
-		case token.Sub:
+		case tokens.Sub:
 			return floatArithResult(l - r)
-		case token.Mul:
+		case tokens.Mul:
 			return floatArithResult(l * r)
-		case token.Quo:
+		case tokens.Quo:
 			return floatArithResult(l / r)
-		case token.Rem:
+		case tokens.Rem:
 			return floatArithResult(math.Mod(l, r))
-		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+		case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 			cmp := compareExactAndFloat(new(big.Rat).SetInt64(i), l)
 			return floatOrderExact(cmp, op)
 		}
 
 	case value.Bool, value.Byte, value.Rune:
 		switch op {
-		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+		case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 			l := math.Float64frombits(v.Data)
 			r := int64(other.Data)
 			cmp := compareExactAndFloat(new(big.Rat).SetInt64(r), l)
@@ -548,7 +549,7 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 	case value.Decimal:
 		switch op {
-		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+		case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 			l := math.Float64frombits(v.Data)
 			r := (*dec128.Dec128)(other.Ptr)
 			cmp := compareDecimalAndFloat(r, l)
@@ -577,7 +578,7 @@ func floatArithResult(f float64) (Value, error) {
 
 func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
-	case token.Sub: // see also fast track in VM OpMinus
+	case tokens.Sub: // see also fast track in VM OpMinus
 		f := math.Float64frombits(v.Data)
 		return floatArithResult(-f)
 	}
@@ -718,6 +719,6 @@ func floatTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return IntValue(0), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, floatTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -248,7 +249,7 @@ func recordTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	switch other.Type {
 	case value.Record:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return NewRecordValue(mergeMaps((*Record)(v.Ptr).Elements, (*Record)(other.Ptr).Elements), false), nil
 		}
 	}
@@ -261,7 +262,7 @@ func recordTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value
 	// r.f(args) compiles as a member call, so a callable field is called from here.
 	e, ok := recordField(v, name)
 	if !ok {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 	if !e.IsCallable() {
 		return Undefined, errs.NewRecoverableError(errs.KindNotCallable, fmt.Sprintf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName()))
@@ -285,7 +286,7 @@ func recordSetField(v Value, name string, r Value) error {
 }
 
 // PURE by contract — a missing field answers undefined
-func recordTypeAccessNamedProperty(v Value, name string) (Value, error) {
+func recordTypeAccessNamedProperty(_ VM, v Value, name string) (Value, error) {
 	e, _ := recordField(v, name)
 	return e, nil
 }
@@ -315,7 +316,7 @@ func recordTypeLen(v Value) int64 {
 }
 
 // IMPURE: writes a field into the receiver. Not folded by the optimizer. See docs/purity.md.
-func recordTypeAssignNamedProperty(v Value, name string, r Value) error {
+func recordTypeAssignNamedProperty(_ VM, v Value, name string, r Value) error {
 	return recordSetField(v, name, r)
 }
 

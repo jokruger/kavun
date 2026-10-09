@@ -13,6 +13,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -226,13 +227,13 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 			l := int64(other.Data)
 			r := int64(v.Data)
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(l < r), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(l > r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(l <= r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(l >= r), nil
 			}
 		}
@@ -246,22 +247,22 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			if s, ok := IntAddChecked(l, r); ok {
 				return IntValue(s), nil
 			}
 			return Undefined, errs.NewInvalidValueError("int overflow")
-		case token.Sub:
+		case tokens.Sub:
 			if s, ok := IntSubChecked(l, r); ok {
 				return IntValue(s), nil
 			}
 			return Undefined, errs.NewInvalidValueError("int overflow")
-		case token.Mul:
+		case tokens.Mul:
 			if s, ok := IntMulChecked(l, r); ok {
 				return IntValue(s), nil
 			}
 			return Undefined, errs.NewInvalidValueError("int overflow")
-		case token.Quo:
+		case tokens.Quo:
 			if r == 0 {
 				return Undefined, errs.NewDivisionByZeroError()
 			}
@@ -269,25 +270,25 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 				return Undefined, errs.NewInvalidValueError("int overflow")
 			}
 			return IntValue(l / r), nil
-		case token.Rem:
+		case tokens.Rem:
 			if r == 0 {
 				return Undefined, errs.NewDivisionByZeroError()
 			}
 			return IntValue(l % r), nil
-		case token.And:
+		case tokens.And:
 			return IntValue(l & r), nil
-		case token.Or:
+		case tokens.Or:
 			return IntValue(l | r), nil
-		case token.Xor:
+		case tokens.Xor:
 			return IntValue(l ^ r), nil
-		case token.AndNot:
+		case tokens.AndNot:
 			return IntValue(l &^ r), nil
-		case token.Shl:
+		case tokens.Shl:
 			if s, ok := IntShlChecked(l, r); ok {
 				return IntValue(s), nil
 			}
 			return Undefined, errs.NewInvalidValueError("int overflow")
-		case token.Shr:
+		case tokens.Shr:
 			if r < 0 {
 				return Undefined, errs.NewInvalidValueError("int overflow")
 			}
@@ -296,13 +297,13 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 				return IntValue(l >> 63), nil
 			}
 			return IntValue(l >> uint64(r)), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 
@@ -310,17 +311,17 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		l := float64(int64(v.Data))
 		r := math.Float64frombits(other.Data)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return floatArithResult(l + r)
-		case token.Sub:
+		case tokens.Sub:
 			return floatArithResult(l - r)
-		case token.Mul:
+		case tokens.Mul:
 			return floatArithResult(l * r)
-		case token.Quo:
+		case tokens.Quo:
 			return floatArithResult(l / r)
-		case token.Rem:
+		case tokens.Rem:
 			return floatArithResult(math.Mod(l, r))
-		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+		case tokens.Less, tokens.Greater, tokens.LessEq, tokens.GreaterEq:
 			cmp := compareExactAndFloat(new(big.Rat).SetInt64(int64(v.Data)), r)
 			return exactOrderFloat(cmp, op)
 		}
@@ -329,23 +330,23 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		l := dec128.FromInt64(int64(v.Data))
 		r := *(*dec128.Dec128)(other.Ptr)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return decimalArithResult(l.Add(r), op, r.IsZero())
-		case token.Sub:
+		case tokens.Sub:
 			return decimalArithResult(l.Sub(r), op, r.IsZero())
-		case token.Mul:
+		case tokens.Mul:
 			return decimalArithResult(l.Mul(r), op, r.IsZero())
-		case token.Quo:
+		case tokens.Quo:
 			return decimalArithResult(l.Div(r), op, r.IsZero())
-		case token.Rem:
+		case tokens.Rem:
 			return decimalArithResult(l.Mod(r), op, r.IsZero())
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l.LessThan(r)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l.GreaterThan(r)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l.LessThanOrEqual(r)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		}
 
@@ -353,13 +354,13 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 	}
@@ -409,14 +410,14 @@ func IntShlChecked(l, r int64) (int64, bool) {
 
 func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
-	case token.Sub: // see also fast track in VM OpMinus
+	case tokens.Sub: // see also fast track in VM OpMinus
 		i := int64(v.Data)
 		if i == math.MinInt64 {
 			return Undefined, errs.NewInvalidValueError("int overflow")
 		}
 		return IntValue(-i), nil
 
-	case token.Xor: // see also fast track in VM OpBComplement
+	case tokens.Xor: // see also fast track in VM OpBComplement
 		i := int64(v.Data)
 		return IntValue(^i), nil
 	}
@@ -559,7 +560,7 @@ func intTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, e
 		return v, nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

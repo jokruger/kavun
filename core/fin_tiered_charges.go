@@ -203,5 +203,5 @@ func finTieredChargesCallNamedMethod(vm VM, v Value, name string, args []Value) 
 		}
 		return finTierPartsValue(parts), nil
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }

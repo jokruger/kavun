@@ -3,7 +3,7 @@ package compiler
 import (
 	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -47,7 +47,7 @@ func (c *Compiler) compileFString(node *expression.FString) error {
 			return err
 		}
 		if i > 0 {
-			if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+			if _, err := c.emit(node, NewBinaryOp(tokens.Add)); err != nil {
 				return err
 			}
 		}
@@ -85,7 +85,7 @@ func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStrin
 			if _, err := c.emit(node, NewFormatStaticSpec(emptySpecIdx)); err != nil {
 				return err
 			}
-			if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+			if _, err := c.emit(node, NewBinaryOp(tokens.Add)); err != nil {
 				return err
 			}
 			if lit := p.SpecLiterals[i+1]; lit != "" {
@@ -93,7 +93,7 @@ func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStrin
 				if _, err := c.emit(node, NewLoadStaticString(i)); err != nil {
 					return err
 				}
-				if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+				if _, err := c.emit(node, NewBinaryOp(tokens.Add)); err != nil {
 					return err
 				}
 			}

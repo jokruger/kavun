@@ -1,204 +1,120 @@
 package token
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/jokruger/kavun/core/token/tokens"
+)
 
 var keywords map[string]Token
 
 type Token uint8
 
+// Block boundaries of the token enum (core/token/tokens): IsOperator/IsLiteral/IsKeyword test against them.
 const (
-	Illegal = Token(0)
-	EOF     = Token(1)
-	Comment = Token(2)
-	// 3..9 are reserved for future use
-
-	_operatorBeg = Token(10) // Operators block start
-	Add          = Token(11) // +
-	Sub          = Token(12) // -
-	Mul          = Token(13) // *
-	Quo          = Token(14) // /
-	Rem          = Token(15) // %
-	And          = Token(16) // &
-	Or           = Token(17) // |
-	Xor          = Token(18) // ^
-	Shl          = Token(19) // <<
-	Shr          = Token(20) // >>
-	AndNot       = Token(21) // &^
-	AddAssign    = Token(22) // +=
-	SubAssign    = Token(23) // -=
-	MulAssign    = Token(24) // *=
-	QuoAssign    = Token(25) // /=
-	RemAssign    = Token(26) // %=
-	AndAssign    = Token(27) // &=
-	OrAssign     = Token(28) // |=
-	XorAssign    = Token(29) // ^=
-	ShlAssign    = Token(30) // <<=
-	ShrAssign    = Token(31) // >>=
-	AndNotAssign = Token(32) // &^=
-	LAnd         = Token(33) // &&
-	LOr          = Token(34) // ||
-	Inc          = Token(35) // ++
-	Dec          = Token(36) // --
-	Equal        = Token(37) // ==
-	Less         = Token(38) // <
-	Greater      = Token(39) // >
-	Assign       = Token(40) // =
-	Not          = Token(41) // !
-	NotEqual     = Token(42) // !=
-	LessEq       = Token(43) // <=
-	GreaterEq    = Token(44) // >=
-	Define       = Token(45) // :=
-	Ellipsis     = Token(46) // ...
-	LParen       = Token(47) // (
-	LBrack       = Token(48) // [
-	LBrace       = Token(49) // {
-	Comma        = Token(50) // ,
-	Period       = Token(51) // .
-	RParen       = Token(52) // )
-	RBrack       = Token(53) // ]
-	RBrace       = Token(54) // }
-	Semicolon    = Token(55) // ;
-	Colon        = Token(56) // :
-	Question     = Token(57) // ?
-	DotDot       = Token(58) // ..
-	// 59..130 are reserved for future operators
-	_operatorEnd = Token(131) // Operators block end
-
-	_literalBeg = Token(132) // Literals block start
-	Ident       = Token(133)
-	Int         = Token(134)
-	Float       = Token(135)
-	Char        = Token(136)
-	String      = Token(137)
-	Decimal     = Token(138)
-	RunesString = Token(139) // u"..."
-	BytesString = Token(140) // b"..."
-	ByteChar    = Token(141) // b'...'
-	TimeString  = Token(142) // t"..."
-	RawString   = Token(143) // r"..."
-	FString     = Token(144) // f"..."
-	DateString  = Token(145) // d"..."
-	// 146..152 are reserved for future literal types
-	_literalEnd = Token(153) // Literals block end
-
-	_keywordBeg = Token(154) // Keywords block start
-	Break       = Token(155)
-	Continue    = Token(156)
-	Else        = Token(157)
-	For         = Token(158)
-	Func        = Token(159)
-	Arrow       = Token(160) // => (behaves as a keyword)
-	// 161 was `immutable`, removed: freeze_shallow(x) is the one spelling of a header-only freeze
-	If        = Token(162)
-	Return    = Token(163)
-	Export    = Token(164)
-	True      = Token(165)
-	False     = Token(166)
-	In        = Token(167)
-	NotKw     = Token(168)
-	Undefined = Token(169)
-	Import    = Token(170)
-	Var       = Token(171)
-	Defer     = Token(172)
-	// 173..254 are reserved for future keywords
-	_keywordEnd = Token(255) // Keywords block end
+	operatorBeg Token = 10
+	operatorEnd Token = 131
+	literalBeg  Token = 132
+	literalEnd  Token = 153
+	keywordBeg  Token = 154
+	keywordEnd  Token = 255
 )
 
-var tokens = [...]string{
-	Illegal: "ILLEGAL",
-	EOF:     "EOF",
-	Comment: "COMMENT",
+var spellings = [...]string{
+	tokens.Illegal: "ILLEGAL",
+	tokens.EOF:     "EOF",
+	tokens.Comment: "COMMENT",
 
-	_operatorBeg: "",
-	Add:          "+",
-	Sub:          "-",
-	Mul:          "*",
-	Quo:          "/",
-	Rem:          "%",
-	And:          "&",
-	Or:           "|",
-	Xor:          "^",
-	Shl:          "<<",
-	Shr:          ">>",
-	AndNot:       "&^",
-	AddAssign:    "+=",
-	SubAssign:    "-=",
-	MulAssign:    "*=",
-	QuoAssign:    "/=",
-	RemAssign:    "%=",
-	AndAssign:    "&=",
-	OrAssign:     "|=",
-	XorAssign:    "^=",
-	ShlAssign:    "<<=",
-	ShrAssign:    ">>=",
-	AndNotAssign: "&^=",
-	LAnd:         "&&",
-	LOr:          "||",
-	Inc:          "++",
-	Dec:          "--",
-	Equal:        "==",
-	Less:         "<",
-	Greater:      ">",
-	Assign:       "=",
-	Not:          "!",
-	NotEqual:     "!=",
-	LessEq:       "<=",
-	GreaterEq:    ">=",
-	Define:       ":=",
-	Ellipsis:     "...",
-	LParen:       "(",
-	LBrack:       "[",
-	LBrace:       "{",
-	Comma:        ",",
-	Period:       ".",
-	RParen:       ")",
-	RBrack:       "]",
-	RBrace:       "}",
-	Semicolon:    ";",
-	Colon:        ":",
-	Question:     "?",
-	DotDot:       "..",
-	_operatorEnd: "",
+	operatorBeg:         "",
+	tokens.Add:          "+",
+	tokens.Sub:          "-",
+	tokens.Mul:          "*",
+	tokens.Quo:          "/",
+	tokens.Rem:          "%",
+	tokens.And:          "&",
+	tokens.Or:           "|",
+	tokens.Xor:          "^",
+	tokens.Shl:          "<<",
+	tokens.Shr:          ">>",
+	tokens.AndNot:       "&^",
+	tokens.AddAssign:    "+=",
+	tokens.SubAssign:    "-=",
+	tokens.MulAssign:    "*=",
+	tokens.QuoAssign:    "/=",
+	tokens.RemAssign:    "%=",
+	tokens.AndAssign:    "&=",
+	tokens.OrAssign:     "|=",
+	tokens.XorAssign:    "^=",
+	tokens.ShlAssign:    "<<=",
+	tokens.ShrAssign:    ">>=",
+	tokens.AndNotAssign: "&^=",
+	tokens.LAnd:         "&&",
+	tokens.LOr:          "||",
+	tokens.Inc:          "++",
+	tokens.Dec:          "--",
+	tokens.Equal:        "==",
+	tokens.Less:         "<",
+	tokens.Greater:      ">",
+	tokens.Assign:       "=",
+	tokens.Not:          "!",
+	tokens.NotEqual:     "!=",
+	tokens.LessEq:       "<=",
+	tokens.GreaterEq:    ">=",
+	tokens.Define:       ":=",
+	tokens.Ellipsis:     "...",
+	tokens.LParen:       "(",
+	tokens.LBrack:       "[",
+	tokens.LBrace:       "{",
+	tokens.Comma:        ",",
+	tokens.Period:       ".",
+	tokens.RParen:       ")",
+	tokens.RBrack:       "]",
+	tokens.RBrace:       "}",
+	tokens.Semicolon:    ";",
+	tokens.Colon:        ":",
+	tokens.Question:     "?",
+	tokens.DotDot:       "..",
+	operatorEnd:         "",
 
-	_literalBeg: "",
-	Ident:       "IDENT",
-	Int:         "INT",
-	Float:       "FLOAT",
-	Char:        "CHAR",
-	String:      "STRING",
-	Decimal:     "DECIMAL",
-	RunesString: "RUNESSTRING",
-	BytesString: "BYTESSTRING",
-	ByteChar:    "BYTECHAR",
-	TimeString:  "TIMESTRING",
-	RawString:   "RAWSTRING",
-	FString:     "FSTRING",
-	DateString:  "DATESTRING",
-	_literalEnd: "",
+	literalBeg:         "",
+	tokens.Ident:       "IDENT",
+	tokens.Int:         "INT",
+	tokens.Float:       "FLOAT",
+	tokens.Char:        "CHAR",
+	tokens.String:      "STRING",
+	tokens.Decimal:     "DECIMAL",
+	tokens.RunesString: "RUNESSTRING",
+	tokens.BytesString: "BYTESSTRING",
+	tokens.ByteChar:    "BYTECHAR",
+	tokens.TimeString:  "TIMESTRING",
+	tokens.RawString:   "RAWSTRING",
+	tokens.FString:     "FSTRING",
+	tokens.DateString:  "DATESTRING",
+	literalEnd:         "",
 
-	_keywordBeg: "",
-	Break:       "break",
-	Continue:    "continue",
-	Else:        "else",
-	For:         "for",
-	Func:        "func",
-	Arrow:       "=>",
-	If:          "if",
-	Return:      "return",
-	Export:      "export",
-	True:        "true",
-	False:       "false",
-	In:          "in",
-	NotKw:       "not",
-	Undefined:   "undefined",
-	Import:      "import",
-	Var:         "var",
-	Defer:       "defer",
-	_keywordEnd: "",
+	keywordBeg:       "",
+	tokens.Break:     "break",
+	tokens.Continue:  "continue",
+	tokens.Else:      "else",
+	tokens.For:       "for",
+	tokens.Func:      "func",
+	tokens.Arrow:     "=>",
+	tokens.If:        "if",
+	tokens.Return:    "return",
+	tokens.Export:    "export",
+	tokens.True:      "true",
+	tokens.False:     "false",
+	tokens.In:        "in",
+	tokens.NotKw:     "not",
+	tokens.Undefined: "undefined",
+	tokens.Import:    "import",
+	tokens.Var:       "var",
+	tokens.Defer:     "defer",
+	keywordEnd:       "",
 }
 
 func (tok Token) String() string {
-	s := tokens[tok]
+	s := spellings[tok]
 	if s == "" {
 		s = "token(" + strconv.Itoa(int(tok)) + ")"
 	}
@@ -211,15 +127,15 @@ const LowestPrec = 0
 // Precedence returns the precedence for the operator token.
 func (tok Token) Precedence() int {
 	switch tok {
-	case LOr:
+	case tokens.LOr:
 		return 1
-	case LAnd:
+	case tokens.LAnd:
 		return 2
-	case Equal, NotEqual, Less, LessEq, Greater, GreaterEq, In:
+	case tokens.Equal, tokens.NotEqual, tokens.Less, tokens.LessEq, tokens.Greater, tokens.GreaterEq, tokens.In:
 		return 3
-	case Add, Sub, Or, Xor:
+	case tokens.Add, tokens.Sub, tokens.Or, tokens.Xor:
 		return 4
-	case Mul, Quo, Rem, Shl, Shr, And, AndNot:
+	case tokens.Mul, tokens.Quo, tokens.Rem, tokens.Shl, tokens.Shr, tokens.And, tokens.AndNot:
 		return 5
 	}
 	return LowestPrec
@@ -227,17 +143,17 @@ func (tok Token) Precedence() int {
 
 // IsLiteral returns true if the token is a literal.
 func (tok Token) IsLiteral() bool {
-	return _literalBeg < tok && tok < _literalEnd
+	return literalBeg < tok && tok < literalEnd
 }
 
 // IsOperator returns true if the token is an operator.
 func (tok Token) IsOperator() bool {
-	return _operatorBeg < tok && tok < _operatorEnd
+	return operatorBeg < tok && tok < operatorEnd
 }
 
 // IsKeyword returns true if the token is a keyword.
 func (tok Token) IsKeyword() bool {
-	return _keywordBeg < tok && tok < _keywordEnd
+	return keywordBeg < tok && tok < keywordEnd
 }
 
 // Lookup returns corresponding keyword if ident is a keyword.
@@ -245,15 +161,15 @@ func Lookup(ident string) Token {
 	if tok, isKeyword := keywords[ident]; isKeyword {
 		return tok
 	}
-	return Ident
+	return tokens.Ident
 }
 
 func init() {
 	keywords = make(map[string]Token)
-	for i := _keywordBeg + 1; i < _keywordEnd; i++ {
-		if tokens[i] == "" { // a retired keyword leaves its number unused
+	for i := keywordBeg + 1; i < keywordEnd; i++ {
+		if spellings[i] == "" { // a retired keyword leaves its number unused
 			continue
 		}
-		keywords[tokens[i]] = i
+		keywords[spellings[i]] = i
 	}
 }

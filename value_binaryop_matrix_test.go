@@ -21,6 +21,7 @@ import (
 	"github.com/jokruger/fin128/daycount"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 )
@@ -72,10 +73,10 @@ func matrixOrder(t *testing.T, loName string, lo core.Value, hiName string, hi c
 		op         token.Token
 		loHi, hiLo core.Value
 	}{
-		{token.Less, core.True, core.False},
-		{token.Greater, core.False, core.True},
-		{token.LessEq, core.True, core.False},
-		{token.GreaterEq, core.False, core.True},
+		{tokens.Less, core.True, core.False},
+		{tokens.Greater, core.False, core.True},
+		{tokens.LessEq, core.True, core.False},
+		{tokens.GreaterEq, core.False, core.True},
 	} {
 		matrixOK(t, loName+" "+c.op.String()+" "+hiName, lo, c.op, hi, c.loHi)
 		matrixOK(t, hiName+" "+c.op.String()+" "+loName, hi, c.op, lo, c.hiLo)
@@ -105,7 +106,7 @@ func matrixUnaryErr(t *testing.T, name string, op token.Token, rhs core.Value) {
 // rows, since the behavior is identical for every other type by construction (undefined/error's
 // hooks never inspect the other operand's type at all).
 //
-// ==/!= rows are tested via Value.Equal() directly, not BinaryOp() — bc.Equal/bc.NotEqual never
+// ==/!= rows are tested via Value.Equal() directly, not BinaryOp() — opcodes.Equal/opcodes.NotEqual never
 // dispatch to BinaryOp for any type, undefined/error included (confirmed by reading vm/vm.go).
 func TestMatrix_Universal(t *testing.T) {
 	i := core.IntValue(1)
@@ -123,9 +124,9 @@ func TestMatrix_Universal(t *testing.T) {
 		t.Run(name+" == undefined -> false", func(t *testing.T) {
 			require.False(t, v.Equal(core.Undefined))
 		})
-		matrixOK(t, "undefined + "+name+" -> undefined", core.Undefined, token.Add, v, core.Undefined)
-		matrixOK(t, name+" + undefined -> undefined", v, token.Add, core.Undefined, core.Undefined)
-		matrixOK(t, "undefined < "+name+" -> undefined", core.Undefined, token.Less, v, core.Undefined)
+		matrixOK(t, "undefined + "+name+" -> undefined", core.Undefined, tokens.Add, v, core.Undefined)
+		matrixOK(t, name+" + undefined -> undefined", v, tokens.Add, core.Undefined, core.Undefined)
+		matrixOK(t, "undefined < "+name+" -> undefined", core.Undefined, tokens.Less, v, core.Undefined)
 	}
 
 	e := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
@@ -143,13 +144,13 @@ func TestMatrix_Universal(t *testing.T) {
 		t.Run(name+" == error -> false", func(t *testing.T) {
 			require.False(t, v.Equal(e))
 		})
-		matrixErr(t, "error + "+name+" -> vm error", e, token.Add, v)
-		matrixErr(t, name+" + error -> vm error", v, token.Add, e)
+		matrixErr(t, "error + "+name+" -> vm error", e, tokens.Add, v)
+		matrixErr(t, name+" + error -> vm error", v, tokens.Add, e)
 	}
 
 	// undefined wins over error, per the implementor contract.
-	matrixOK(t, "error + undefined -> undefined", e, token.Add, core.Undefined, core.Undefined)
-	matrixOK(t, "undefined + error -> undefined", core.Undefined, token.Add, e, core.Undefined)
+	matrixOK(t, "error + undefined -> undefined", e, tokens.Add, core.Undefined, core.Undefined)
+	matrixOK(t, "undefined + error -> undefined", core.Undefined, tokens.Add, e, core.Undefined)
 }
 
 // ## Unary
@@ -169,22 +170,22 @@ func TestMatrix_Unary(t *testing.T) {
 		require.True(t, et)
 	})
 
-	matrixUnaryOK(t, "- int -> int", token.Sub, core.IntValue(5), core.IntValue(-5))
-	matrixUnaryOK(t, "- float -> float", token.Sub, core.FloatValue(5), core.FloatValue(-5))
-	matrixUnaryOK(t, "- byte -> byte (ring negation)", token.Sub, core.ByteValue(1), core.ByteValue(255))
-	matrixUnaryOK(t, "- undefined -> undefined", token.Sub, core.Undefined, core.Undefined)
-	matrixUnaryOK(t, "^ undefined -> undefined", token.Xor, core.Undefined, core.Undefined)
-	matrixUnaryOK(t, "^ int -> int", token.Xor, core.IntValue(0), core.IntValue(^int64(0)))
-	matrixUnaryOK(t, "^ byte -> byte", token.Xor, core.ByteValue(0), core.ByteValue(0xFF))
-	matrixUnaryOK(t, "^ bool -> bool", token.Xor, core.True, core.False)
+	matrixUnaryOK(t, "- int -> int", tokens.Sub, core.IntValue(5), core.IntValue(-5))
+	matrixUnaryOK(t, "- float -> float", tokens.Sub, core.FloatValue(5), core.FloatValue(-5))
+	matrixUnaryOK(t, "- byte -> byte (ring negation)", tokens.Sub, core.ByteValue(1), core.ByteValue(255))
+	matrixUnaryOK(t, "- undefined -> undefined", tokens.Sub, core.Undefined, core.Undefined)
+	matrixUnaryOK(t, "^ undefined -> undefined", tokens.Xor, core.Undefined, core.Undefined)
+	matrixUnaryOK(t, "^ int -> int", tokens.Xor, core.IntValue(0), core.IntValue(^int64(0)))
+	matrixUnaryOK(t, "^ byte -> byte", tokens.Xor, core.ByteValue(0), core.ByteValue(0xFF))
+	matrixUnaryOK(t, "^ bool -> bool", tokens.Xor, core.True, core.False)
 
 	// deliberately not defined
-	matrixUnaryErr(t, "- rune -> vm error (position type, not a ring)", token.Sub, core.RuneValue('a'))
-	matrixUnaryErr(t, "- bool -> vm error (no arithmetic at all)", token.Sub, core.True)
-	matrixUnaryErr(t, "- string -> vm error (no implicit number parsing)", token.Sub, core.NewStringValue("5"))
-	matrixUnaryErr(t, "^ rune -> vm error (rune excluded from bitwise entirely)", token.Xor, core.RuneValue('a'))
-	matrixUnaryErr(t, "- error -> vm error", token.Sub, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
-	matrixUnaryErr(t, "^ error -> vm error", token.Xor, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
+	matrixUnaryErr(t, "- rune -> vm error (position type, not a ring)", tokens.Sub, core.RuneValue('a'))
+	matrixUnaryErr(t, "- bool -> vm error (no arithmetic at all)", tokens.Sub, core.True)
+	matrixUnaryErr(t, "- string -> vm error (no implicit number parsing)", tokens.Sub, core.NewStringValue("5"))
+	matrixUnaryErr(t, "^ rune -> vm error (rune excluded from bitwise entirely)", tokens.Xor, core.RuneValue('a'))
+	matrixUnaryErr(t, "- error -> vm error", tokens.Sub, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
+	matrixUnaryErr(t, "^ error -> vm error", tokens.Xor, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
 }
 
 // ## Numeric arithmetic — int, float, decimal
@@ -198,78 +199,78 @@ func TestMatrix_NumericArithmetic(t *testing.T) {
 	decs := func(s string) core.Value { return core.NewDecimalValue(dec128.FromString(s)) }
 
 	// same-type
-	matrixOK(t, "int + int -> int", core.IntValue(10), token.Add, core.IntValue(4), core.IntValue(14))
-	matrixOK(t, "int - int -> int", core.IntValue(10), token.Sub, core.IntValue(4), core.IntValue(6))
-	matrixOK(t, "int * int -> int", core.IntValue(10), token.Mul, core.IntValue(4), core.IntValue(40))
-	matrixOK(t, "int / int -> int (truncating)", core.IntValue(10), token.Quo, core.IntValue(4), core.IntValue(2))
-	matrixOK(t, "int % int -> int", core.IntValue(10), token.Rem, core.IntValue(4), core.IntValue(2))
-	matrixOK(t, "float + float -> float", core.FloatValue(10), token.Add, core.FloatValue(4), core.FloatValue(14))
-	matrixOK(t, "float - float -> float", core.FloatValue(10), token.Sub, core.FloatValue(4), core.FloatValue(6))
-	matrixOK(t, "float * float -> float", core.FloatValue(10), token.Mul, core.FloatValue(4), core.FloatValue(40))
-	matrixOK(t, "float / float -> float", core.FloatValue(10), token.Quo, core.FloatValue(4), core.FloatValue(2.5))
-	matrixOK(t, "float % float -> float", core.FloatValue(10), token.Rem, core.FloatValue(4), core.FloatValue(2))
-	matrixOK(t, "decimal + decimal -> decimal", dec(10), token.Add, dec(4), dec(14))
-	matrixOK(t, "decimal - decimal -> decimal", dec(10), token.Sub, dec(4), dec(6))
-	matrixOK(t, "decimal * decimal -> decimal", dec(10), token.Mul, dec(4), dec(40))
-	matrixOK(t, "decimal / decimal -> decimal", dec(10), token.Quo, dec(4), decs("2.5"))
-	matrixOK(t, "decimal % decimal -> decimal", dec(10), token.Rem, dec(4), dec(2))
+	matrixOK(t, "int + int -> int", core.IntValue(10), tokens.Add, core.IntValue(4), core.IntValue(14))
+	matrixOK(t, "int - int -> int", core.IntValue(10), tokens.Sub, core.IntValue(4), core.IntValue(6))
+	matrixOK(t, "int * int -> int", core.IntValue(10), tokens.Mul, core.IntValue(4), core.IntValue(40))
+	matrixOK(t, "int / int -> int (truncating)", core.IntValue(10), tokens.Quo, core.IntValue(4), core.IntValue(2))
+	matrixOK(t, "int % int -> int", core.IntValue(10), tokens.Rem, core.IntValue(4), core.IntValue(2))
+	matrixOK(t, "float + float -> float", core.FloatValue(10), tokens.Add, core.FloatValue(4), core.FloatValue(14))
+	matrixOK(t, "float - float -> float", core.FloatValue(10), tokens.Sub, core.FloatValue(4), core.FloatValue(6))
+	matrixOK(t, "float * float -> float", core.FloatValue(10), tokens.Mul, core.FloatValue(4), core.FloatValue(40))
+	matrixOK(t, "float / float -> float", core.FloatValue(10), tokens.Quo, core.FloatValue(4), core.FloatValue(2.5))
+	matrixOK(t, "float % float -> float", core.FloatValue(10), tokens.Rem, core.FloatValue(4), core.FloatValue(2))
+	matrixOK(t, "decimal + decimal -> decimal", dec(10), tokens.Add, dec(4), dec(14))
+	matrixOK(t, "decimal - decimal -> decimal", dec(10), tokens.Sub, dec(4), dec(6))
+	matrixOK(t, "decimal * decimal -> decimal", dec(10), tokens.Mul, dec(4), dec(40))
+	matrixOK(t, "decimal / decimal -> decimal", dec(10), tokens.Quo, dec(4), decs("2.5"))
+	matrixOK(t, "decimal % decimal -> decimal", dec(10), tokens.Rem, dec(4), dec(2))
 
 	// int op float, both directions. % was found missing for float/decimal during Phase 6's final
-	// sweep — core/float.go and core/decimal.go had no token.Rem case at all, contradicting this
+	// sweep — core/float.go and core/decimal.go had no tokens.Rem case at all, contradicting this
 	// matrix's own stated design; fixed alongside this test.
-	matrixBoth(t, "int", core.IntValue(10), token.Add, "float", core.FloatValue(4), core.FloatValue(14), core.FloatValue(14))
-	matrixBoth(t, "int", core.IntValue(10), token.Sub, "float", core.FloatValue(4), core.FloatValue(6), core.FloatValue(-6))
-	matrixBoth(t, "int", core.IntValue(10), token.Mul, "float", core.FloatValue(4), core.FloatValue(40), core.FloatValue(40))
-	matrixBoth(t, "int", core.IntValue(10), token.Quo, "float", core.FloatValue(4), core.FloatValue(2.5), core.FloatValue(0.4))
-	matrixBoth(t, "int", core.IntValue(10), token.Rem, "float", core.FloatValue(4), core.FloatValue(2), core.FloatValue(4))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Add, "float", core.FloatValue(4), core.FloatValue(14), core.FloatValue(14))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Sub, "float", core.FloatValue(4), core.FloatValue(6), core.FloatValue(-6))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Mul, "float", core.FloatValue(4), core.FloatValue(40), core.FloatValue(40))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Quo, "float", core.FloatValue(4), core.FloatValue(2.5), core.FloatValue(0.4))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Rem, "float", core.FloatValue(4), core.FloatValue(2), core.FloatValue(4))
 
 	// int op decimal, both directions
-	matrixBoth(t, "int", core.IntValue(10), token.Add, "decimal", dec(4), dec(14), dec(14))
-	matrixBoth(t, "int", core.IntValue(10), token.Sub, "decimal", dec(4), dec(6), dec(-6))
-	matrixBoth(t, "int", core.IntValue(10), token.Mul, "decimal", dec(4), dec(40), dec(40))
-	matrixBoth(t, "int", core.IntValue(10), token.Quo, "decimal", dec(4), decs("2.5"), decs("0.4"))
-	matrixBoth(t, "int", core.IntValue(10), token.Rem, "decimal", dec(4), dec(2), dec(4))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Add, "decimal", dec(4), dec(14), dec(14))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Sub, "decimal", dec(4), dec(6), dec(-6))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Mul, "decimal", dec(4), dec(40), dec(40))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Quo, "decimal", dec(4), decs("2.5"), decs("0.4"))
+	matrixBoth(t, "int", core.IntValue(10), tokens.Rem, "decimal", dec(4), dec(2), dec(4))
 
 	// float and decimal deliberately do not accept each other for arithmetic, in either direction —
 	// no silent widening, no lossy bridge. Ordering between them IS defined and exact, see
 	// TestMatrix_Comparisons.
-	for _, op := range []token.Token{token.Add, token.Sub, token.Mul, token.Quo, token.Rem} {
+	for _, op := range []token.Token{tokens.Add, tokens.Sub, tokens.Mul, tokens.Quo, tokens.Rem} {
 		matrixBothErr(t, "float", core.FloatValue(10), op, "decimal", dec(4))
 	}
 }
 
 // ## Bitwise — same-type only, byte/int only; shift accepts int as the count
 func TestMatrix_Bitwise(t *testing.T) {
-	matrixOK(t, "byte & byte -> byte", core.ByteValue(0xF0), token.And, core.ByteValue(0x0F), core.ByteValue(0))
-	matrixOK(t, "int & int -> int", core.IntValue(0xF0), token.And, core.IntValue(0x0F), core.IntValue(0))
-	matrixOK(t, "byte << byte -> byte", core.ByteValue(1), token.Shl, core.ByteValue(4), core.ByteValue(16))
-	matrixOK(t, "byte << int -> byte (shift count exception)", core.ByteValue(1), token.Shl, core.IntValue(4), core.ByteValue(16))
-	matrixOK(t, "int << int -> int", core.IntValue(1), token.Shl, core.IntValue(4), core.IntValue(16))
+	matrixOK(t, "byte & byte -> byte", core.ByteValue(0xF0), tokens.And, core.ByteValue(0x0F), core.ByteValue(0))
+	matrixOK(t, "int & int -> int", core.IntValue(0xF0), tokens.And, core.IntValue(0x0F), core.IntValue(0))
+	matrixOK(t, "byte << byte -> byte", core.ByteValue(1), tokens.Shl, core.ByteValue(4), core.ByteValue(16))
+	matrixOK(t, "byte << int -> byte (shift count exception)", core.ByteValue(1), tokens.Shl, core.IntValue(4), core.ByteValue(16))
+	matrixOK(t, "int << int -> int", core.IntValue(1), tokens.Shl, core.IntValue(4), core.IntValue(16))
 
-	matrixErr(t, "rune & rune -> vm error (rune has no bitwise at all)", core.RuneValue('a'), token.And, core.RuneValue('a'))
-	matrixErr(t, "byte & int -> vm error (bitwise is same-type only, count exception excluded)", core.ByteValue(1), token.And, core.IntValue(1))
-	matrixErr(t, "int << byte -> vm error (count exception is one-directional)", core.IntValue(1), token.Shl, core.ByteValue(1))
+	matrixErr(t, "rune & rune -> vm error (rune has no bitwise at all)", core.RuneValue('a'), tokens.And, core.RuneValue('a'))
+	matrixErr(t, "byte & int -> vm error (bitwise is same-type only, count exception excluded)", core.ByteValue(1), tokens.And, core.IntValue(1))
+	matrixErr(t, "int << byte -> vm error (count exception is one-directional)", core.IntValue(1), tokens.Shl, core.ByteValue(1))
 }
 
 // ## Ordinal — byte, rune arithmetic against int and same-type
 func TestMatrix_Ordinal(t *testing.T) {
-	matrixOK(t, "byte + int -> byte, wraps", core.ByteValue(255), token.Add, core.IntValue(1), core.ByteValue(0))
-	matrixOK(t, "int + byte -> byte, wraps", core.IntValue(1), token.Add, core.ByteValue(255), core.ByteValue(0))
-	matrixOK(t, "byte - int -> byte, wraps", core.ByteValue(0), token.Sub, core.IntValue(1), core.ByteValue(255))
-	matrixOK(t, "int - byte -> byte, wraps (byte is a ring in both directions)", core.IntValue(0), token.Sub, core.ByteValue(1), core.ByteValue(255))
-	matrixOK(t, "byte - byte -> byte (ring subtraction, not a distance)", core.ByteValue(0), token.Sub, core.ByteValue(1), core.ByteValue(255))
-	matrixOK(t, "byte + byte -> byte, wraps", core.ByteValue(255), token.Add, core.ByteValue(1), core.ByteValue(0))
+	matrixOK(t, "byte + int -> byte, wraps", core.ByteValue(255), tokens.Add, core.IntValue(1), core.ByteValue(0))
+	matrixOK(t, "int + byte -> byte, wraps", core.IntValue(1), tokens.Add, core.ByteValue(255), core.ByteValue(0))
+	matrixOK(t, "byte - int -> byte, wraps", core.ByteValue(0), tokens.Sub, core.IntValue(1), core.ByteValue(255))
+	matrixOK(t, "int - byte -> byte, wraps (byte is a ring in both directions)", core.IntValue(0), tokens.Sub, core.ByteValue(1), core.ByteValue(255))
+	matrixOK(t, "byte - byte -> byte (ring subtraction, not a distance)", core.ByteValue(0), tokens.Sub, core.ByteValue(1), core.ByteValue(255))
+	matrixOK(t, "byte + byte -> byte, wraps", core.ByteValue(255), tokens.Add, core.ByteValue(1), core.ByteValue(0))
 
-	matrixOK(t, "rune + int -> rune", core.RuneValue('a'), token.Add, core.IntValue(1), core.RuneValue('b'))
-	matrixOK(t, "int + rune -> rune", core.IntValue(1), token.Add, core.RuneValue('a'), core.RuneValue('b'))
-	matrixOK(t, "rune - int -> rune", core.RuneValue('b'), token.Sub, core.IntValue(1), core.RuneValue('a'))
-	matrixOK(t, "rune - rune -> int (genuine distance, unlike byte - byte)", core.RuneValue('b'), token.Sub, core.RuneValue('a'), core.IntValue(1))
+	matrixOK(t, "rune + int -> rune", core.RuneValue('a'), tokens.Add, core.IntValue(1), core.RuneValue('b'))
+	matrixOK(t, "int + rune -> rune", core.IntValue(1), tokens.Add, core.RuneValue('a'), core.RuneValue('b'))
+	matrixOK(t, "rune - int -> rune", core.RuneValue('b'), tokens.Sub, core.IntValue(1), core.RuneValue('a'))
+	matrixOK(t, "rune - rune -> int (genuine distance, unlike byte - byte)", core.RuneValue('b'), tokens.Sub, core.RuneValue('a'), core.IntValue(1))
 
-	matrixOK(t, "byte - rune -> int (byte widens to rune via rule 2)", core.ByteValue('B'), token.Sub, core.RuneValue('A'), core.IntValue(1))
-	matrixOK(t, "rune - byte -> int (reversed order)", core.RuneValue('B'), token.Sub, core.ByteValue('A'), core.IntValue(1))
+	matrixOK(t, "byte - rune -> int (byte widens to rune via rule 2)", core.ByteValue('B'), tokens.Sub, core.RuneValue('A'), core.IntValue(1))
+	matrixOK(t, "rune - byte -> int (reversed order)", core.RuneValue('B'), tokens.Sub, core.ByteValue('A'), core.IntValue(1))
 
-	matrixErr(t, "byte + rune -> vm error (widens to rune, inherits rune+rune's rejection)", core.ByteValue('A'), token.Add, core.RuneValue('B'))
-	matrixErr(t, "rune + byte -> vm error (reversed order)", core.RuneValue('B'), token.Add, core.ByteValue('A'))
+	matrixErr(t, "byte + rune -> vm error (widens to rune, inherits rune+rune's rejection)", core.ByteValue('A'), tokens.Add, core.RuneValue('B'))
+	matrixErr(t, "rune + byte -> vm error (reversed order)", core.RuneValue('B'), tokens.Add, core.ByteValue('A'))
 }
 
 // ## Sequence/text — concatenation, fixed rank bytes > runes > string
@@ -278,38 +279,38 @@ func TestMatrix_SequenceConcat(t *testing.T) {
 	byt := func(s string) core.Value { return core.NewBytesValue([]byte(s), false) }
 	run := func(s string) core.Value { return core.NewRunesValue([]rune(s), false) }
 
-	matrixOK(t, "string + string -> string", str("a"), token.Add, str("b"), str("ab"))
-	matrixOK(t, "bytes + bytes -> bytes", byt("a"), token.Add, byt("b"), byt("ab"))
-	matrixOK(t, "runes + runes -> runes", run("a"), token.Add, run("b"), run("ab"))
+	matrixOK(t, "string + string -> string", str("a"), tokens.Add, str("b"), str("ab"))
+	matrixOK(t, "bytes + bytes -> bytes", byt("a"), tokens.Add, byt("b"), byt("ab"))
+	matrixOK(t, "runes + runes -> runes", run("a"), tokens.Add, run("b"), run("ab"))
 
 	// the RECEIVER — the left operand — decides the result type (a scalar on the left
 	// takes the sequence's type); acceptance mirrors the member layer minus int
-	matrixOK(t, "bytes + runes -> bytes", byt("a"), token.Add, run("b"), byt("ab"))
-	matrixOK(t, "runes + bytes -> runes", run("a"), token.Add, byt("b"), run("ab"))
-	matrixOK(t, "bytes + string -> bytes", byt("a"), token.Add, str("b"), byt("ab"))
-	matrixOK(t, "string + bytes -> string", str("a"), token.Add, byt("b"), str("ab"))
-	matrixOK(t, "runes + string -> runes", run("a"), token.Add, str("b"), run("ab"))
-	matrixOK(t, "string + runes -> string", str("a"), token.Add, run("b"), str("ab"))
+	matrixOK(t, "bytes + runes -> bytes", byt("a"), tokens.Add, run("b"), byt("ab"))
+	matrixOK(t, "runes + bytes -> runes", run("a"), tokens.Add, byt("b"), run("ab"))
+	matrixOK(t, "bytes + string -> bytes", byt("a"), tokens.Add, str("b"), byt("ab"))
+	matrixOK(t, "string + bytes -> string", str("a"), tokens.Add, byt("b"), str("ab"))
+	matrixOK(t, "runes + string -> runes", run("a"), tokens.Add, str("b"), run("ab"))
+	matrixOK(t, "string + runes -> string", str("a"), tokens.Add, run("b"), str("ab"))
 
-	matrixOK(t, "byte + bytes -> bytes", core.ByteValue('a'), token.Add, byt("b"), byt("ab"))
-	matrixOK(t, "bytes + byte -> bytes (reversed)", byt("a"), token.Add, core.ByteValue('b'), byt("ab"))
-	matrixOK(t, "rune + runes -> runes", core.RuneValue('a'), token.Add, run("b"), run("ab"))
-	matrixOK(t, "runes + rune -> runes (reversed)", run("a"), token.Add, core.RuneValue('b'), run("ab"))
-	matrixOK(t, "rune + string -> string", core.RuneValue('a'), token.Add, str("b"), str("ab"))
-	matrixOK(t, "string + rune -> string (reversed)", str("a"), token.Add, core.RuneValue('b'), str("ab"))
-	matrixOK(t, "rune + bytes -> bytes", core.RuneValue('a'), token.Add, byt("b"), byt("ab"))
-	matrixOK(t, "bytes + rune -> bytes (reversed)", byt("a"), token.Add, core.RuneValue('b'), byt("ab"))
-	matrixOK(t, "byte + string -> string (ASCII)", core.ByteValue('a'), token.Add, str("b"), str("ab"))
-	matrixOK(t, "string + byte -> string (reversed, ASCII)", str("a"), token.Add, core.ByteValue('b'), str("ab"))
-	matrixOK(t, "byte + runes -> runes (ASCII)", core.ByteValue('a'), token.Add, run("b"), run("ab"))
-	matrixOK(t, "runes + byte -> runes (reversed, ASCII)", run("a"), token.Add, core.ByteValue('b'), run("ab"))
-	matrixErr(t, "string + non-ASCII byte -> vm error (no symbol exists)", str("a"), token.Add, core.ByteValue(200))
-	matrixErr(t, "runes + non-ASCII byte -> vm error", run("a"), token.Add, core.ByteValue(200))
-	matrixErr(t, "non-ASCII byte + string -> vm error", core.ByteValue(200), token.Add, str("a"))
+	matrixOK(t, "byte + bytes -> bytes", core.ByteValue('a'), tokens.Add, byt("b"), byt("ab"))
+	matrixOK(t, "bytes + byte -> bytes (reversed)", byt("a"), tokens.Add, core.ByteValue('b'), byt("ab"))
+	matrixOK(t, "rune + runes -> runes", core.RuneValue('a'), tokens.Add, run("b"), run("ab"))
+	matrixOK(t, "runes + rune -> runes (reversed)", run("a"), tokens.Add, core.RuneValue('b'), run("ab"))
+	matrixOK(t, "rune + string -> string", core.RuneValue('a'), tokens.Add, str("b"), str("ab"))
+	matrixOK(t, "string + rune -> string (reversed)", str("a"), tokens.Add, core.RuneValue('b'), str("ab"))
+	matrixOK(t, "rune + bytes -> bytes", core.RuneValue('a'), tokens.Add, byt("b"), byt("ab"))
+	matrixOK(t, "bytes + rune -> bytes (reversed)", byt("a"), tokens.Add, core.RuneValue('b'), byt("ab"))
+	matrixOK(t, "byte + string -> string (ASCII)", core.ByteValue('a'), tokens.Add, str("b"), str("ab"))
+	matrixOK(t, "string + byte -> string (reversed, ASCII)", str("a"), tokens.Add, core.ByteValue('b'), str("ab"))
+	matrixOK(t, "byte + runes -> runes (ASCII)", core.ByteValue('a'), tokens.Add, run("b"), run("ab"))
+	matrixOK(t, "runes + byte -> runes (reversed, ASCII)", run("a"), tokens.Add, core.ByteValue('b'), run("ab"))
+	matrixErr(t, "string + non-ASCII byte -> vm error (no symbol exists)", str("a"), tokens.Add, core.ByteValue(200))
+	matrixErr(t, "runes + non-ASCII byte -> vm error", run("a"), tokens.Add, core.ByteValue(200))
+	matrixErr(t, "non-ASCII byte + string -> vm error", core.ByteValue(200), tokens.Add, str("a"))
 
 	// content order still respects which operand was written first, independent of the result type
-	matrixOK(t, "runes + bytes content order preserved", run("cd"), token.Add, byt("ab"), run("cdab"))
-	matrixOK(t, "bytes + runes content order preserved", byt("ab"), token.Add, run("cd"), byt("abcd"))
+	matrixOK(t, "runes + bytes content order preserved", run("cd"), tokens.Add, byt("ab"), run("cdab"))
+	matrixOK(t, "bytes + runes content order preserved", byt("ab"), tokens.Add, run("cd"), byt("abcd"))
 }
 
 // ## Sequence/text — removal, lhs-only, no reflected direction
@@ -318,31 +319,31 @@ func TestMatrix_SequenceRemoval(t *testing.T) {
 	byt := func(s string) core.Value { return core.NewBytesValue([]byte(s), false) }
 	run := func(s string) core.Value { return core.NewRunesValue([]rune(s), false) }
 
-	matrixOK(t, "string - string -> string", str("foobar"), token.Sub, str("bar"), str("foo"))
-	matrixOK(t, "bytes - byte -> bytes", byt("banana"), token.Sub, core.ByteValue('a'), byt("bnn"))
-	matrixOK(t, "bytes - bytes -> bytes", byt("banana"), token.Sub, byt("an"), byt("ba"))
-	matrixOK(t, "runes - rune -> runes", run("banana"), token.Sub, core.RuneValue('a'), run("bnn"))
-	matrixOK(t, "runes - runes -> runes", run("banana"), token.Sub, run("an"), run("ba"))
-	matrixOK(t, "string - rune -> string", str("banana"), token.Sub, core.RuneValue('a'), str("bnn"))
-	matrixOK(t, "string - runes -> string", str("banana"), token.Sub, run("an"), str("ba"))
+	matrixOK(t, "string - string -> string", str("foobar"), tokens.Sub, str("bar"), str("foo"))
+	matrixOK(t, "bytes - byte -> bytes", byt("banana"), tokens.Sub, core.ByteValue('a'), byt("bnn"))
+	matrixOK(t, "bytes - bytes -> bytes", byt("banana"), tokens.Sub, byt("an"), byt("ba"))
+	matrixOK(t, "runes - rune -> runes", run("banana"), tokens.Sub, core.RuneValue('a'), run("bnn"))
+	matrixOK(t, "runes - runes -> runes", run("banana"), tokens.Sub, run("an"), run("ba"))
+	matrixOK(t, "string - rune -> string", str("banana"), tokens.Sub, core.RuneValue('a'), str("bnn"))
+	matrixOK(t, "string - runes -> string", str("banana"), tokens.Sub, run("an"), str("ba"))
 
 	// bytes owns every pairing it's in for removal too, same as + and ordering — the rhs just
 	// needs a byte encoding, which rune/string/runes all already have (via the same conversions +
 	// and ordering already use). This was a real gap found and fixed: bytes - string/runes used to
 	// be a vm error even though the encoding machinery was already sitting right there, unused.
-	matrixOK(t, "bytes - rune -> bytes", byt("banana"), token.Sub, core.RuneValue('a'), byt("bnn"))
-	matrixOK(t, "bytes - string -> bytes", byt("banana"), token.Sub, str("an"), byt("ba"))
-	matrixOK(t, "bytes - runes -> bytes", byt("banana"), token.Sub, run("an"), byt("ba"))
+	matrixOK(t, "bytes - rune -> bytes", byt("banana"), tokens.Sub, core.RuneValue('a'), byt("bnn"))
+	matrixOK(t, "bytes - string -> bytes", byt("banana"), tokens.Sub, str("an"), byt("ba"))
+	matrixOK(t, "bytes - runes -> bytes", byt("banana"), tokens.Sub, run("an"), byt("ba"))
 
 	// `-`'s acceptance equals `+`'s on every sequence receiver
-	matrixOK(t, "string - byte -> string (ASCII)", str("foo"), token.Sub, core.ByteValue('f'), str("oo"))
-	matrixOK(t, "string - bytes -> string", str("foo"), token.Sub, byt("f"), str("oo"))
-	matrixOK(t, "runes - bytes -> runes", run("foo"), token.Sub, byt("f"), run("oo"))
-	matrixOK(t, "runes - string -> runes", run("foo"), token.Sub, str("f"), run("oo"))
+	matrixOK(t, "string - byte -> string (ASCII)", str("foo"), tokens.Sub, core.ByteValue('f'), str("oo"))
+	matrixOK(t, "string - bytes -> string", str("foo"), tokens.Sub, byt("f"), str("oo"))
+	matrixOK(t, "runes - bytes -> runes", run("foo"), tokens.Sub, byt("f"), run("oo"))
+	matrixOK(t, "runes - string -> runes", run("foo"), tokens.Sub, str("f"), run("oo"))
 
 	// deliberately not defined: no reflected direction for removal (a scalar has no content to remove from)
-	matrixErr(t, "rune - string -> vm error (no reflected direction for removal)", core.RuneValue('f'), token.Sub, str("foo"))
-	matrixErr(t, "byte - bytes -> vm error (no reflected direction for removal)", core.ByteValue('a'), token.Sub, byt("banana"))
+	matrixErr(t, "rune - string -> vm error (no reflected direction for removal)", core.RuneValue('f'), tokens.Sub, str("foo"))
+	matrixErr(t, "byte - bytes -> vm error (no reflected direction for removal)", core.ByteValue('a'), tokens.Sub, byt("banana"))
 }
 
 // ## Collections — array, dict, record
@@ -357,53 +358,53 @@ func TestMatrix_Collections(t *testing.T) {
 
 	arrOf := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
 	rng := core.NewIntRangeValue(1, 3, 1)
-	matrixOK(t, "array + array -> array", arr(1, 2), token.Add, arr(3, 4), arr(1, 2, 3, 4))
+	matrixOK(t, "array + array -> array", arr(1, 2), tokens.Add, arr(3, 4), arr(1, 2, 3, 4))
 	// member ≡ operator: + takes append's reading (the own kind — another array — spreads, every
 	// other value is one element), - takes remove's (element, or every occurrence of the run)
-	matrixOK(t, "array + int -> array (one element)", arr(1), token.Add, core.IntValue(2), arr(1, 2))
-	matrixOK(t, "array + range -> array (one element: materializing is spelled .array())", arr(9), token.Add, rng, arrOf(core.IntValue(9), rng))
-	matrixOK(t, "array - int -> array (every equal element)", arr(1, 2, 1), token.Sub, core.IntValue(1), arr(2))
-	matrixOK(t, "array - array -> array (every occurrence of the run)", arr(1, 2, 1, 2), token.Sub, arr(1, 2), arr())
-	matrixOK(t, "array - array -> not set difference", arr(1, 2, 3, 2), token.Sub, arr(3, 2), arr(1, 2))
+	matrixOK(t, "array + int -> array (one element)", arr(1), tokens.Add, core.IntValue(2), arr(1, 2))
+	matrixOK(t, "array + range -> array (one element: materializing is spelled .array())", arr(9), tokens.Add, rng, arrOf(core.IntValue(9), rng))
+	matrixOK(t, "array - int -> array (every equal element)", arr(1, 2, 1), tokens.Sub, core.IntValue(1), arr(2))
+	matrixOK(t, "array - array -> array (every occurrence of the run)", arr(1, 2, 1, 2), tokens.Sub, arr(1, 2), arr())
+	matrixOK(t, "array - array -> not set difference", arr(1, 2, 3, 2), tokens.Sub, arr(3, 2), arr(1, 2))
 	// an operand with no reading of its own for an array hands the operation over and the array
 	// prepends it — `x + a` ≡ `a.prepend(x)`. Only + has this reflected form: the add side is the
 	// only one with a front member, so - (and every other operator) raises instead of inventing one
-	matrixOK(t, "int + array -> array (prepend)", core.IntValue(1), token.Add, arr(2), arr(1, 2))
-	matrixOK(t, "range + array -> array (one element, prepended)", rng, token.Add, arr(9), arrOf(rng, core.IntValue(9)))
-	matrixErr(t, "int - array -> vm error (removal has no front member)", core.IntValue(1), token.Sub, arr(1))
+	matrixOK(t, "int + array -> array (prepend)", core.IntValue(1), tokens.Add, arr(2), arr(1, 2))
+	matrixOK(t, "range + array -> array (one element, prepended)", rng, tokens.Add, arr(9), arrOf(rng, core.IntValue(9)))
+	matrixErr(t, "int - array -> vm error (removal has no front member)", core.IntValue(1), tokens.Sub, arr(1))
 	// `*` is repeat's operator form, and it has NO reflected direction either: `seq * n` reads as
 	// "apply n to the sequence", `n * seq` has no such reading
-	matrixOK(t, "array * int -> array (repeat)", arr(1, 2), token.Mul, core.IntValue(3), arr(1, 2, 1, 2, 1, 2))
-	matrixErr(t, "int * array -> vm error (no reflected direction)", core.IntValue(1), token.Mul, arr(1))
-	matrixErr(t, "array * array -> vm error (only a number is a count)", arr(1), token.Mul, arr(2))
-	matrixErr(t, "range * int -> vm error (range has no repeat)", rng, token.Mul, core.IntValue(3))
-	matrixErr(t, "error + array -> vm error (the universal contract outranks the element reading)", core.NewErrorValue(core.IntValue(5), "", errs.CategoryRuntime, false), token.Add, arr(1))
+	matrixOK(t, "array * int -> array (repeat)", arr(1, 2), tokens.Mul, core.IntValue(3), arr(1, 2, 1, 2, 1, 2))
+	matrixErr(t, "int * array -> vm error (no reflected direction)", core.IntValue(1), tokens.Mul, arr(1))
+	matrixErr(t, "array * array -> vm error (only a number is a count)", arr(1), tokens.Mul, arr(2))
+	matrixErr(t, "range * int -> vm error (range has no repeat)", rng, tokens.Mul, core.IntValue(3))
+	matrixErr(t, "error + array -> vm error (the universal contract outranks the element reading)", core.NewErrorValue(core.IntValue(5), "", errs.CategoryRuntime, false), tokens.Add, arr(1))
 
 	d := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
 	r := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
 
-	dictResult, err := d(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(token.Add, d(map[string]core.Value{"b": core.IntValue(2)}))
+	dictResult, err := d(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(tokens.Add, d(map[string]core.Value{"b": core.IntValue(2)}))
 	require.NoError(t, err)
 	require.Equal(t, d(map[string]core.Value{"a": core.IntValue(1), "b": core.IntValue(2)}), dictResult)
 
-	recResult, err := r(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(token.Add, r(map[string]core.Value{"b": core.IntValue(2)}))
+	recResult, err := r(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(tokens.Add, r(map[string]core.Value{"b": core.IntValue(2)}))
 	require.NoError(t, err)
 	require.Equal(t, r(map[string]core.Value{"a": core.IntValue(1), "b": core.IntValue(2)}), recResult)
 
 	// record + dict / dict + record -> dict, rhs wins collisions, regardless of which side triggered reflection
-	mixed1, err := r(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(token.Add, d(map[string]core.Value{"a": core.IntValue(2)}))
+	mixed1, err := r(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(tokens.Add, d(map[string]core.Value{"a": core.IntValue(2)}))
 	require.NoError(t, err)
 	require.Equal(t, d(map[string]core.Value{"a": core.IntValue(2)}), mixed1)
 
-	mixed2, err := d(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(token.Add, r(map[string]core.Value{"a": core.IntValue(2)}))
+	mixed2, err := d(map[string]core.Value{"a": core.IntValue(1)}).BinaryOp(tokens.Add, r(map[string]core.Value{"a": core.IntValue(2)}))
 	require.NoError(t, err)
 	require.Equal(t, d(map[string]core.Value{"a": core.IntValue(2)}), mixed2)
 
-	delResult, err := d(map[string]core.Value{"a": core.IntValue(1), "b": core.IntValue(2)}).BinaryOp(token.Sub, core.NewStringValue("a"))
+	delResult, err := d(map[string]core.Value{"a": core.IntValue(1), "b": core.IntValue(2)}).BinaryOp(tokens.Sub, core.NewStringValue("a"))
 	require.NoError(t, err)
 	require.Equal(t, d(map[string]core.Value{"b": core.IntValue(2)}), delResult)
 
-	matrixErr(t, "record - string -> vm error (record has no member functions/operator removal)", r(map[string]core.Value{"a": core.IntValue(1)}), token.Sub, core.NewStringValue("a"))
+	matrixErr(t, "record - string -> vm error (record has no member functions/operator removal)", r(map[string]core.Value{"a": core.IntValue(1)}), tokens.Sub, core.NewStringValue("a"))
 }
 
 // ## Domain-specific — time
@@ -416,10 +417,10 @@ func TestMatrix_Time(t *testing.T) {
 	epoch := core.NewTimeValue(baseTime)
 	later := core.NewTimeValue(baseTime.Add(5 * time.Nanosecond))
 
-	matrixOK(t, "time + int -> time (add nanoseconds)", epoch, token.Add, core.IntValue(5), later)
-	matrixOK(t, "time - int -> time (subtract nanoseconds)", later, token.Sub, core.IntValue(5), epoch)
-	matrixOK(t, "time - time -> int (duration in nanoseconds)", later, token.Sub, epoch, core.IntValue(5))
-	matrixOK(t, "time < time -> bool", epoch, token.Less, later, core.True)
+	matrixOK(t, "time + int -> time (add nanoseconds)", epoch, tokens.Add, core.IntValue(5), later)
+	matrixOK(t, "time - int -> time (subtract nanoseconds)", later, tokens.Sub, core.IntValue(5), epoch)
+	matrixOK(t, "time - time -> int (duration in nanoseconds)", later, tokens.Sub, epoch, core.IntValue(5))
+	matrixOK(t, "time < time -> bool", epoch, tokens.Less, later, core.True)
 }
 
 // ## Domain-specific — date
@@ -434,28 +435,28 @@ func TestMatrix_Date(t *testing.T) {
 	}
 	jan31, feb1, dec31 := day(2026, 1, 31), day(2026, 2, 1), day(2025, 12, 31)
 
-	matrixOK(t, "date + int -> date (add days)", jan31, token.Add, core.IntValue(1), feb1)
-	matrixOK(t, "int + date -> date (add days, reflected)", core.IntValue(1), token.Add, jan31, feb1)
-	matrixOK(t, "date - int -> date (subtract days)", jan31, token.Sub, core.IntValue(31), dec31)
-	matrixOK(t, "date - date -> int (days between)", feb1, token.Sub, dec31, core.IntValue(32))
-	matrixOK(t, "date - date -> int (negative when earlier)", dec31, token.Sub, feb1, core.IntValue(-32))
+	matrixOK(t, "date + int -> date (add days)", jan31, tokens.Add, core.IntValue(1), feb1)
+	matrixOK(t, "int + date -> date (add days, reflected)", core.IntValue(1), tokens.Add, jan31, feb1)
+	matrixOK(t, "date - int -> date (subtract days)", jan31, tokens.Sub, core.IntValue(31), dec31)
+	matrixOK(t, "date - date -> int (days between)", feb1, tokens.Sub, dec31, core.IntValue(32))
+	matrixOK(t, "date - date -> int (negative when earlier)", dec31, tokens.Sub, feb1, core.IntValue(-32))
 	matrixOrder(t, "date", jan31, "date", feb1)
 
 	// out of the 0001-01-01..9999-12-31 range raises
-	matrixErr(t, "date + int past 9999-12-31 -> vm error", day(9999, 12, 31), token.Add, core.IntValue(1))
-	matrixErr(t, "date - int before 0001-01-01 -> vm error", day(1, 1, 1), token.Sub, core.IntValue(1))
+	matrixErr(t, "date + int past 9999-12-31 -> vm error", day(9999, 12, 31), tokens.Add, core.IntValue(1))
+	matrixErr(t, "date - int before 0001-01-01 -> vm error", day(1, 1, 1), tokens.Sub, core.IntValue(1))
 
 	// the cells that must raise
-	matrixErr(t, "int - date -> vm error", core.IntValue(1), token.Sub, jan31)
-	matrixErr(t, "date + date -> vm error", jan31, token.Add, feb1)
-	matrixBothErr(t, "date", jan31, token.Mul, "int", core.IntValue(2))
-	matrixBothErr(t, "date", jan31, token.Add, "float", core.FloatValue(1.5))
-	matrixBothErr(t, "date", jan31, token.Less, "int", core.IntValue(20484))
-	matrixBothErr(t, "date", jan31, token.Less, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
-	matrixBothErr(t, "date", jan31, token.Add, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
-	matrixBothErr(t, "date", jan31, token.Add, "string", core.NewStringValue("x"))
-	matrixErr(t, "date / int -> vm error", jan31, token.Quo, core.IntValue(2))
-	matrixErr(t, "date % int -> vm error", jan31, token.Rem, core.IntValue(2))
+	matrixErr(t, "int - date -> vm error", core.IntValue(1), tokens.Sub, jan31)
+	matrixErr(t, "date + date -> vm error", jan31, tokens.Add, feb1)
+	matrixBothErr(t, "date", jan31, tokens.Mul, "int", core.IntValue(2))
+	matrixBothErr(t, "date", jan31, tokens.Add, "float", core.FloatValue(1.5))
+	matrixBothErr(t, "date", jan31, tokens.Less, "int", core.IntValue(20484))
+	matrixBothErr(t, "date", jan31, tokens.Less, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
+	matrixBothErr(t, "date", jan31, tokens.Add, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
+	matrixBothErr(t, "date", jan31, tokens.Add, "string", core.NewStringValue("x"))
+	matrixErr(t, "date / int -> vm error", jan31, tokens.Quo, core.IntValue(2))
+	matrixErr(t, "date % int -> vm error", jan31, tokens.Rem, core.IntValue(2))
 }
 
 // ## Domain-specific — fin.year_fraction
@@ -468,21 +469,21 @@ func TestMatrix_FinYearFraction(t *testing.T) {
 	}
 	m31, m62 := yf(31, 365, 0, 0), yf(62, 365, 0, 0)
 
-	matrixOK(t, "year_fraction + year_fraction -> year_fraction", m31, token.Add, m31, m62)
-	matrixOK(t, "year_fraction * int -> year_fraction", m31, token.Mul, core.IntValue(2), m62)
-	matrixOK(t, "int * year_fraction -> year_fraction (reflected)", core.IntValue(2), token.Mul, m31, m62)
+	matrixOK(t, "year_fraction + year_fraction -> year_fraction", m31, tokens.Add, m31, m62)
+	matrixOK(t, "year_fraction * int -> year_fraction", m31, tokens.Mul, core.IntValue(2), m62)
+	matrixOK(t, "int * year_fraction -> year_fraction (reflected)", core.IntValue(2), tokens.Mul, m31, m62)
 	matrixOrder(t, "year_fraction", m31, "year_fraction", m62)
 
-	matrixErr(t, "year_fraction + year_fraction past the denominator bound -> vm error", yf(184, 365, 182, 366), token.Add, yf(1, 360, 0, 0))
-	matrixErr(t, "year_fraction * int overflowing int32 -> vm error", m31, token.Mul, core.IntValue(3000000000))
-	matrixErr(t, "year_fraction - year_fraction -> vm error", m62, token.Sub, m31)
-	matrixErr(t, "year_fraction * year_fraction -> vm error", m31, token.Mul, m31)
-	matrixErr(t, "year_fraction / int -> vm error", m62, token.Quo, core.IntValue(2))
-	matrixBothErr(t, "year_fraction", m31, token.Add, "int", core.IntValue(1))
-	matrixBothErr(t, "year_fraction", m31, token.Add, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
-	matrixBothErr(t, "year_fraction", m31, token.Mul, "decimal", core.NewDecimalValue(dec128.FromInt64(2)))
-	matrixBothErr(t, "year_fraction", m31, token.Less, "int", core.IntValue(1))
-	matrixBothErr(t, "year_fraction", m31, token.Less, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
+	matrixErr(t, "year_fraction + year_fraction past the denominator bound -> vm error", yf(184, 365, 182, 366), tokens.Add, yf(1, 360, 0, 0))
+	matrixErr(t, "year_fraction * int overflowing int32 -> vm error", m31, tokens.Mul, core.IntValue(3000000000))
+	matrixErr(t, "year_fraction - year_fraction -> vm error", m62, tokens.Sub, m31)
+	matrixErr(t, "year_fraction * year_fraction -> vm error", m31, tokens.Mul, m31)
+	matrixErr(t, "year_fraction / int -> vm error", m62, tokens.Quo, core.IntValue(2))
+	matrixBothErr(t, "year_fraction", m31, tokens.Add, "int", core.IntValue(1))
+	matrixBothErr(t, "year_fraction", m31, tokens.Add, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
+	matrixBothErr(t, "year_fraction", m31, tokens.Mul, "decimal", core.NewDecimalValue(dec128.FromInt64(2)))
+	matrixBothErr(t, "year_fraction", m31, tokens.Less, "int", core.IntValue(1))
+	matrixBothErr(t, "year_fraction", m31, tokens.Less, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
 }
 
 // ## Comparisons — ordering
@@ -497,15 +498,15 @@ func TestMatrix_Comparisons(t *testing.T) {
 	run := func(s string) core.Value { return core.NewRunesValue([]rune(s), false) }
 
 	// same-type
-	matrixOK(t, "int < int", core.IntValue(1), token.Less, core.IntValue(2), core.True)
-	matrixOK(t, "float < float", core.FloatValue(1), token.Less, core.FloatValue(2), core.True)
-	matrixOK(t, "decimal < decimal", dec(1), token.Less, dec(2), core.True)
-	matrixOK(t, "byte < byte", core.ByteValue(1), token.Less, core.ByteValue(2), core.True)
-	matrixOK(t, "rune < rune", core.RuneValue('a'), token.Less, core.RuneValue('b'), core.True)
-	matrixOK(t, "string < string", str("a"), token.Less, str("b"), core.True)
-	matrixOK(t, "bytes < bytes", byt("a"), token.Less, byt("b"), core.True)
-	matrixOK(t, "runes < runes", run("a"), token.Less, run("b"), core.True)
-	matrixOK(t, "bool ordering: false < true", core.False, token.Less, core.True, core.True)
+	matrixOK(t, "int < int", core.IntValue(1), tokens.Less, core.IntValue(2), core.True)
+	matrixOK(t, "float < float", core.FloatValue(1), tokens.Less, core.FloatValue(2), core.True)
+	matrixOK(t, "decimal < decimal", dec(1), tokens.Less, dec(2), core.True)
+	matrixOK(t, "byte < byte", core.ByteValue(1), tokens.Less, core.ByteValue(2), core.True)
+	matrixOK(t, "rune < rune", core.RuneValue('a'), tokens.Less, core.RuneValue('b'), core.True)
+	matrixOK(t, "string < string", str("a"), tokens.Less, str("b"), core.True)
+	matrixOK(t, "bytes < bytes", byt("a"), tokens.Less, byt("b"), core.True)
+	matrixOK(t, "runes < runes", run("a"), tokens.Less, run("b"), core.True)
+	matrixOK(t, "bool ordering: false < true", core.False, tokens.Less, core.True, core.True)
 
 	// numeric family, cross-type. float/decimal ordering was a vm error before docs/types.md's exact
 	// big.Rat resolution ("Resolved: question 1") — the round-trip check it replaced would have
@@ -541,36 +542,36 @@ func TestMatrix_Comparisons(t *testing.T) {
 	// is actually very slightly larger than the exact decimal 0.1 (~0.1000000000000000055...), so an
 	// exact comparison must say decimal("0.1") < float(0.1) -- not "equal" and not "close enough".
 	matrixOK(t, "decimal(\"0.1\") < float(0.1) -- exact, not a round-trip-check false positive",
-		core.NewDecimalValue(dec128.FromString("0.1")), token.Less, core.FloatValue(0.1), core.True)
+		core.NewDecimalValue(dec128.FromString("0.1")), tokens.Less, core.FloatValue(0.1), core.True)
 	matrixOK(t, "float(0.1) > decimal(\"0.1\") -- same row, reversed",
-		core.FloatValue(0.1), token.Greater, core.NewDecimalValue(dec128.FromString("0.1")), core.True)
+		core.FloatValue(0.1), tokens.Greater, core.NewDecimalValue(dec128.FromString("0.1")), core.True)
 	big := int64(1) << 53
 	matrixOK(t, "int(2^53+1) <= float(2^53) is false -- no silent precision collapse",
-		core.IntValue(big+1), token.LessEq, core.FloatValue(float64(big)), core.False)
+		core.IntValue(big+1), tokens.LessEq, core.FloatValue(float64(big)), core.False)
 	matrixOK(t, "float(2^53) < int(2^53+1) is true -- same row, reversed",
-		core.FloatValue(float64(big)), token.Less, core.IntValue(big+1), core.True)
+		core.FloatValue(float64(big)), tokens.Less, core.IntValue(big+1), core.True)
 
 	arr := core.NewArrayValue([]core.Value{core.IntValue(1)}, false)
-	matrixErr(t, "array < array -> vm error (no ordering pairing defined)", arr, token.Less, arr)
+	matrixErr(t, "array < array -> vm error (no ordering pairing defined)", arr, tokens.Less, arr)
 }
 
 // ## Deliberate non-definitions — explicitly decided vm errors, not merely absent
 func TestMatrix_DeliberateNonDefinitions(t *testing.T) {
 	arr := core.NewArrayValue([]core.Value{core.IntValue(1)}, false)
 
-	matrixErr(t, "int - rune -> vm error (position type, asymmetric)", core.IntValue(1), token.Sub, core.RuneValue('a'))
-	matrixErr(t, "rune + rune -> vm error", core.RuneValue('a'), token.Add, core.RuneValue('b'))
-	matrixErr(t, "scalar - array -> vm error", core.IntValue(1), token.Sub, arr)
-	matrixErr(t, "float + decimal -> vm error", core.FloatValue(1), token.Add, core.NewDecimalValue(dec128.FromInt64(1)))
-	matrixErr(t, "bool + int -> vm error (arithmetic deferred entirely)", core.True, token.Add, core.IntValue(1))
-	matrixErr(t, "array < array -> vm error", arr, token.Less, arr)
-	matrixBothErr(t, "byte", core.ByteValue(1), token.Add, "float", core.FloatValue(1)) // no rule 1/2 pairing either way
-	matrixErr(t, "byte & int -> vm error (bitwise same-type only)", core.ByteValue(1), token.And, core.IntValue(1))
-	matrixErr(t, "int << byte -> vm error (count exception one-directional)", core.IntValue(1), token.Shl, core.ByteValue(1))
-	matrixErr(t, "rune & rune -> vm error (rune has no bitwise)", core.RuneValue('a'), token.And, core.RuneValue('a'))
-	matrixBothErr(t, "byte", core.ByteValue(1), token.And, "rune", core.RuneValue('a')) // rule 2 widening doesn't extend to bitwise
-	matrixUnaryErr(t, "unary - rune -> vm error", token.Sub, core.RuneValue('a'))
-	matrixUnaryErr(t, "unary - bool -> vm error", token.Sub, core.True)
+	matrixErr(t, "int - rune -> vm error (position type, asymmetric)", core.IntValue(1), tokens.Sub, core.RuneValue('a'))
+	matrixErr(t, "rune + rune -> vm error", core.RuneValue('a'), tokens.Add, core.RuneValue('b'))
+	matrixErr(t, "scalar - array -> vm error", core.IntValue(1), tokens.Sub, arr)
+	matrixErr(t, "float + decimal -> vm error", core.FloatValue(1), tokens.Add, core.NewDecimalValue(dec128.FromInt64(1)))
+	matrixErr(t, "bool + int -> vm error (arithmetic deferred entirely)", core.True, tokens.Add, core.IntValue(1))
+	matrixErr(t, "array < array -> vm error", arr, tokens.Less, arr)
+	matrixBothErr(t, "byte", core.ByteValue(1), tokens.Add, "float", core.FloatValue(1)) // no rule 1/2 pairing either way
+	matrixErr(t, "byte & int -> vm error (bitwise same-type only)", core.ByteValue(1), tokens.And, core.IntValue(1))
+	matrixErr(t, "int << byte -> vm error (count exception one-directional)", core.IntValue(1), tokens.Shl, core.ByteValue(1))
+	matrixErr(t, "rune & rune -> vm error (rune has no bitwise)", core.RuneValue('a'), tokens.And, core.RuneValue('a'))
+	matrixBothErr(t, "byte", core.ByteValue(1), tokens.And, "rune", core.RuneValue('a')) // rule 2 widening doesn't extend to bitwise
+	matrixUnaryErr(t, "unary - rune -> vm error", tokens.Sub, core.RuneValue('a'))
+	matrixUnaryErr(t, "unary - bool -> vm error", tokens.Sub, core.True)
 }
 
 // ## Member ≡ operator parity — the correspondence that closes the operator hand-offs: `+` shares
@@ -605,34 +606,34 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	}
 
 	// the add side ≡ +
-	parity("array + int ≡ append", arr(1, 2), "append", token.Add, core.IntValue(3))
-	parity("array + array ≡ append (run)", arr(1, 2), "append", token.Add, arr(3, 4))
-	parity("array + range ≡ append (element)", arr(9), "append", token.Add, core.NewIntRangeValue(1, 3, 1))
-	parity("array + string ≡ append (element)", arr(1), "append", token.Add, str("ab"))
-	parity("string + string ≡ append", str("ab"), "append", token.Add, str("cd"))
-	parity("string + bytes ≡ append", str("ab"), "append", token.Add, byt("cd"))
-	parity("string + rune ≡ append", str("ab"), "append", token.Add, core.RuneValue('x'))
-	parity("string + byte ≡ append (ASCII)", str("ab"), "append", token.Add, core.ByteValue('x'))
-	parity("string + non-ASCII byte ≡ append (both raise)", str("ab"), "append", token.Add, core.ByteValue(200))
-	parity("runes + bytes ≡ append", run("ab"), "append", token.Add, byt("cd"))
-	parity("bytes + runes ≡ append", byt("ab"), "append", token.Add, run("cd"))
-	parity("bytes + rune ≡ append (UTF-8 run)", byt("ab"), "append", token.Add, core.RuneValue('є'))
+	parity("array + int ≡ append", arr(1, 2), "append", tokens.Add, core.IntValue(3))
+	parity("array + array ≡ append (run)", arr(1, 2), "append", tokens.Add, arr(3, 4))
+	parity("array + range ≡ append (element)", arr(9), "append", tokens.Add, core.NewIntRangeValue(1, 3, 1))
+	parity("array + string ≡ append (element)", arr(1), "append", tokens.Add, str("ab"))
+	parity("string + string ≡ append", str("ab"), "append", tokens.Add, str("cd"))
+	parity("string + bytes ≡ append", str("ab"), "append", tokens.Add, byt("cd"))
+	parity("string + rune ≡ append", str("ab"), "append", tokens.Add, core.RuneValue('x'))
+	parity("string + byte ≡ append (ASCII)", str("ab"), "append", tokens.Add, core.ByteValue('x'))
+	parity("string + non-ASCII byte ≡ append (both raise)", str("ab"), "append", tokens.Add, core.ByteValue(200))
+	parity("runes + bytes ≡ append", run("ab"), "append", tokens.Add, byt("cd"))
+	parity("bytes + runes ≡ append", byt("ab"), "append", tokens.Add, run("cd"))
+	parity("bytes + rune ≡ append (UTF-8 run)", byt("ab"), "append", tokens.Add, core.RuneValue('є'))
 
 	// the remove side ≡ -
-	parity("array - int ≡ remove (element)", arr(1, 2, 1), "remove", token.Sub, core.IntValue(1))
-	parity("array - array ≡ remove (run)", arr(1, 2, 1, 2), "remove", token.Sub, arr(1, 2))
-	parity("string - string ≡ remove", str("banana"), "remove", token.Sub, str("an"))
-	parity("string - byte ≡ remove (ASCII)", str("foo"), "remove", token.Sub, core.ByteValue('o'))
-	parity("runes - string ≡ remove", run("banana"), "remove", token.Sub, str("an"))
-	parity("bytes - runes ≡ remove", byt("banana"), "remove", token.Sub, run("an"))
-	parity("bytes - byte ≡ remove (element)", byt("banana"), "remove", token.Sub, core.ByteValue('a'))
+	parity("array - int ≡ remove (element)", arr(1, 2, 1), "remove", tokens.Sub, core.IntValue(1))
+	parity("array - array ≡ remove (run)", arr(1, 2, 1, 2), "remove", tokens.Sub, arr(1, 2))
+	parity("string - string ≡ remove", str("banana"), "remove", tokens.Sub, str("an"))
+	parity("string - byte ≡ remove (ASCII)", str("foo"), "remove", tokens.Sub, core.ByteValue('o'))
+	parity("runes - string ≡ remove", run("banana"), "remove", tokens.Sub, str("an"))
+	parity("bytes - runes ≡ remove", byt("banana"), "remove", tokens.Sub, run("an"))
+	parity("bytes - byte ≡ remove (element)", byt("banana"), "remove", tokens.Sub, core.ByteValue('a'))
 
 	// the repeat side ≡ *
-	parity("array * int ≡ repeat", arr(1, 2), "repeat", token.Mul, core.IntValue(3))
-	parity("string * int ≡ repeat", str("ab"), "repeat", token.Mul, core.IntValue(3))
-	parity("runes * int ≡ repeat", run("ab"), "repeat", token.Mul, core.IntValue(3))
-	parity("bytes * int ≡ repeat", byt("ab"), "repeat", token.Mul, core.IntValue(3))
-	parity("array * 0 ≡ repeat(0)", arr(1, 2), "repeat", token.Mul, core.IntValue(0))
-	parity("array * negative ≡ repeat (both raise)", arr(1, 2), "repeat", token.Mul, core.IntValue(-1))
-	parity("string * lossy float ≡ repeat (both raise)", str("ab"), "repeat", token.Mul, core.FloatValue(2.5))
+	parity("array * int ≡ repeat", arr(1, 2), "repeat", tokens.Mul, core.IntValue(3))
+	parity("string * int ≡ repeat", str("ab"), "repeat", tokens.Mul, core.IntValue(3))
+	parity("runes * int ≡ repeat", run("ab"), "repeat", tokens.Mul, core.IntValue(3))
+	parity("bytes * int ≡ repeat", byt("ab"), "repeat", tokens.Mul, core.IntValue(3))
+	parity("array * 0 ≡ repeat(0)", arr(1, 2), "repeat", tokens.Mul, core.IntValue(0))
+	parity("array * negative ≡ repeat (both raise)", arr(1, 2), "repeat", tokens.Mul, core.IntValue(-1))
+	parity("string * lossy float ≡ repeat (both raise)", str("ab"), "repeat", tokens.Mul, core.FloatValue(2.5))
 }

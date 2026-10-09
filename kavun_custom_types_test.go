@@ -14,7 +14,9 @@ import (
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
@@ -33,11 +35,9 @@ var (
 	MyTabled              = kavun.UserDefinedType + 9
 )
 
-// Member names an embedder binds for its own type, in the user range.
-const (
-	memberScaled = member.FirstUserDefined + iota
-	memberLabel
-)
+// A member name the embedder binds for its own type, in the embedder range. Its other member, label, reuses the
+// builtin id: an embedder may declare entries under builtin ids as well as its own.
+const memberScaled = member.FirstUserDefined
 
 func NewCounterValue(val int64) core.Value {
 	o := &Counter{value: val}
@@ -167,10 +167,9 @@ type Panicker struct{}
 
 func init() {
 	member.Define(memberScaled, "scaled")
-	member.Define(memberLabel, "label")
 
-	// Register Tabled — an int wrapper whose members are table entries: one under a builtin-range name the
-	// registry does not bind yet (answered by name), two under the embedder's own ids.
+	// Register Tabled — an int wrapper whose members are table entries: scaled under the embedder's own id, the
+	// label property under the builtin id, raw answered by name.
 	core.SetValueType(MyTabled, core.ValueTypeDescr{
 		Name:   func(core.Value) string { return "tabled" },
 		String: func(v core.Value) string { return fmt.Sprintf("tabled(%d)", int64(v.Data)) },
@@ -187,7 +186,7 @@ func init() {
 			}},
 		},
 		Properties: []core.PropertyEntry{
-			memberLabel: {Pure: true, Get: func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
+			members.Label: {Pure: true, Get: func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
 				return core.NewStringValue(fmt.Sprintf("#%d", int64(v.Data))), nil
 			}},
 		},
@@ -209,9 +208,9 @@ func init() {
 			if rhs.Type == value.Int {
 				o := toCounter(v)
 				switch op {
-				case token.Add:
+				case tokens.Add:
 					return NewCounterValue(o.value + int64(rhs.Data)), nil
-				case token.Sub:
+				case tokens.Sub:
 					return NewCounterValue(o.value - int64(rhs.Data)), nil
 				}
 			}
@@ -219,9 +218,9 @@ func init() {
 				o := toCounter(v)
 				r := toCounter(rhs)
 				switch op {
-				case token.Add:
+				case tokens.Add:
 					return NewCounterValue(o.value + r.value), nil
-				case token.Sub:
+				case tokens.Sub:
 					return NewCounterValue(o.value - r.value), nil
 				}
 			}
@@ -254,13 +253,13 @@ func init() {
 			}
 			i := toCustomNumber(v).value
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return core.BoolValue(i < r), nil
-			case token.Greater:
+			case tokens.Greater:
 				return core.BoolValue(i > r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return core.BoolValue(i <= r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return core.BoolValue(i >= r), nil
 			}
 			t := core.IntValue(i)
@@ -299,7 +298,7 @@ func init() {
 		Name:   func(v core.Value) string { return "string-array" },
 		String: func(v core.Value) string { return strings.Join(toStringArray(v).Value, ", ") },
 		BinaryOp: func(v core.Value, rhs core.Value, op token.Token, _ bool) (core.Value, error) {
-			if rhs.Type == MyStringArray && op == token.Add {
+			if rhs.Type == MyStringArray && op == tokens.Add {
 				l := toStringArray(v)
 				r := toStringArray(rhs)
 				if len(r.Value) == 0 {
@@ -557,19 +556,19 @@ func TestEmbedderTypeBinaryOpDelegation(t *testing.T) {
 		rhs  core.Value
 		want core.Value
 	}{
-		{"box(int) + int", box(core.IntValue(10)), token.Add, core.IntValue(4), core.IntValue(14)},
-		{"int + box(int)", core.IntValue(10), token.Add, box(core.IntValue(4)), core.IntValue(14)},
-		{"box(int) - int", box(core.IntValue(10)), token.Sub, core.IntValue(4), core.IntValue(6)},
-		{"int - box(int) -- reflected, operand order matters", core.IntValue(10), token.Sub, box(core.IntValue(4)), core.IntValue(6)},
-		{"box(int) / int", box(core.IntValue(10)), token.Quo, core.IntValue(4), core.IntValue(2)},
-		{"int / box(int) -- reflected, operand order matters", core.IntValue(10), token.Quo, box(core.IntValue(4)), core.IntValue(2)},
-		{"box(string) + string", box(core.NewStringValue("a")), token.Add, core.NewStringValue("b"), core.NewStringValue("ab")},
-		{"string + box(string) -- reflected, content order matters", core.NewStringValue("a"), token.Add, box(core.NewStringValue("b")), core.NewStringValue("ab")},
-		{"box(int) < int", box(core.IntValue(1)), token.Less, core.IntValue(2), core.True},
-		{"int < box(int) -- reflected", core.IntValue(1), token.Less, box(core.IntValue(2)), core.True},
-		{"int > box(int) -- reflected", core.IntValue(1), token.Greater, box(core.IntValue(2)), core.False},
-		{"box(decimal) + int", box(core.NewDecimalValue(dec128.FromInt64(10))), token.Add, core.IntValue(4), core.NewDecimalValue(dec128.FromInt64(14))},
-		{"decimal + box(int) -- reflected", core.NewDecimalValue(dec128.FromInt64(10)), token.Add, box(core.IntValue(4)), core.NewDecimalValue(dec128.FromInt64(14))},
+		{"box(int) + int", box(core.IntValue(10)), tokens.Add, core.IntValue(4), core.IntValue(14)},
+		{"int + box(int)", core.IntValue(10), tokens.Add, box(core.IntValue(4)), core.IntValue(14)},
+		{"box(int) - int", box(core.IntValue(10)), tokens.Sub, core.IntValue(4), core.IntValue(6)},
+		{"int - box(int) -- reflected, operand order matters", core.IntValue(10), tokens.Sub, box(core.IntValue(4)), core.IntValue(6)},
+		{"box(int) / int", box(core.IntValue(10)), tokens.Quo, core.IntValue(4), core.IntValue(2)},
+		{"int / box(int) -- reflected, operand order matters", core.IntValue(10), tokens.Quo, box(core.IntValue(4)), core.IntValue(2)},
+		{"box(string) + string", box(core.NewStringValue("a")), tokens.Add, core.NewStringValue("b"), core.NewStringValue("ab")},
+		{"string + box(string) -- reflected, content order matters", core.NewStringValue("a"), tokens.Add, box(core.NewStringValue("b")), core.NewStringValue("ab")},
+		{"box(int) < int", box(core.IntValue(1)), tokens.Less, core.IntValue(2), core.True},
+		{"int < box(int) -- reflected", core.IntValue(1), tokens.Less, box(core.IntValue(2)), core.True},
+		{"int > box(int) -- reflected", core.IntValue(1), tokens.Greater, box(core.IntValue(2)), core.False},
+		{"box(decimal) + int", box(core.NewDecimalValue(dec128.FromInt64(10))), tokens.Add, core.IntValue(4), core.NewDecimalValue(dec128.FromInt64(14))},
+		{"decimal + box(int) -- reflected", core.NewDecimalValue(dec128.FromInt64(10)), tokens.Add, box(core.IntValue(4)), core.NewDecimalValue(dec128.FromInt64(14))},
 	}
 
 	for _, c := range cases {

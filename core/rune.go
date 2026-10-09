@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -199,15 +200,15 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			l := int64(other.Data)
 			r := int64(v.Data)
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				return runeArithResult(l + r)
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(l < r), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(l > r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(l <= r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(l >= r), nil
 			}
 
@@ -215,15 +216,15 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			l := int64(other.Data)
 			r := int64(v.Data)
 			switch op {
-			case token.Sub:
+			case tokens.Sub:
 				return IntValue(l - r), nil
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(l < r), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(l > r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(l <= r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(l >= r), nil
 			}
 
@@ -231,13 +232,13 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			l := int64(other.Data)
 			r := int64(v.Data)
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(l < r), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(l > r), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(l <= r), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(l >= r), nil
 			}
 		}
@@ -250,15 +251,15 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
-		case token.Sub:
+		case tokens.Sub:
 			return IntValue(l - r), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 
@@ -266,17 +267,17 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return runeArithResult(l + r)
-		case token.Sub:
+		case tokens.Sub:
 			return runeArithResult(l - r)
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 
@@ -284,13 +285,13 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l < r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l > r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l <= r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
 	}
@@ -370,6 +371,6 @@ func runeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		return NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

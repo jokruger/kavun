@@ -22,6 +22,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -11486,7 +11487,7 @@ out.append_in_place(xs...)
 			seen[ins.Op] = true
 		}
 	}
-	for _, op := range []bc.Opcode{bc.CallMember, bc.CallMemberSpread, bc.DeferMember, bc.AccessProperty, bc.AssignProperty, bc.AssignIndex} {
+	for _, op := range []bc.Opcode{opcodes.CallMember, opcodes.CallMemberSpread, opcodes.DeferMember, opcodes.AccessProperty, opcodes.AssignProperty, opcodes.AssignIndex} {
 		require.True(t, seen[op], "script does not exercise %s", op)
 	}
 

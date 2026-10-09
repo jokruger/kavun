@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -194,7 +195,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		switch other.Type {
 		case value.Byte:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := []byte{byte(other.Data)}
 				t := make([]byte, len(l)+len(o.Elements))
 				copy(t, l)
@@ -204,7 +205,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 		case value.Rune:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := []byte(string(rune(other.Data)))
 				t := make([]byte, len(l)+len(o.Elements))
 				copy(t, l)
@@ -217,13 +218,13 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			// type, so "ab" + bytes("cd") is string's own cell and answers a string
 			l, _ := other.AsBytes() // always succeeds for String/Runes
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(bytes.Compare(l, o.Elements) < 0), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(bytes.Compare(l, o.Elements) <= 0), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(bytes.Compare(l, o.Elements) > 0), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(bytes.Compare(l, o.Elements) >= 0), nil
 			}
 		}
@@ -234,7 +235,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
 	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
 	// the sequence", `n * seq` has no such reading
-	if op == token.Mul {
+	if op == tokens.Mul {
 		n, isCount, err := SeqRepeatOperand(other)
 		if err != nil {
 			return Undefined, err
@@ -258,13 +259,13 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	switch other.Type {
 	case value.Byte:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			r := []byte{byte(other.Data)}
 			t := make([]byte, len(o.Elements)+len(r))
 			copy(t, o.Elements)
 			copy(t[len(o.Elements):], r)
 			return NewBytesValue(t, false), nil
-		case token.Sub:
+		case tokens.Sub:
 			b := byte(other.Data)
 			t := make([]byte, 0, len(o.Elements))
 			for _, e := range o.Elements {
@@ -278,72 +279,72 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	case value.Rune:
 		r := []byte(string(rune(other.Data)))
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			t := make([]byte, len(o.Elements)+len(r))
 			copy(t, o.Elements)
 			copy(t[len(o.Elements):], r)
 			return NewBytesValue(t, false), nil
-		case token.Sub:
+		case tokens.Sub:
 			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
 		}
 
 	case value.String:
 		r, _ := other.AsBytes() // always succeeds for String
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			t := make([]byte, len(o.Elements)+len(r))
 			copy(t, o.Elements)
 			copy(t[len(o.Elements):], r)
 			return NewBytesValue(t, false), nil
-		case token.Sub:
+		case tokens.Sub:
 			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
 		}
 
 	case value.Bytes:
 		r := (*Bytes)(other.Ptr).Elements
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			t := make([]byte, len(o.Elements)+len(r))
 			copy(t, o.Elements)
 			copy(t[len(o.Elements):], r)
 			return NewBytesValue(t, false), nil
-		case token.Sub:
+		case tokens.Sub:
 			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
 		}
 
 	case value.Runes:
 		r, _ := other.AsBytes() // always succeeds for Runes
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			t := make([]byte, len(o.Elements)+len(r))
 			copy(t, o.Elements)
 			copy(t[len(o.Elements):], r)
 			return NewBytesValue(t, false), nil
-		case token.Sub:
+		case tokens.Sub:
 			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
 		}
 	}
@@ -795,7 +796,7 @@ func bytesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return bytesPadEndInPlace(vm, v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

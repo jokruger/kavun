@@ -12,6 +12,7 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -166,7 +167,7 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	d := dateOf(v)
 	if reflected {
 		// n + d: days, as d + n
-		if other.Type == value.Int && op == token.Add {
+		if other.Type == value.Int && op == tokens.Add {
 			return dateAddDays(d, int64(other.Data))
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
@@ -174,9 +175,9 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	switch other.Type {
 	case value.Int:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return dateAddDays(d, int64(other.Data))
-		case token.Sub:
+		case tokens.Sub:
 			n := int64(other.Data)
 			if n == -1<<63 {
 				return Undefined, errs.NewInvalidValueError("date out of range")
@@ -186,15 +187,15 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	case value.Date:
 		o := dateOf(other)
 		switch op {
-		case token.Sub:
+		case tokens.Sub:
 			return IntValue(int64(d.Sub(o))), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(d.Before(o)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(d.After(o)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(!d.After(o)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(!d.Before(o)), nil
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
@@ -411,7 +412,7 @@ func dateTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		}
 		return NewTimeValue(dateStartIn(d, loc)), nil
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }
 
 // dateStartIn is the first instant whose wall-clock date in loc is d: midnight when midnight exists (the earlier

@@ -112,11 +112,11 @@ type ValueTypeDescr struct {
 	Arity      func(v Value) int                                 // PURE by contract
 	Call       func(vm VM, v Value, args []Value) (Value, error) // CALLABLE-DEPENDENT by contract
 
-	AccessIndex         func(v Value, k Value) (Value, error)     // PURE by contract — x[k]
-	AccessNamedProperty func(v Value, name string) (Value, error) // PURE by contract — x.name
+	AccessIndex         func(v Value, k Value) (Value, error)            // PURE by contract — x[k]
+	AccessNamedProperty func(vm VM, v Value, name string) (Value, error) // PURE by contract — x.name
 
-	AssignIndex         func(v Value, k Value, r Value) error     // IMPURE by contract (mutates target) — x[k] = r
-	AssignNamedProperty func(v Value, name string, r Value) error // IMPURE by contract (mutates target) — x.name = r
+	AssignIndex         func(v Value, k Value, r Value) error            // IMPURE by contract (mutates target) — x[k] = r
+	AssignNamedProperty func(vm VM, v Value, name string, r Value) error // IMPURE by contract (mutates target) — x.name = r
 
 	CallNamedMethod   func(vm VM, v Value, name string, args []Value) (Value, error) // METHOD-DEPENDENT by contract: purity varies per member name, reported by IsNamedMethodPure (see docs/purity.md)
 	IsNamedMethodPure func(name string) bool                                         // optimizer information only: true only for a name the type answers on the name path and whose call is pure
@@ -197,10 +197,10 @@ var DefaultValueType = ValueTypeDescr{
 	AccessIndex:         defaultAccessIndex,         // PURE by contract
 	AccessNamedProperty: defaultAccessNamedProperty, // PURE by contract
 
-	AssignIndex:         func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },        // IMPURE by contract
-	AssignNamedProperty: func(v Value, _ string, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
+	AssignIndex:         func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
+	AssignNamedProperty: defaultAssignNamedProperty,                                                          // IMPURE by contract
 
-	CallNamedMethod:   defaultCallNamedMethod,             // METHOD-DEPENDENT by contract: purity varies per member name, reported by IsNamedMethodPure (see docs/purity.md)
+	CallNamedMethod:   CallMemberByLookup,                 // METHOD-DEPENDENT by contract: purity varies per member name, reported by IsNamedMethodPure (see docs/purity.md)
 	IsNamedMethodPure: func(string) bool { return false }, // conservative: a type opts in per name before the optimizer will fold a call to it
 
 	Next:  ConstHook(false),                                                    // LOCALISED-STATE by contract (advances iterator cursor)

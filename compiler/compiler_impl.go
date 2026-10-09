@@ -18,8 +18,10 @@ import (
 	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
@@ -273,9 +275,9 @@ func (c *Compiler) compileStatement(node ast.Statement) (err error) {
 		}
 
 	case *statement.IncDec:
-		op := token.AddAssign
-		if node.Token == token.Dec {
-			op = token.SubAssign
+		var op token.Token = tokens.AddAssign
+		if node.Token == tokens.Dec {
+			op = tokens.SubAssign
 		}
 		return c.compileAssignStmt(node, []ast.Expression{node.Expr}, []ast.Expression{&scalar.Int{Value: 1}}, op)
 
@@ -325,13 +327,13 @@ func (c *Compiler) compileUnaryExpr(node *expression.Unary) (err error) {
 	}
 
 	switch node.Token {
-	case token.Not:
+	case tokens.Not:
 		_, err = c.emit(node, NewUnaryNot())
-	case token.Sub:
+	case tokens.Sub:
 		_, err = c.emit(node, NewUnaryNeg())
-	case token.Xor:
+	case tokens.Xor:
 		_, err = c.emit(node, NewUnaryBitNot())
-	case token.Add:
+	case tokens.Add:
 		// do nothing?
 	default:
 		return c.errorf(node, "invalid unary operator: %s", node.Token.String())
@@ -341,7 +343,7 @@ func (c *Compiler) compileUnaryExpr(node *expression.Unary) (err error) {
 }
 
 func (c *Compiler) compileBinaryExpr(node *expression.Binary) (err error) {
-	if node.Token == token.LAnd || node.Token == token.LOr {
+	if node.Token == tokens.LAnd || node.Token == tokens.LOr {
 		return c.compileLogical(node)
 	}
 
@@ -353,41 +355,41 @@ func (c *Compiler) compileBinaryExpr(node *expression.Binary) (err error) {
 	}
 
 	switch node.Token {
-	case token.Add:
-		_, err = c.emit(node, NewBinaryOp(token.Add))
-	case token.Sub:
-		_, err = c.emit(node, NewBinaryOp(token.Sub))
-	case token.Mul:
-		_, err = c.emit(node, NewBinaryOp(token.Mul))
-	case token.Quo:
-		_, err = c.emit(node, NewBinaryOp(token.Quo))
-	case token.Rem:
-		_, err = c.emit(node, NewBinaryOp(token.Rem))
-	case token.Greater:
-		_, err = c.emit(node, NewBinaryOp(token.Greater))
-	case token.GreaterEq:
-		_, err = c.emit(node, NewBinaryOp(token.GreaterEq))
-	case token.Less:
-		_, err = c.emit(node, NewBinaryOp(token.Less))
-	case token.LessEq:
-		_, err = c.emit(node, NewBinaryOp(token.LessEq))
-	case token.Equal:
+	case tokens.Add:
+		_, err = c.emit(node, NewBinaryOp(tokens.Add))
+	case tokens.Sub:
+		_, err = c.emit(node, NewBinaryOp(tokens.Sub))
+	case tokens.Mul:
+		_, err = c.emit(node, NewBinaryOp(tokens.Mul))
+	case tokens.Quo:
+		_, err = c.emit(node, NewBinaryOp(tokens.Quo))
+	case tokens.Rem:
+		_, err = c.emit(node, NewBinaryOp(tokens.Rem))
+	case tokens.Greater:
+		_, err = c.emit(node, NewBinaryOp(tokens.Greater))
+	case tokens.GreaterEq:
+		_, err = c.emit(node, NewBinaryOp(tokens.GreaterEq))
+	case tokens.Less:
+		_, err = c.emit(node, NewBinaryOp(tokens.Less))
+	case tokens.LessEq:
+		_, err = c.emit(node, NewBinaryOp(tokens.LessEq))
+	case tokens.Equal:
 		_, err = c.emit(node, NewEqual())
-	case token.NotEqual:
+	case tokens.NotEqual:
 		_, err = c.emit(node, NewNotEqual())
-	case token.And:
-		_, err = c.emit(node, NewBinaryOp(token.And))
-	case token.Or:
-		_, err = c.emit(node, NewBinaryOp(token.Or))
-	case token.Xor:
-		_, err = c.emit(node, NewBinaryOp(token.Xor))
-	case token.AndNot:
-		_, err = c.emit(node, NewBinaryOp(token.AndNot))
-	case token.Shl:
-		_, err = c.emit(node, NewBinaryOp(token.Shl))
-	case token.Shr:
-		_, err = c.emit(node, NewBinaryOp(token.Shr))
-	case token.In:
+	case tokens.And:
+		_, err = c.emit(node, NewBinaryOp(tokens.And))
+	case tokens.Or:
+		_, err = c.emit(node, NewBinaryOp(tokens.Or))
+	case tokens.Xor:
+		_, err = c.emit(node, NewBinaryOp(tokens.Xor))
+	case tokens.AndNot:
+		_, err = c.emit(node, NewBinaryOp(tokens.AndNot))
+	case tokens.Shl:
+		_, err = c.emit(node, NewBinaryOp(tokens.Shl))
+	case tokens.Shr:
+		_, err = c.emit(node, NewBinaryOp(tokens.Shr))
+	case tokens.In:
 		_, err = c.emit(node, NewContains())
 	default:
 		return c.errorf(node, "invalid binary operator: %s", node.Token.String())
@@ -404,7 +406,7 @@ func (c *Compiler) compileLogical(node *expression.Binary) (err error) {
 
 	// jump position
 	var jumpPos int
-	if node.Token == token.LAnd {
+	if node.Token == tokens.LAnd {
 		jumpPos, err = c.emit(node, NewAndJump(0))
 		if err != nil {
 			return err
@@ -1083,7 +1085,7 @@ func (c *Compiler) compileIfStmt(node *statement.If) (err error) {
 
 func (c *Compiler) compileBranchStmt(node *statement.Branch) (err error) {
 	switch node.Token {
-	case token.Break:
+	case tokens.Break:
 		curLoop := c.currentLoop()
 		if curLoop == nil {
 			return c.errorf(node, "break not allowed outside loop")
@@ -1093,7 +1095,7 @@ func (c *Compiler) compileBranchStmt(node *statement.Branch) (err error) {
 			return err
 		}
 		curLoop.Breaks = append(curLoop.Breaks, pos)
-	case token.Continue:
+	case tokens.Continue:
 		curLoop := c.currentLoop()
 		if curLoop == nil {
 			return c.errorf(node, "continue not allowed outside loop")
@@ -1217,7 +1219,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	// resolve left-hand side: a plain name, or a selector/index chain rooted at one
 	ident, hasSelector := assignTargetRoot(lhs[0])
 
-	if ident == "_" && !hasSelector && (op == token.Assign || op == token.Define) {
+	if ident == "_" && !hasSelector && (op == tokens.Assign || op == tokens.Define) {
 		// '_' is never a real variable - it discards a value. The right-hand side is still compiled/evaluated for
 		// its side effects (this is the idiom already used pervasively, e.g. `_ = risky_call()`), just never stored.
 		if err := c.CompileNode(rhs[0]); err != nil {
@@ -1227,7 +1229,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		return err
 	}
 
-	if op == token.Define && hasSelector {
+	if op == tokens.Define && hasSelector {
 		// using selector on new variable does not make sense
 		return c.errorf(node, "operator ':=' not allowed with selector")
 	}
@@ -1239,7 +1241,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	}
 
 	// +=, -=, *=, /=
-	if op != token.Assign && op != token.Define {
+	if op != tokens.Assign && op != tokens.Define {
 		if err := c.CompileNode(lhs[0]); err != nil {
 			return err
 		}
@@ -1255,28 +1257,28 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	symbol = c.defineAssignSymbolIfNeeded(ident, op, hasSelector, isFunc, exists, symbol)
 
 	switch op {
-	case token.AddAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Add))
-	case token.SubAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Sub))
-	case token.MulAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Mul))
-	case token.QuoAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Quo))
-	case token.RemAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Rem))
-	case token.AndAssign:
-		_, err = c.emit(node, NewBinaryOp(token.And))
-	case token.OrAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Or))
-	case token.AndNotAssign:
-		_, err = c.emit(node, NewBinaryOp(token.AndNot))
-	case token.XorAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Xor))
-	case token.ShlAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Shl))
-	case token.ShrAssign:
-		_, err = c.emit(node, NewBinaryOp(token.Shr))
+	case tokens.AddAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Add))
+	case tokens.SubAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Sub))
+	case tokens.MulAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Mul))
+	case tokens.QuoAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Quo))
+	case tokens.RemAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Rem))
+	case tokens.AndAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.And))
+	case tokens.OrAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Or))
+	case tokens.AndNotAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.AndNot))
+	case tokens.XorAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Xor))
+	case tokens.ShlAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Shl))
+	case tokens.ShrAssign:
+		_, err = c.emit(node, NewBinaryOp(tokens.Shr))
 	}
 	if err != nil {
 		return err
@@ -1317,14 +1319,14 @@ func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Tok
 	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
 	// assignments (+=, -=, etc.) remain disallowed.
 	if exists && symbol.Scope == ScopeBuiltin {
-		if op != token.Define && op != token.Assign {
+		if op != tokens.Define && op != tokens.Assign {
 			return nil, false, c.errorf(node, "cannot assign to builtin '%s'", ident)
 		}
 		symbol = nil
 		exists = false
 		depth = 0
 	}
-	if op == token.Define {
+	if op == tokens.Define {
 		// A name declared by a header (function/lambda parameters and named result; if-init; for-init;
 		// for-in key/value) lives exactly one Fork above its own corresponding block's direct statements
 		// (see docs/language.md). So depth<=1 catches both an ordinary same-block redeclaration (depth 0) and a header
@@ -1342,7 +1344,7 @@ func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Tok
 		}
 	} else {
 		if !exists {
-			if op == token.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart {
+			if op == tokens.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart {
 				if isFunc {
 					symbol = c.symbolTable.Define(ident)
 				}
@@ -1357,7 +1359,7 @@ func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Tok
 // defineAssignSymbolIfNeeded performs the deferred symbol.Define step for an ordinary (non-function-literal)
 // right-hand side, once the right-hand side has already been compiled.
 func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, hasSelector bool, isFunc bool, exists bool, symbol *Symbol) *Symbol {
-	if (op == token.Define || (op == token.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
+	if (op == tokens.Define || (op == tokens.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
 		return c.symbolTable.Define(ident)
 	}
 	return symbol
@@ -1372,7 +1374,7 @@ func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.To
 		_, err = c.emit(node, NewStoreGlobal(symbol.Index))
 
 	case ScopeLocal:
-		if op == token.Define && !symbol.LocalAssigned {
+		if op == tokens.Define && !symbol.LocalAssigned {
 			_, err = c.emit(node, NewDefineLocal(symbol.Index))
 		} else {
 			_, err = c.emit(node, NewStoreLocal(symbol.Index))
@@ -1398,7 +1400,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	if len(rhs) != 1 {
 		return c.errorf(node, "destructuring assignment requires a single right-hand side expression")
 	}
-	if op != token.Define && op != token.Assign {
+	if op != tokens.Define && op != tokens.Assign {
 		return c.errorf(node, "destructuring assignment does not support operator '%s'", op.String())
 	}
 
@@ -1470,7 +1472,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 // destructuring's deferred symbol.Define (see resolveAssignSymbol/defineAssignSymbolIfNeeded) already ensures for
 // `:=` targets that shadow an outer name of the same name used on the right.
 func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
-	if op != token.Define && op != token.Assign {
+	if op != tokens.Define && op != tokens.Assign {
 		return c.errorf(node, "parallel assignment does not support operator '%s'", op.String())
 	}
 
@@ -1974,9 +1976,9 @@ func (c *Compiler) optimizeFunc(node ast.Node) (err error) {
 		newInsts = append(newInsts, ci)
 
 		switch ci.Op {
-		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+		case opcodes.Jump, opcodes.JumpFalsy, opcodes.AndJump, opcodes.OrJump:
 			reachableDsts[int(ci.Op3)] = true
-		case bc.Return:
+		case opcodes.Return:
 			deadCode = true
 		}
 
@@ -1994,7 +1996,7 @@ func (c *Compiler) optimizeFunc(node ast.Node) (err error) {
 
 	err = iterateInstructions(newInsts, func(pos int, ci bc.Instruction) (bool, error) {
 		switch ci.Op {
-		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+		case opcodes.Jump, opcodes.JumpFalsy, opcodes.AndJump, opcodes.OrJump:
 			newDst, ok := posMap[int(ci.Op3)]
 			if ok {
 				t := ci
@@ -2016,7 +2018,7 @@ func (c *Compiler) optimizeFunc(node ast.Node) (err error) {
 	if err != nil {
 		return err
 	}
-	if li.Op != bc.Return {
+	if li.Op != opcodes.Return {
 		appendReturn = true
 	}
 

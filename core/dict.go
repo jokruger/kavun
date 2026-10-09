@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -255,7 +256,7 @@ func dictTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		case value.Record:
 			r := (*Dict)(v.Ptr).Elements
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				l := (*Record)(other.Ptr).Elements
 				return NewDictValue(mergeMaps(l, r), false), nil
 			}
@@ -268,27 +269,27 @@ func dictTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	case value.Dict:
 		r := (*Dict)(other.Ptr).Elements
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return NewDictValue(mergeMaps(l, r), false), nil
 		}
 
 	case value.Record:
 		r := (*Record)(other.Ptr).Elements
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return NewDictValue(mergeMaps(l, r), false), nil
 		}
 
 	case value.String:
 		switch op {
-		case token.Sub:
+		case tokens.Sub:
 			return dictTypeDelete(v, other, false)
 		}
 
 	default:
 		// `-` shares remove's key reading: any operand whose string conversion exists
 		// names a key (`d - 1` removes "1"), exactly like d.remove(1) and `1 in d`
-		if op == token.Sub {
+		if op == tokens.Sub {
 			if _, ok := other.AsString(); ok {
 				return dictTypeDelete(v, other, false)
 			}
@@ -527,7 +528,7 @@ func dictTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		return dictFnIndex(vm, v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 
@@ -546,7 +547,10 @@ func dictTypeAccessIndex(v Value, index Value) (Value, error) {
 }
 
 // PURE by contract — a dict's keys are data, reached by d[k] only; d.name is refused
-func dictTypeAccessNamedProperty(v Value, name string) (Value, error) {
+func dictTypeAccessNamedProperty(vm VM, v Value, name string) (Value, error) {
+	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
+		return e.Get(vm, v, id)
+	}
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), name)
 }
 
@@ -929,7 +933,10 @@ func dictTypeAssignIndex(v Value, index Value, r Value) error {
 }
 
 // IMPURE by contract — d.name = r is refused, as d.name is
-func dictTypeAssignNamedProperty(v Value, name string, _ Value) error {
+func dictTypeAssignNamedProperty(vm VM, v Value, name string, r Value) error {
+	if e, id, ok := PropertyByLookup(v, name); ok && e.Set != nil {
+		return e.Set(vm, v, id, r)
+	}
 	return errs.NewInvalidSelectorError(v.TypeName(), name)
 }
 

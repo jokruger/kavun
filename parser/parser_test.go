@@ -18,6 +18,7 @@ import (
 	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 )
@@ -53,7 +54,7 @@ func scanExpect(t *testing.T, input string, mode parser.ScanMode, expected ...sc
 	}
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, token.EOF, tok, "more tokens left")
+	require.Equal(t, token.Token(tokens.EOF), tok, "more tokens left")
 	require.Equal(t, 0, s.ErrorCount())
 }
 
@@ -263,7 +264,7 @@ func unaryExpr(x ast.Expression, op token.Token, pos core.Pos) *expression.Unary
 
 func importExpr(moduleName string, pos core.Pos) *expression.Import {
 	return &expression.Import{
-		ModuleName: moduleName, Token: token.Import, TokenPos: pos,
+		ModuleName: moduleName, Token: tokens.Import, TokenPos: pos,
 	}
 }
 
@@ -578,107 +579,107 @@ func TestScanner_Scan(t *testing.T) {
 		token   token.Token
 		literal string
 	}{
-		{token.Comment, "/* a comment */"},
-		{token.Comment, "// a comment \n"},
-		{token.Comment, "/*\r*/"},
-		{token.Comment, "/**\r/*/"},
-		{token.Comment, "/**\r\r/*/"},
-		{token.Comment, "//\r\n"},
-		{token.Ident, "foobar"},
-		{token.Ident, "a۰۱۸"},
-		{token.Ident, "foo६४"},
-		{token.Ident, "bar９８７６"},
-		{token.Ident, "ŝ"},
-		{token.Ident, "ŝfoo"},
-		{token.Int, "0"},
-		{token.Int, "1"},
-		{token.Int, "123456789012345678890"},
-		{token.Int, "01234567"},
-		{token.Int, "0xcafebabe"},
-		{token.Float, "0."},
-		{token.Float, ".0"},
-		{token.Float, "3.14159265"},
-		{token.Float, "1e0"},
-		{token.Float, "1e+100"},
-		{token.Float, "1e-100"},
-		{token.Float, "2.71828e-1000"},
-		{token.Float, "1f"},
-		{token.Float, "1.5f"},
-		{token.Decimal, "1d"},
-		{token.Decimal, "1.23d"},
-		{token.Char, "'a'"},
-		{token.ByteChar, "b'a'"},
-		{token.Char, "'\\000'"},
-		{token.Char, "'\\xFF'"},
-		{token.Char, "'\\uff16'"},
-		{token.Char, "'\\U0000ff16'"},
-		{token.String, "`foobar`"},
-		{token.BytesString, `b"foobar"`},
-		{token.TimeString, `t"2024-01-01T00:00:00Z"`},
-		{token.DateString, `d"2024-01-01"`},
-		{token.String, "`" + `foo
+		{tokens.Comment, "/* a comment */"},
+		{tokens.Comment, "// a comment \n"},
+		{tokens.Comment, "/*\r*/"},
+		{tokens.Comment, "/**\r/*/"},
+		{tokens.Comment, "/**\r\r/*/"},
+		{tokens.Comment, "//\r\n"},
+		{tokens.Ident, "foobar"},
+		{tokens.Ident, "a۰۱۸"},
+		{tokens.Ident, "foo६४"},
+		{tokens.Ident, "bar９８７６"},
+		{tokens.Ident, "ŝ"},
+		{tokens.Ident, "ŝfoo"},
+		{tokens.Int, "0"},
+		{tokens.Int, "1"},
+		{tokens.Int, "123456789012345678890"},
+		{tokens.Int, "01234567"},
+		{tokens.Int, "0xcafebabe"},
+		{tokens.Float, "0."},
+		{tokens.Float, ".0"},
+		{tokens.Float, "3.14159265"},
+		{tokens.Float, "1e0"},
+		{tokens.Float, "1e+100"},
+		{tokens.Float, "1e-100"},
+		{tokens.Float, "2.71828e-1000"},
+		{tokens.Float, "1f"},
+		{tokens.Float, "1.5f"},
+		{tokens.Decimal, "1d"},
+		{tokens.Decimal, "1.23d"},
+		{tokens.Char, "'a'"},
+		{tokens.ByteChar, "b'a'"},
+		{tokens.Char, "'\\000'"},
+		{tokens.Char, "'\\xFF'"},
+		{tokens.Char, "'\\uff16'"},
+		{tokens.Char, "'\\U0000ff16'"},
+		{tokens.String, "`foobar`"},
+		{tokens.BytesString, `b"foobar"`},
+		{tokens.TimeString, `t"2024-01-01T00:00:00Z"`},
+		{tokens.DateString, `d"2024-01-01"`},
+		{tokens.String, "`" + `foo
 	                        bar` +
 			"`",
 		},
-		{token.String, "`\r`"},
-		{token.String, "`foo\r\nbar`"},
-		{token.Add, "+"},
-		{token.Sub, "-"},
-		{token.Mul, "*"},
-		{token.Quo, "/"},
-		{token.Rem, "%"},
-		{token.And, "&"},
-		{token.Or, "|"},
-		{token.Xor, "^"},
-		{token.Shl, "<<"},
-		{token.Shr, ">>"},
-		{token.AndNot, "&^"},
-		{token.AddAssign, "+="},
-		{token.SubAssign, "-="},
-		{token.MulAssign, "*="},
-		{token.QuoAssign, "/="},
-		{token.RemAssign, "%="},
-		{token.AndAssign, "&="},
-		{token.OrAssign, "|="},
-		{token.XorAssign, "^="},
-		{token.ShlAssign, "<<="},
-		{token.ShrAssign, ">>="},
-		{token.AndNotAssign, "&^="},
-		{token.LAnd, "&&"},
-		{token.LOr, "||"},
-		{token.Inc, "++"},
-		{token.Dec, "--"},
-		{token.Equal, "=="},
-		{token.Less, "<"},
-		{token.Greater, ">"},
-		{token.Assign, "="},
-		{token.Not, "!"},
-		{token.NotEqual, "!="},
-		{token.LessEq, "<="},
-		{token.GreaterEq, ">="},
-		{token.Define, ":="},
-		{token.Ellipsis, "..."},
-		{token.DotDot, ".."},
-		{token.LParen, "("},
-		{token.LBrack, "["},
-		{token.LBrace, "{"},
-		{token.Comma, ","},
-		{token.Period, "."},
-		{token.RParen, ")"},
-		{token.RBrack, "]"},
-		{token.RBrace, "}"},
-		{token.Semicolon, ";"},
-		{token.Colon, ":"},
-		{token.Break, "break"},
-		{token.Continue, "continue"},
-		{token.Else, "else"},
-		{token.For, "for"},
-		{token.Func, "func"},
-		{token.If, "if"},
-		{token.Return, "return"},
-		{token.Export, "export"},
-		{token.NotKw, "not"},
-		{token.Var, "var"},
+		{tokens.String, "`\r`"},
+		{tokens.String, "`foo\r\nbar`"},
+		{tokens.Add, "+"},
+		{tokens.Sub, "-"},
+		{tokens.Mul, "*"},
+		{tokens.Quo, "/"},
+		{tokens.Rem, "%"},
+		{tokens.And, "&"},
+		{tokens.Or, "|"},
+		{tokens.Xor, "^"},
+		{tokens.Shl, "<<"},
+		{tokens.Shr, ">>"},
+		{tokens.AndNot, "&^"},
+		{tokens.AddAssign, "+="},
+		{tokens.SubAssign, "-="},
+		{tokens.MulAssign, "*="},
+		{tokens.QuoAssign, "/="},
+		{tokens.RemAssign, "%="},
+		{tokens.AndAssign, "&="},
+		{tokens.OrAssign, "|="},
+		{tokens.XorAssign, "^="},
+		{tokens.ShlAssign, "<<="},
+		{tokens.ShrAssign, ">>="},
+		{tokens.AndNotAssign, "&^="},
+		{tokens.LAnd, "&&"},
+		{tokens.LOr, "||"},
+		{tokens.Inc, "++"},
+		{tokens.Dec, "--"},
+		{tokens.Equal, "=="},
+		{tokens.Less, "<"},
+		{tokens.Greater, ">"},
+		{tokens.Assign, "="},
+		{tokens.Not, "!"},
+		{tokens.NotEqual, "!="},
+		{tokens.LessEq, "<="},
+		{tokens.GreaterEq, ">="},
+		{tokens.Define, ":="},
+		{tokens.Ellipsis, "..."},
+		{tokens.DotDot, ".."},
+		{tokens.LParen, "("},
+		{tokens.LBrack, "["},
+		{tokens.LBrace, "{"},
+		{tokens.Comma, ","},
+		{tokens.Period, "."},
+		{tokens.RParen, ")"},
+		{tokens.RBrack, "]"},
+		{tokens.RBrace, "}"},
+		{tokens.Semicolon, ";"},
+		{tokens.Colon, ":"},
+		{tokens.Break, "break"},
+		{tokens.Continue, "continue"},
+		{tokens.Else, "else"},
+		{tokens.For, "for"},
+		{tokens.Func, "func"},
+		{tokens.If, "if"},
+		{tokens.Return, "return"},
+		{tokens.Export, "export"},
+		{tokens.NotKw, "not"},
+		{tokens.Var, "var"},
 	}
 
 	// combine
@@ -712,7 +713,7 @@ func TestScanner_Scan(t *testing.T) {
 		// expected literal
 		var expectedLiteral string
 		switch tc.token {
-		case token.Comment:
+		case tokens.Comment:
 			// strip CRs in comments
 			expectedLiteral = string(parser.StripCR([]byte(tc.literal), tc.literal[1] == '*'))
 
@@ -720,13 +721,13 @@ func TestScanner_Scan(t *testing.T) {
 			if expectedLiteral[1] == '/' {
 				expectedLiteral = expectedLiteral[:len(expectedLiteral)-1]
 			}
-		case token.Ident:
+		case tokens.Ident:
 			expectedLiteral = tc.literal
-		case token.ByteChar:
+		case tokens.ByteChar:
 			expectedLiteral = tc.literal[1:]
-		case token.RunesString, token.BytesString, token.TimeString, token.DateString, token.RawString, token.FString:
+		case tokens.RunesString, tokens.BytesString, tokens.TimeString, tokens.DateString, tokens.RawString, tokens.FString:
 			expectedLiteral = tc.literal[1:]
-		case token.Semicolon:
+		case tokens.Semicolon:
 			expectedLiteral = ";"
 		default:
 			if tc.token.IsLiteral() {
@@ -748,7 +749,7 @@ func TestScanner_Scan(t *testing.T) {
 		}
 
 		expected = append(expected, res)
-		if tc.token != token.Comment {
+		if tc.token != tokens.Comment {
 			expectedSkipComments = append(expectedSkipComments, res)
 		}
 	}
@@ -892,7 +893,7 @@ func TestParseArray(t *testing.T) {
 					intLit(1, p(1, 6)),
 					intLit(2, p(1, 9)),
 					intLit(3, p(1, 12)))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -904,17 +905,17 @@ func TestParseArray(t *testing.T) {
 					binaryExpr(
 						intLit(1, p(1, 6)),
 						intLit(2, p(1, 10)),
-						token.Add,
+						tokens.Add,
 						p(1, 8)),
 					binaryExpr(
 						ident("b", p(1, 13)),
 						intLit(4, p(1, 17)),
-						token.Mul,
+						tokens.Mul,
 						p(1, 15)),
 					arrayLit(p(1, 20), p(1, 25),
 						intLit(4, p(1, 21)),
 						ident("c", p(1, 24))))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -962,7 +963,7 @@ func TestParseAssignment(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(intLit(5, p(1, 5))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -971,7 +972,7 @@ func TestParseAssignment(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(intLit(5, p(1, 6))),
-				token.Define,
+				tokens.Define,
 				p(1, 3)))
 	})
 
@@ -980,7 +981,7 @@ func TestParseAssignment(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 5))),
 				exprs(undefinedLit(p(1, 1))),
-				token.Define,
+				tokens.Define,
 				p(1, 1)))
 	})
 
@@ -989,7 +990,7 @@ func TestParseAssignment(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 5))),
 				exprs(intLit(5, p(1, 9))),
-				token.Define,
+				tokens.Define,
 				p(1, 1)))
 	})
 
@@ -1002,7 +1003,7 @@ func TestParseAssignment(t *testing.T) {
 				exprs(
 					intLit(5, p(1, 8)),
 					intLit(10, p(1, 11))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 6)))
 	})
 
@@ -1015,7 +1016,7 @@ func TestParseAssignment(t *testing.T) {
 				exprs(
 					intLit(5, p(1, 9)),
 					intLit(10, p(1, 12))),
-				token.Define,
+				tokens.Define,
 				p(1, 6)))
 	})
 
@@ -1029,14 +1030,14 @@ func TestParseAssignment(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 8)),
 						intLit(2, p(1, 12)),
-						token.Add,
+						tokens.Add,
 						p(1, 10)),
 					binaryExpr(
 						ident("b", p(1, 15)),
 						intLit(8, p(1, 19)),
-						token.Sub,
+						tokens.Sub,
 						p(1, 17))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 6)))
 	})
 
@@ -1048,7 +1049,7 @@ func TestParseAssignment(t *testing.T) {
 					intLit(1, p(1, 6)),
 					intLit(2, p(1, 9)),
 					intLit(3, p(1, 12)))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -1060,17 +1061,17 @@ func TestParseAssignment(t *testing.T) {
 					binaryExpr(
 						intLit(1, p(1, 6)),
 						intLit(2, p(1, 10)),
-						token.Add,
+						tokens.Add,
 						p(1, 8)),
 					binaryExpr(
 						ident("b", p(1, 13)),
 						intLit(4, p(1, 17)),
-						token.Mul,
+						tokens.Mul,
 						p(1, 15)),
 					arrayLit(p(1, 20), p(1, 25),
 						intLit(4, p(1, 21)),
 						ident("c", p(1, 24))))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -1079,7 +1080,7 @@ func TestParseAssignment(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(intLit(5, p(1, 6))),
-				token.AddAssign,
+				tokens.AddAssign,
 				p(1, 3)))
 	})
 
@@ -1091,9 +1092,9 @@ func TestParseAssignment(t *testing.T) {
 					binaryExpr(
 						intLit(5, p(1, 6)),
 						intLit(10, p(1, 10)),
-						token.Add,
+						tokens.Add,
 						p(1, 8))),
-				token.MulAssign,
+				tokens.MulAssign,
 				p(1, 3)))
 	})
 }
@@ -1117,7 +1118,7 @@ func TestParseBoolean(t *testing.T) {
 				binaryExpr(
 					boolLit(true, p(1, 1)),
 					boolLit(false, p(1, 9)),
-					token.NotEqual,
+					tokens.NotEqual,
 					p(1, 6))))
 	})
 
@@ -1126,7 +1127,7 @@ func TestParseBoolean(t *testing.T) {
 			exprStmt(
 				unaryExpr(
 					boolLit(false, p(1, 2)),
-					token.Not,
+					tokens.Not,
 					p(1, 1))))
 	})
 
@@ -1137,10 +1138,10 @@ func TestParseBoolean(t *testing.T) {
 					binaryExpr(
 						stringLit("z", p(1, 1)),
 						stringLit("Hello", p(1, 12)),
-						token.In,
+						tokens.In,
 						p(1, 9),
 					),
-					token.Not,
+					tokens.Not,
 					p(1, 5),
 				)))
 	})
@@ -1181,7 +1182,7 @@ func TestParseCall(t *testing.T) {
 						intLit(1, p(1, 9)),
 						intLit(2, p(1, 12)),
 						intLit(3, p(1, 15)))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -1198,7 +1199,7 @@ func TestParseCall(t *testing.T) {
 						intLit(1, p(1, 12)),
 						intLit(2, p(1, 15)),
 						intLit(3, p(1, 18)))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 6)))
 	})
 
@@ -1211,18 +1212,18 @@ func TestParseCall(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 5)),
 						intLit(1, p(1, 9)),
-						token.Add,
+						tokens.Add,
 						p(1, 7)),
 					binaryExpr(
 						intLit(2, p(1, 12)),
 						intLit(1, p(1, 16)),
-						token.Mul,
+						tokens.Mul,
 						p(1, 14)),
 					parenExpr(
 						binaryExpr(
 							ident("b", p(1, 20)),
 							ident("c", p(1, 24)),
-							token.Add,
+							tokens.Add,
 							p(1, 22)),
 						p(1, 19), p(1, 25)))))
 	})
@@ -1252,7 +1253,7 @@ func TestParseCall(t *testing.T) {
 								binaryExpr(
 									ident("a", p(1, 14)),
 									ident("b", p(1, 18)),
-									token.Add,
+									tokens.Add,
 									p(1, 16))))),
 					p(1, 21), p(1, 26), core.NoPos,
 					intLit(1, p(1, 22)),
@@ -1440,7 +1441,7 @@ func TestParseFor(t *testing.T) {
 				binaryExpr(
 					ident("a", p(1, 5)),
 					intLit(5, p(1, 10)),
-					token.Equal,
+					tokens.Equal,
 					p(1, 7)),
 				nil,
 				blockStmt(p(1, 12), p(1, 13)),
@@ -1453,11 +1454,11 @@ func TestParseFor(t *testing.T) {
 				assignStmt(
 					exprs(ident("a", p(1, 5))),
 					exprs(intLit(0, p(1, 10))),
-					token.Define, p(1, 7)),
+					tokens.Define, p(1, 7)),
 				binaryExpr(
 					ident("a", p(1, 13)),
 					intLit(5, p(1, 18)),
-					token.Equal,
+					tokens.Equal,
 					p(1, 15)),
 				nil,
 				blockStmt(p(1, 22), p(1, 23)),
@@ -1470,15 +1471,15 @@ func TestParseFor(t *testing.T) {
 				assignStmt(
 					exprs(ident("a", p(1, 5))),
 					exprs(intLit(0, p(1, 10))),
-					token.Define, p(1, 7)),
+					tokens.Define, p(1, 7)),
 				binaryExpr(
 					ident("a", p(1, 13)),
 					intLit(5, p(1, 17)),
-					token.Less,
+					tokens.Less,
 					p(1, 15)),
 				incDecStmt(
 					ident("a", p(1, 20)),
-					token.Inc, p(1, 21)),
+					tokens.Inc, p(1, 21)),
 				blockStmt(p(1, 24), p(1, 25)),
 				p(1, 1)))
 	})
@@ -1489,15 +1490,15 @@ func TestParseFor(t *testing.T) {
 				assignStmt(
 					exprs(ident("i", p(1, 9))),
 					exprs(intLit(0, p(1, 13))),
-					token.Define, p(1, 5)),
+					tokens.Define, p(1, 5)),
 				binaryExpr(
 					ident("i", p(1, 16)),
 					intLit(2, p(1, 20)),
-					token.Less,
+					tokens.Less,
 					p(1, 18)),
 				incDecStmt(
 					ident("i", p(1, 23)),
-					token.Inc, p(1, 24)),
+					tokens.Inc, p(1, 24)),
 				blockStmt(p(1, 27), p(1, 28)),
 				p(1, 1)))
 	})
@@ -1509,11 +1510,11 @@ func TestParseFor(t *testing.T) {
 				binaryExpr(
 					ident("a", p(1, 7)),
 					intLit(5, p(1, 11)),
-					token.Less,
+					tokens.Less,
 					p(1, 9)),
 				incDecStmt(
 					ident("a", p(1, 14)),
-					token.Inc, p(1, 15)),
+					tokens.Inc, p(1, 15)),
 				blockStmt(p(1, 18), p(1, 19)),
 				p(1, 1)))
 	})
@@ -1524,11 +1525,11 @@ func TestParseFor(t *testing.T) {
 				assignStmt(
 					exprs(ident("a", p(1, 5))),
 					exprs(intLit(0, p(1, 10))),
-					token.Define, p(1, 7)),
+					tokens.Define, p(1, 7)),
 				nil,
 				incDecStmt(
 					ident("a", p(1, 15)),
-					token.Inc, p(1, 16)),
+					tokens.Inc, p(1, 16)),
 				blockStmt(p(1, 19), p(1, 20)),
 				p(1, 1)))
 	})
@@ -1541,14 +1542,14 @@ func TestParseFor(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 5)),
 						intLit(5, p(1, 10)),
-						token.Equal,
+						tokens.Equal,
 						p(1, 7)),
 					binaryExpr(
 						ident("b", p(1, 15)),
 						intLit(4, p(1, 20)),
-						token.NotEqual,
+						tokens.NotEqual,
 						p(1, 17)),
-					token.LAnd,
+					tokens.LAnd,
 					p(1, 12)),
 				nil,
 				blockStmt(p(1, 22), p(1, 23)),
@@ -1563,7 +1564,7 @@ func TestParseFor(t *testing.T) {
 					binaryExpr(
 						ident("x", p(1, 6)),
 						ident("y", p(1, 11)),
-						token.In,
+						tokens.In,
 						p(1, 8)),
 					p(1, 5),
 					p(1, 12)),
@@ -1589,7 +1590,7 @@ func TestParseFunction(t *testing.T) {
 							p(1, 5)),
 						blockStmt(p(1, 19), p(1, 30),
 							returnStmt(p(1, 21), ident("d", p(1, 28)))))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 }
@@ -1615,7 +1616,7 @@ func TestParseVariadicFunction(t *testing.T) {
 						),
 					),
 				),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 }
@@ -1643,7 +1644,7 @@ func TestParseVariadicFunctionWithArgs(t *testing.T) {
 						),
 					),
 				),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -1659,7 +1660,7 @@ func TestParseIf(t *testing.T) {
 				binaryExpr(
 					ident("a", p(1, 4)),
 					intLit(5, p(1, 9)),
-					token.Equal,
+					tokens.Equal,
 					p(1, 6)),
 				blockStmt(
 					p(1, 11), p(1, 12)),
@@ -1675,14 +1676,14 @@ func TestParseIf(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 4)),
 						intLit(5, p(1, 9)),
-						token.Equal,
+						tokens.Equal,
 						p(1, 6)),
 					binaryExpr(
 						ident("b", p(1, 14)),
 						intLit(3, p(1, 19)),
-						token.NotEqual,
+						tokens.NotEqual,
 						p(1, 16)),
-					token.LAnd,
+					tokens.LAnd,
 					p(1, 11)),
 				blockStmt(
 					p(1, 21), p(1, 22)),
@@ -1696,7 +1697,7 @@ func TestParseIf(t *testing.T) {
 				assignStmt(
 					exprs(ident("a", p(1, 8))),
 					exprs(intLit(5, p(1, 12))),
-					token.Define,
+					tokens.Define,
 					p(1, 4)),
 				ident("a", p(1, 15)),
 				blockStmt(
@@ -1712,19 +1713,19 @@ func TestParseIf(t *testing.T) {
 				binaryExpr(
 					ident("a", p(1, 4)),
 					intLit(5, p(1, 9)),
-					token.Equal,
+					tokens.Equal,
 					p(1, 6)),
 				blockStmt(
 					p(1, 11), p(1, 26),
 					assignStmt(
 						exprs(ident("a", p(1, 13))),
 						exprs(intLit(3, p(1, 17))),
-						token.Assign,
+						tokens.Assign,
 						p(1, 15)),
 					assignStmt(
 						exprs(ident("a", p(1, 20))),
 						exprs(intLit(1, p(1, 24))),
-						token.Assign,
+						tokens.Assign,
 						p(1, 22))),
 				nil,
 				p(1, 1)))
@@ -1738,31 +1739,31 @@ func TestParseIf(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 4)),
 						intLit(5, p(1, 9)),
-						token.Equal,
+						tokens.Equal,
 						p(1, 6)),
 					blockStmt(
 						p(1, 11), p(1, 26),
 						assignStmt(
 							exprs(ident("a", p(1, 13))),
 							exprs(intLit(3, p(1, 17))),
-							token.Assign,
+							tokens.Assign,
 							p(1, 15)),
 						assignStmt(
 							exprs(ident("a", p(1, 20))),
 							exprs(intLit(1, p(1, 24))),
-							token.Assign,
+							tokens.Assign,
 							p(1, 22))),
 					blockStmt(
 						p(1, 33), p(1, 48),
 						assignStmt(
 							exprs(ident("a", p(1, 35))),
 							exprs(intLit(2, p(1, 39))),
-							token.Assign,
+							tokens.Assign,
 							p(1, 37)),
 						assignStmt(
 							exprs(ident("a", p(1, 42))),
 							exprs(intLit(4, p(1, 46))),
-							token.Assign,
+							tokens.Assign,
 							p(1, 44))),
 					p(1, 1)))
 		})
@@ -1784,50 +1785,50 @@ if a == 5 {
 				binaryExpr(
 					ident("a", p(2, 4)),
 					intLit(5, p(2, 9)),
-					token.Equal,
+					tokens.Equal,
 					p(2, 6)),
 				blockStmt(
 					p(2, 11), p(5, 1),
 					assignStmt(
 						exprs(ident("b", p(3, 2))),
 						exprs(intLit(3, p(3, 6))),
-						token.Assign,
+						tokens.Assign,
 						p(3, 4)),
 					assignStmt(
 						exprs(ident("c", p(4, 2))),
 						exprs(intLit(1, p(4, 6))),
-						token.Assign,
+						tokens.Assign,
 						p(4, 4))),
 				ifStmt(
 					nil,
 					binaryExpr(
 						ident("d", p(5, 11)),
 						intLit(3, p(5, 16)),
-						token.Equal,
+						tokens.Equal,
 						p(5, 13)),
 					blockStmt(
 						p(5, 18), p(8, 1),
 						assignStmt(
 							exprs(ident("e", p(6, 2))),
 							exprs(intLit(8, p(6, 6))),
-							token.Assign,
+							tokens.Assign,
 							p(6, 4)),
 						assignStmt(
 							exprs(ident("f", p(7, 2))),
 							exprs(intLit(3, p(7, 6))),
-							token.Assign,
+							tokens.Assign,
 							p(7, 4))),
 					blockStmt(
 						p(8, 8), p(11, 1),
 						assignStmt(
 							exprs(ident("g", p(9, 2))),
 							exprs(intLit(2, p(9, 6))),
-							token.Assign,
+							tokens.Assign,
 							p(9, 4)),
 						assignStmt(
 							exprs(ident("h", p(10, 2))),
 							exprs(intLit(4, p(10, 6))),
-							token.Assign,
+							tokens.Assign,
 							p(10, 4))),
 					p(5, 8)),
 				p(2, 1)))
@@ -1839,11 +1840,11 @@ if a == 5 {
 				assignStmt(
 					exprs(ident("a", p(1, 4))),
 					exprs(intLit(3, p(1, 9))),
-					token.Define, p(1, 6)),
+					tokens.Define, p(1, 6)),
 				binaryExpr(
 					ident("a", p(1, 12)),
 					ident("b", p(1, 16)),
-					token.Less, p(1, 14)),
+					tokens.Less, p(1, 14)),
 				blockStmt(
 					p(1, 18), p(1, 19)),
 				nil,
@@ -1853,11 +1854,11 @@ if a == 5 {
 	expectParse(t, "if a++; a < b {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
-				incDecStmt(ident("a", p(1, 4)), token.Inc, p(1, 5)),
+				incDecStmt(ident("a", p(1, 4)), tokens.Inc, p(1, 5)),
 				binaryExpr(
 					ident("a", p(1, 9)),
 					ident("b", p(1, 13)),
-					token.Less, p(1, 11)),
+					tokens.Less, p(1, 11)),
 				blockStmt(
 					p(1, 15), p(1, 16)),
 				nil,
@@ -1879,7 +1880,7 @@ func TestParseImport(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(importExpr("mod1", p(1, 6))),
-				token.Define, p(1, 3)))
+				tokens.Define, p(1, 3)))
 	})
 
 	expectParse(t, `import("mod1").var1`, func(p pfn) []ast.Statement {
@@ -1935,7 +1936,7 @@ func TestParseIndex(t *testing.T) {
 					binaryExpr(
 						intLit(5, p(1, 11)),
 						ident("a", p(1, 15)),
-						token.Sub,
+						tokens.Sub,
 						p(1, 13)),
 					p(1, 10), p(1, 16))))
 	})
@@ -1964,12 +1965,12 @@ func TestParseIndex(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 11)),
 						intLit(3, p(1, 15)),
-						token.Add,
+						tokens.Add,
 						p(1, 13)),
 					binaryExpr(
 						ident("b", p(1, 19)),
 						intLit(8, p(1, 23)),
-						token.Sub,
+						tokens.Sub,
 						p(1, 21)),
 					p(1, 10), p(1, 24))))
 	})
@@ -2000,7 +2001,7 @@ func TestParseIndex(t *testing.T) {
 					nil,
 					unaryExpr(
 						intLit(1, p(1, 14)),
-						token.Sub,
+						tokens.Sub,
 						p(1, 13)),
 					p(1, 10), p(1, 15))))
 	})
@@ -2030,7 +2031,7 @@ func TestParseIndex(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 14)),
 						ident("b", p(1, 18)),
-						token.Add,
+						tokens.Add,
 						p(1, 16)),
 					p(1, 13), p(1, 19))))
 	})
@@ -2126,10 +2127,10 @@ func TestParseLogical(t *testing.T) {
 					binaryExpr(
 						ident("a", p(1, 1)),
 						intLit(5, p(1, 6)),
-						token.LAnd,
+						tokens.LAnd,
 						p(1, 3)),
 					boolLit(true, p(1, 11)),
-					token.LOr,
+					tokens.LOr,
 					p(1, 8))))
 	})
 
@@ -2141,9 +2142,9 @@ func TestParseLogical(t *testing.T) {
 					binaryExpr(
 						intLit(5, p(1, 6)),
 						boolLit(true, p(1, 11)),
-						token.LAnd,
+						tokens.LAnd,
 						p(1, 8)),
-					token.LOr,
+					tokens.LOr,
 					p(1, 3))))
 	})
 
@@ -2156,10 +2157,10 @@ func TestParseLogical(t *testing.T) {
 						binaryExpr(
 							intLit(5, p(1, 7)),
 							boolLit(true, p(1, 12)),
-							token.LOr,
+							tokens.LOr,
 							p(1, 9)),
 						p(1, 6), p(1, 16)),
-					token.LAnd,
+					tokens.LAnd,
 					p(1, 3))))
 	})
 }
@@ -2196,7 +2197,7 @@ func TestParseDict(t *testing.T) {
 					dictElementLit("key1", p(1, 7), p(1, 11), intLit(1, p(1, 13))),
 					dictElementLit("key2", p(1, 16), p(1, 20), stringLit("2", p(1, 22))),
 					dictElementLit("key3", p(1, 27), p(1, 31), boolLit(true, p(1, 33))))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 		})
 
@@ -2216,7 +2217,7 @@ func TestParseDict(t *testing.T) {
 							dictElementLit(
 								"k2", p(1, 46),
 								p(1, 48), intLit(4, p(1, 50))))))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 		})
 
@@ -2327,7 +2328,7 @@ func TestParseSelector(t *testing.T) {
 						ident("a", p(1, 1)),
 						stringLit("b", p(1, 3)))),
 				exprs(intLit(4, p(1, 7))),
-				token.Assign, p(1, 5)))
+				tokens.Assign, p(1, 5)))
 	})
 
 	expectParse(t, "a.b.c = 4", func(p pfn) []ast.Statement {
@@ -2340,7 +2341,7 @@ func TestParseSelector(t *testing.T) {
 							stringLit("b", p(1, 3))),
 						stringLit("c", p(1, 5)))),
 				exprs(intLit(4, p(1, 9))),
-				token.Assign, p(1, 7)))
+				tokens.Assign, p(1, 7)))
 	})
 
 	expectParse(t, "a.b.c = 4 + 5", func(p pfn) []ast.Statement {
@@ -2356,9 +2357,9 @@ func TestParseSelector(t *testing.T) {
 					binaryExpr(
 						intLit(4, p(1, 9)),
 						intLit(5, p(1, 13)),
-						token.Add,
+						tokens.Add,
 						p(1, 11))),
-				token.Assign, p(1, 7)))
+				tokens.Assign, p(1, 7)))
 	})
 
 	expectParse(t, "a[0].c = 4", func(p pfn) []ast.Statement {
@@ -2372,7 +2373,7 @@ func TestParseSelector(t *testing.T) {
 							p(1, 2), p(1, 4)),
 						stringLit("c", p(1, 6)))),
 				exprs(intLit(4, p(1, 10))),
-				token.Assign, p(1, 8)))
+				tokens.Assign, p(1, 8)))
 	})
 
 	expectParse(t, "a.b[0].c = 4", func(p pfn) []ast.Statement {
@@ -2388,7 +2389,7 @@ func TestParseSelector(t *testing.T) {
 							p(1, 4), p(1, 6)),
 						stringLit("c", p(1, 8)))),
 				exprs(intLit(4, p(1, 12))),
-				token.Assign, p(1, 10)))
+				tokens.Assign, p(1, 10)))
 	})
 
 	expectParse(t, "a.b[0][2].c = 4", func(p pfn) []ast.Statement {
@@ -2407,7 +2408,7 @@ func TestParseSelector(t *testing.T) {
 							p(1, 7), p(1, 9)),
 						stringLit("c", p(1, 11)))),
 				exprs(intLit(4, p(1, 15))),
-				token.Assign, p(1, 13)))
+				tokens.Assign, p(1, 13)))
 	})
 
 	expectParse(t, `a.b["key1"][2].c = 4`, func(p pfn) []ast.Statement {
@@ -2426,7 +2427,7 @@ func TestParseSelector(t *testing.T) {
 							p(1, 12), p(1, 14)),
 						stringLit("c", p(1, 16)))),
 				exprs(intLit(4, p(1, 20))),
-				token.Assign, p(1, 18)))
+				tokens.Assign, p(1, 18)))
 	})
 
 	expectParse(t, "a[0].b[2].c = 4", func(p pfn) []ast.Statement {
@@ -2445,7 +2446,7 @@ func TestParseSelector(t *testing.T) {
 							p(1, 7), p(1, 9)),
 						stringLit("c", p(1, 11)))),
 				exprs(intLit(4, p(1, 15))),
-				token.Assign, p(1, 13)))
+				tokens.Assign, p(1, 13)))
 	})
 
 	expectParseError(t, `a.(b.c)`)
@@ -2510,7 +2511,7 @@ func TestParseString(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(stringLit("foo\nbar", p(1, 5))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 
@@ -2519,7 +2520,7 @@ func TestParseString(t *testing.T) {
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(stringLit("raw string", p(1, 5))),
-				token.Assign,
+				tokens.Assign,
 				p(1, 3)))
 	})
 }
@@ -2671,7 +2672,7 @@ func TestParseNumberExpressions(t *testing.T) {
 				binaryExpr(
 					intLit(0x15e, p(1, 1)),
 					intLit(2, p(1, 7)),
-					token.Add,
+					tokens.Add,
 					p(1, 6))))
 	})
 
@@ -2681,7 +2682,7 @@ func TestParseNumberExpressions(t *testing.T) {
 				binaryExpr(
 					intLit(0, p(1, 1)),
 					ident("_42", p(1, 3)),
-					token.Sub,
+					tokens.Sub,
 					p(1, 2))))
 	})
 }
@@ -2730,11 +2731,11 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 	)
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, token.Ident, tok)
+	require.Equal(t, token.Token(tokens.Ident), tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, token.Period, tok)
+	require.Equal(t, token.Token(tokens.Period), tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, token.Ident, tok)
+	require.Equal(t, token.Token(tokens.Ident), tok)
 }

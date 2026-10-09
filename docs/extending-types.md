@@ -227,7 +227,7 @@ actual `Int` handling, non-reflected and reflected side by side:
 case value.Int:
     l, r := int64(v.Data), int64(other.Data)
     switch op {
-    case token.Sub:
+    case tokens.Sub:
         return RuneValue(rune(l - r)), nil
     // ...
     }
@@ -238,9 +238,9 @@ case value.Int:
 case value.Int:
     l, r := int64(other.Data), int64(v.Data)
     switch op {
-    case token.Add:
+    case tokens.Add:
         return RuneValue(rune(l + r)), nil
-    // no case token.Sub here — reaches `default:` and declines.
+    // no case tokens.Sub here — reaches `default:` and declines.
     }
 ```
 
@@ -250,7 +250,7 @@ where it doesn't apply — there's no `if reflected { decline }` scattered insid
 case to remember. The same pattern covers operator families with **no reflected direction at
 all**: sequence removal (`-`) only ever means "remove from the lhs sequence," so
 `stringTypeBinaryOp`/`bytesTypeBinaryOp`/`runesTypeBinaryOp`'s reflected branches simply have no
-`token.Sub` case anywhere in their switches — any reflected call for `Sub` falls straight to the
+`tokens.Sub` case anywhere in their switches — any reflected call for `Sub` falls straight to the
 terminal decline, by the same structural omission, not a special check.
 
 **When writing a new hook:** if an operator is commutative and your logic is symmetric either way,
@@ -315,11 +315,11 @@ symmetric with any other specific type.
 
 ## `Equal` is a separate, narrower mechanism — not `BinaryOp`
 
-`==`/`!=` **never reach `BinaryOp`/`UnaryOp` at all.** The VM's `bc.Equal`/`bc.NotEqual` opcodes
+`==`/`!=` **never reach `BinaryOp`/`UnaryOp` at all.** The VM's `opcodes.Equal`/`opcodes.NotEqual` opcodes
 dispatch to the separate `Value.Equal(rhs Value) bool` hook (`core/value.go`), and unary `!`
 (`UnaryNot`) calls `Value.IsTrue()` directly — neither goes through the dispatch model above. This
 is a real, easy mistake to make when writing type tests or new hooks: don't implement `==`/`!=`
-semantics inside `BinaryOp`, and don't test them by calling `BinaryOp(token.Equal, ...)` — call
+semantics inside `BinaryOp`, and don't test them by calling `BinaryOp(tokens.Equal, ...)` — call
 `.Equal()` directly.
 
 ### `Equal`'s one-hop delegate mechanism
@@ -427,7 +427,7 @@ guarantee it.
 - **Asymmetric rule 1, reflected branch omits a case:** `rune ± int → rune` is owned entirely by
   `rune` (raising when the result leaves the code-point space — see `runeArithResult`); `int`
   declines (delegates) for any `rune` rhs. `rune - rune → int` and `int - rune` is a deliberate
-  non-definition — `rune`'s reflected branch's `Int` case has no `token.Sub` arm at all, so it
+  non-definition — `rune`'s reflected branch's `Int` case has no `tokens.Sub` arm at all, so it
   falls straight to that branch's terminal decline. See `core/rune.go`.
 - **Rule 2 in the numeric family, mirrored on both sides:** `float` declares "I safely accept
   `int`" and `decimal` declares the same, independently — two hand-authored declarations, no shared

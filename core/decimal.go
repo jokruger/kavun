@@ -11,6 +11,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -443,7 +444,7 @@ func decimalResult(name string, d dec128.Dec128) (Value, error) {
 //
 // PURE by contract.
 func decimalArithResult(d dec128.Dec128, op token.Token, rZero bool) (Value, error) {
-	if d.IsNaN() && rZero && (op == token.Quo || op == token.Rem) {
+	if d.IsNaN() && rZero && (op == tokens.Quo || op == tokens.Rem) {
 		return Undefined, errs.NewDivisionByZeroError()
 	}
 	return decimalResult(op.String(), d)
@@ -456,13 +457,13 @@ func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (
 		case value.Bool, value.Byte, value.Rune:
 			l := dec128.FromInt64(int64(other.Data))
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(l.LessThan(*r)), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(l.GreaterThan(*r)), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(l.LessThanOrEqual(*r)), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(l.GreaterThanOrEqual(*r)), nil
 			}
 		}
@@ -474,59 +475,59 @@ func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (
 	case value.Decimal:
 		r := *(*dec128.Dec128)(other.Ptr)
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return decimalArithResult(l.Add(r), op, r.IsZero())
-		case token.Sub:
+		case tokens.Sub:
 			return decimalArithResult(l.Sub(r), op, r.IsZero())
-		case token.Mul:
+		case tokens.Mul:
 			return decimalArithResult(l.Mul(r), op, r.IsZero())
-		case token.Quo:
+		case tokens.Quo:
 			return decimalArithResult(l.Div(r), op, r.IsZero())
-		case token.Rem:
+		case tokens.Rem:
 			return decimalArithResult(l.Mod(r), op, r.IsZero())
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l.LessThan(r)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l.GreaterThan(r)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l.LessThanOrEqual(r)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		}
 
 	case value.Int:
 		r := dec128.FromInt64(int64(other.Data))
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return decimalArithResult(l.Add(r), op, r.IsZero())
-		case token.Sub:
+		case tokens.Sub:
 			return decimalArithResult(l.Sub(r), op, r.IsZero())
-		case token.Mul:
+		case tokens.Mul:
 			return decimalArithResult(l.Mul(r), op, r.IsZero())
-		case token.Quo:
+		case tokens.Quo:
 			return decimalArithResult(l.Div(r), op, r.IsZero())
-		case token.Rem:
+		case tokens.Rem:
 			return decimalArithResult(l.Mod(r), op, r.IsZero())
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l.LessThan(r)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l.GreaterThan(r)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l.LessThanOrEqual(r)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		}
 
 	case value.Bool, value.Byte, value.Rune:
 		r := dec128.FromInt64(int64(other.Data))
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(l.LessThan(r)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l.GreaterThan(r)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(l.LessThanOrEqual(r)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		}
 	}
@@ -539,7 +540,7 @@ func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
 
 	switch op {
-	case token.Sub:
+	case tokens.Sub:
 		return decimalResult("-", o.Neg())
 
 	default:
@@ -1404,7 +1405,7 @@ func decimalTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Valu
 		return decimalShares(name, *o, scale, shares, ok)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 

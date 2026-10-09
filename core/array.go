@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -205,7 +206,7 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		// reflected form, because only the add side has a front spelling: `x + a` is exactly
 		// `a.prepend(x)`, the mirror of `a + x` = `a.append(x)`. Removal has no front member, so `-`
 		// — and every other operator — raises here rather than inventing one.
-		if op != token.Add {
+		if op != tokens.Add {
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
 		}
 		// the universal contracts outrank the element reading on this side too: an error raises
@@ -231,7 +232,7 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 	l := (*Array)(v.Ptr)
 	switch op {
-	case token.Add:
+	case tokens.Add:
 		// exactly append's reading: an operand of the receiver's OWN KIND — another array —
 		// contributes its elements as a run; anything else is one element
 		items := arrayAddItems([]Value{other})
@@ -240,7 +241,7 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		t = append(t, items...)
 		return NewArrayValue(t, false), nil
 
-	case token.Mul:
+	case tokens.Mul:
 		// exactly repeat's reading: the right operand is a COUNT, not an element — a sequence
 		// times a number is that sequence n times over. There is no reflected direction:
 		// `seq * n` reads as "apply n to the sequence", `n * seq` has no such reading
@@ -262,7 +263,7 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			return NewArrayValue(t, false), nil
 		}
 
-	case token.Sub:
+	case tokens.Sub:
 		// exactly remove's value readings: an array operand removes every occurrence of
 		// the contiguous run (never set difference), anything else every equal element
 		switch other.Type {
@@ -712,7 +713,7 @@ func arrayTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return arrayFnFlatten(v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }
 
@@ -2017,7 +2018,7 @@ func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
 		copy(t, o.Elements)
 	}
 	slices.SortFunc(t, func(x, y Value) int {
-		less, e := x.BinaryOp(token.Less, y)
+		less, e := x.BinaryOp(tokens.Less, y)
 		if e != nil {
 			err = e
 			return 0
@@ -2057,7 +2058,7 @@ func arrayFnMin(v Value, args []Value) (Value, error) {
 
 	e := o.Elements[0]
 	for i := 1; i < len(o.Elements); i++ {
-		less, err := o.Elements[i].BinaryOp(token.Less, e)
+		less, err := o.Elements[i].BinaryOp(tokens.Less, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -2085,7 +2086,7 @@ func arrayFnMax(v Value, args []Value) (Value, error) {
 
 	e := o.Elements[0]
 	for i := 1; i < len(o.Elements); i++ {
-		greater, err := o.Elements[i].BinaryOp(token.Greater, e)
+		greater, err := o.Elements[i].BinaryOp(tokens.Greater, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -2114,7 +2115,7 @@ func arrayFnSum(v Value, args []Value) (Value, error) {
 	var err error
 	s := o.Elements[0]
 	for i := 1; i < len(o.Elements); i++ {
-		s, err = s.BinaryOp(token.Add, o.Elements[i])
+		s, err = s.BinaryOp(tokens.Add, o.Elements[i])
 		if err != nil {
 			return Undefined, err
 		}
@@ -2136,14 +2137,14 @@ func arrayFnAvg(v Value, args []Value) (Value, error) {
 	var err error
 	sum := o.Elements[0]
 	for i := 1; i < len(o.Elements); i++ {
-		sum, err = sum.BinaryOp(token.Add, o.Elements[i])
+		sum, err = sum.BinaryOp(tokens.Add, o.Elements[i])
 		if err != nil {
 			return Undefined, err
 		}
 	}
 
 	length := IntValue(int64(len(o.Elements)))
-	avg, err := sum.BinaryOp(token.Quo, length)
+	avg, err := sum.BinaryOp(tokens.Quo, length)
 	if err != nil {
 		return Undefined, err
 	}

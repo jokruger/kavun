@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -137,13 +138,13 @@ func boolTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		l := v.Data != 0
 		r := other.Data != 0
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(!l && r), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(l && !r), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(!l || r), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(l || !r), nil
 		}
 	}
@@ -154,7 +155,7 @@ func boolTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 // PURE by contract.
 func boolTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
-	case token.Xor:
+	case tokens.Xor:
 		return BoolValue(v.Data == 0), nil
 	default:
 		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
@@ -219,6 +220,6 @@ func boolTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		return NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

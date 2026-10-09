@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -201,32 +202,32 @@ func byteTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		switch other.Type {
 		case value.Int:
 			switch op {
-			case token.Add:
+			case tokens.Add:
 				return ByteValue(byte(other.Data) + byte(v.Data)), nil
-			case token.Sub:
+			case tokens.Sub:
 				return ByteValue(byte(other.Data) - byte(v.Data)), nil
-			case token.Less:
+			case tokens.Less:
 				return BoolValue(int64(other.Data) < int64(byte(v.Data))), nil
-			case token.Greater:
+			case tokens.Greater:
 				return BoolValue(int64(other.Data) > int64(byte(v.Data))), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				return BoolValue(int64(other.Data) <= int64(byte(v.Data))), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				return BoolValue(int64(other.Data) >= int64(byte(v.Data))), nil
 			}
 
 		case value.Bool:
 			switch op {
-			case token.Less:
+			case tokens.Less:
 				l, _ := boolTypeAsInt(other)
 				return BoolValue(l < int64(byte(v.Data))), nil
-			case token.Greater:
+			case tokens.Greater:
 				l, _ := boolTypeAsInt(other)
 				return BoolValue(l > int64(byte(v.Data))), nil
-			case token.LessEq:
+			case tokens.LessEq:
 				l, _ := boolTypeAsInt(other)
 				return BoolValue(l <= int64(byte(v.Data))), nil
-			case token.GreaterEq:
+			case tokens.GreaterEq:
 				l, _ := boolTypeAsInt(other)
 				return BoolValue(l >= int64(byte(v.Data))), nil
 			}
@@ -238,66 +239,66 @@ func byteTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	switch other.Type {
 	case value.Byte:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return ByteValue(byte(v.Data) + byte(other.Data)), nil
-		case token.Sub:
+		case tokens.Sub:
 			return ByteValue(byte(v.Data) - byte(other.Data)), nil
-		case token.And:
+		case tokens.And:
 			return ByteValue(byte(v.Data) & byte(other.Data)), nil
-		case token.Or:
+		case tokens.Or:
 			return ByteValue(byte(v.Data) | byte(other.Data)), nil
-		case token.Xor:
+		case tokens.Xor:
 			return ByteValue(byte(v.Data) ^ byte(other.Data)), nil
-		case token.AndNot:
+		case tokens.AndNot:
 			return ByteValue(byte(v.Data) &^ byte(other.Data)), nil
-		case token.Shl:
+		case tokens.Shl:
 			return ByteValue(byte(v.Data) << byte(other.Data)), nil
-		case token.Shr:
+		case tokens.Shr:
 			return ByteValue(byte(v.Data) >> byte(other.Data)), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(byte(v.Data) < byte(other.Data)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(byte(v.Data) > byte(other.Data)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(byte(v.Data) <= byte(other.Data)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(byte(v.Data) >= byte(other.Data)), nil
 		}
 
 	case value.Int:
 		switch op {
-		case token.Add:
+		case tokens.Add:
 			return ByteValue(byte(v.Data) + byte(other.Data)), nil
-		case token.Sub:
+		case tokens.Sub:
 			return ByteValue(byte(v.Data) - byte(other.Data)), nil
-		case token.And, token.Or, token.Xor, token.AndNot:
+		case tokens.And, tokens.Or, tokens.Xor, tokens.AndNot:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
-		case token.Shl:
+		case tokens.Shl:
 			return ByteValue(byte(v.Data) << byte(other.Data)), nil
-		case token.Shr:
+		case tokens.Shr:
 			return ByteValue(byte(v.Data) >> byte(other.Data)), nil
-		case token.Less:
+		case tokens.Less:
 			return BoolValue(int64(byte(v.Data)) < int64(other.Data)), nil
-		case token.Greater:
+		case tokens.Greater:
 			return BoolValue(int64(byte(v.Data)) > int64(other.Data)), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			return BoolValue(int64(byte(v.Data)) <= int64(other.Data)), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			return BoolValue(int64(byte(v.Data)) >= int64(other.Data)), nil
 		}
 
 	case value.Bool:
 		switch op {
-		case token.Less:
+		case tokens.Less:
 			l, _ := boolTypeAsInt(other)
 			return BoolValue(int64(byte(v.Data)) < l), nil
-		case token.Greater:
+		case tokens.Greater:
 			l, _ := boolTypeAsInt(other)
 			return BoolValue(int64(byte(v.Data)) > l), nil
-		case token.LessEq:
+		case tokens.LessEq:
 			l, _ := boolTypeAsInt(other)
 			return BoolValue(int64(byte(v.Data)) <= l), nil
-		case token.GreaterEq:
+		case tokens.GreaterEq:
 			l, _ := boolTypeAsInt(other)
 			return BoolValue(int64(byte(v.Data)) >= l), nil
 		}
@@ -311,10 +312,10 @@ func byteTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	i := byte(v.Data)
 	switch op {
-	case token.Sub:
+	case tokens.Sub:
 		return ByteValue(-i), nil
 
-	case token.Xor:
+	case tokens.Xor:
 		return ByteValue(^i), nil
 
 	default:
@@ -387,6 +388,6 @@ func byteTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 		return NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
+		return CallMemberByLookup(vm, v, name, args)
 	}
 }

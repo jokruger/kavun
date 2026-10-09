@@ -208,5 +208,5 @@ func finTieredRatesCallNamedMethod(vm VM, v Value, name string, args []Value) (V
 		d, err := t.Accrue(principal, FinYearFractionOf(args[1]), rule, out)
 		return finDecimal(name, d, err)
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return CallMemberByLookup(vm, v, name, args)
 }

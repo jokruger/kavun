@@ -156,8 +156,13 @@ func TestMemberTables(t *testing.T) {
 				return core.NewStringValue("prop:" + id.String()), nil
 			}},
 		},
-		CallNamedMethod: func(_ core.VM, _ core.Value, name string, _ []core.Value) (core.Value, error) {
-			return core.NewStringValue("named:" + name), nil
+		// a name switch answers its own names and ends in the lookup fallback, like every builtin name switch
+		CallNamedMethod: func(vm core.VM, v core.Value, name string, args []core.Value) (core.Value, error) {
+			switch name {
+			case "core_test_named", "core_test_bump":
+				return core.NewStringValue("named:" + name), nil
+			}
+			return core.CallMemberByLookup(vm, v, name, args)
 		},
 		IsNamedMethodPure: func(name string) bool { return name == "core_test_named_pure" },
 	})
@@ -170,10 +175,12 @@ func TestMemberTables(t *testing.T) {
 		s, _ := r.AsString()
 		return s
 	}
-	require.Equal(t, "table:core_test_read", call(tblRead, "core_test_read"))
-	require.Equal(t, "table:core_test_read", call(member.Unknown, "core_test_read"), "Unknown id is looked up by name")
-	require.Equal(t, "named:core_test_bump", call(tblBump, "core_test_bump"), "a bound but empty slot misses to the name path")
-	require.Equal(t, "named:whatever", call(member.Unknown, "whatever"))
+	require.Equal(t, "table:core_test_read", call(tblRead, "core_test_read"), "id path")
+	require.Equal(t, "table:core_test_read", call(member.Unknown, "core_test_read"), "id 0: name switch misses, lookup finds the slot")
+	require.Equal(t, "named:core_test_bump", call(tblBump, "core_test_bump"), "a bound but empty slot goes to the name switch")
+	require.Equal(t, "named:core_test_named", call(member.Unknown, "core_test_named"), "id 0, name-switch hit")
+	_, err = v.CallMember(nil, member.Unknown, "whatever", nil)
+	require.Error(t, err, "unknown everywhere: invalid_method after the lookup")
 
 	p, err := v.AccessProperty(nil, member.Unknown, "core_test_read")
 	require.NoError(t, err)

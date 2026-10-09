@@ -9,13 +9,12 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
-
-const anyTypeName = "value"
 
 // Value represents a boxed Kavun value.
 type Value struct {
@@ -304,7 +303,7 @@ func (v *Value) Copy(deep bool) (Value, error) {
 func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value, error) {
 	// universal members are answered here, once for every type — builtin and
 	// host-defined alike — instead of being repeated in each type's member set
-	if name == "is_true" {
+	if id == members.IsTrue || (id == member.Unknown && name == "is_true") {
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -315,10 +314,7 @@ func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value
 		return BoolValue(t), nil
 	}
 	d := &ValueTypes[v.Type]
-	if id == member.Unknown {
-		id = member.Lookup(name)
-	}
-	if int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
+	if id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
 		return d.Methods[id].Fn(vm, v, id, args)
 	}
 	return d.CallNamedMethod(vm, v, name, args)
@@ -328,13 +324,10 @@ func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value
 // PURE by contract
 func (v Value) AccessProperty(vm VM, id member.ID, name string) (Value, error) {
 	d := &ValueTypes[v.Type]
-	if id == member.Unknown {
-		id = member.Lookup(name)
-	}
-	if int(id) < len(d.Properties) && d.Properties[id].Get != nil {
+	if id != member.Unknown && int(id) < len(d.Properties) && d.Properties[id].Get != nil {
 		return d.Properties[id].Get(vm, v, id)
 	}
-	return d.AccessNamedProperty(v, name)
+	return d.AccessNamedProperty(vm, v, name)
 }
 
 // AssignProperty answers x.name = r: the type's Properties[id].Set when that slot has one, else
@@ -342,13 +335,10 @@ func (v Value) AccessProperty(vm VM, id member.ID, name string) (Value, error) {
 // IMPURE by contract (mutates target)
 func (v Value) AssignProperty(vm VM, id member.ID, name string, r Value) error {
 	d := &ValueTypes[v.Type]
-	if id == member.Unknown {
-		id = member.Lookup(name)
-	}
-	if int(id) < len(d.Properties) && d.Properties[id].Set != nil {
+	if id != member.Unknown && int(id) < len(d.Properties) && d.Properties[id].Set != nil {
 		return d.Properties[id].Set(vm, v, id, r)
 	}
-	return d.AssignNamedProperty(v, name, r)
+	return d.AssignNamedProperty(vm, v, name, r)
 }
 
 // CallNamedMethod calls the type's name-path hook directly, bypassing the Methods table and the universal members.
@@ -358,13 +348,13 @@ func (v Value) CallNamedMethod(vm VM, name string, args []Value) (Value, error) 
 }
 
 // PURE by contract
-func (v Value) AccessNamedProperty(name string) (Value, error) {
-	return ValueTypes[v.Type].AccessNamedProperty(v, name)
+func (v Value) AccessNamedProperty(vm VM, name string) (Value, error) {
+	return ValueTypes[v.Type].AccessNamedProperty(vm, v, name)
 }
 
 // IMPURE by contract (mutates target)
-func (v Value) AssignNamedProperty(name string, r Value) error {
-	return ValueTypes[v.Type].AssignNamedProperty(v, name, r)
+func (v Value) AssignNamedProperty(vm VM, name string, r Value) error {
+	return ValueTypes[v.Type].AssignNamedProperty(vm, v, name, r)
 }
 
 // PURE by contract — x[k]
