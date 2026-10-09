@@ -24,6 +24,7 @@ import (
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
@@ -11572,6 +11573,9 @@ func TestFunctionMatrixInSync(t *testing.T) {
 				continue
 			}
 			name := member.ID(i).String()
+			if i == members.IsTrue {
+				continue // universal: documented in the page's own "Universal" section, not as a row
+			}
 			require.True(t, cells[col][name], "%s declares %s, which function-matrix.md does not mark ✓", col, name)
 		}
 	}

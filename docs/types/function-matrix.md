@@ -7,7 +7,8 @@ regenerated 2026-08-29 after the member-surface redesign fully landed. Treat it 
 "does this member exist on that type" — the per-type pages in `docs/types/*.md` carry the contracts; this
 file carries existence.
 
-`✓` = a real `case` in that type's `CallNamedMethod` switch. `—` = no member-call form on that type (a free
+`✓` = a member the type answers: an entry in its `Methods` table, or a `case` in its `CallNamedMethod` switch for a
+type not yet moved to a table (a tabled column is checked against the table by `TestFunctionMatrixInSync`). `—` = no member-call form on that type (a free
 builtin or operator of the same meaning may still exist; `record` has NO member surface at all by design —
 free builtins only — so it has no column).
 

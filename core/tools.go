@@ -908,6 +908,20 @@ func CallMemberByLookup(vm VM, v Value, name string, args []Value) (Value, error
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
+// memberIsTrue is the universal is_true member: every builtin type's Methods table carries it under members.IsTrue,
+// answering the type's IsTrue hook (truthiness is always derived from the type, never declared per member).
+// PURE by contract
+func memberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	t, err := ValueTypes[v.Type].IsTrue(v)
+	if err != nil {
+		return Undefined, err
+	}
+	return BoolValue(t), nil
+}
+
 // PropertyByLookup is the last step of every name path for x.name and x.name = r: the type's Properties entry for
 // name, when the type tables it under an id the access site did not carry. Each type keeps its own miss error.
 func PropertyByLookup(v Value, name string) (PropertyEntry, member.ID, bool) {

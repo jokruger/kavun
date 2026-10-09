@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -20,23 +21,32 @@ func BoolValue(b bool) Value {
 }
 
 var TypeBool = ValueTypeDescr{
-	Name:              ConstHook(boolTypeName),                                 // PURE by contract
-	String:            boolTypeString,                                          // PURE by contract
-	Format:            boolTypeFormat,                                          // PURE by contract
-	Interface:         func(v Value) any { return v.Data != 0 },                // PURE by contract
-	EncodeJSON:        boolTypeEncodeJSON,                                      // PURE by contract
-	EncodeBinary:      boolTypeEncodeBinary,                                    // PURE by contract
-	DecodeBinary:      boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
-	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil }, // PURE by contract
-	Equal:             boolTypeEqual,                                           // PURE by contract
-	BinaryOp:          boolTypeBinaryOp,                                        // PURE by contract
-	UnaryOp:           boolTypeUnaryOp,                                         // PURE by contract
-	CallNamedMethod:   boolTypeCallNamedMethod,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	Len:               ConstHook(int64(1)),                                     // PURE by contract
-	AsString:          boolTypeAsString,                                        // PURE by contract
-	AsInt:             boolTypeAsInt,                                           // PURE by contract
-	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                       // All methods are expected to be pure.
+	Name:         ConstHook(boolTypeName),                                 // PURE by contract
+	String:       boolTypeString,                                          // PURE by contract
+	Format:       boolTypeFormat,                                          // PURE by contract
+	Interface:    func(v Value) any { return v.Data != 0 },                // PURE by contract
+	EncodeJSON:   boolTypeEncodeJSON,                                      // PURE by contract
+	EncodeBinary: boolTypeEncodeBinary,                                    // PURE by contract
+	DecodeBinary: boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil }, // PURE by contract
+	Equal:        boolTypeEqual,                                           // PURE by contract
+	BinaryOp:     boolTypeBinaryOp,                                        // PURE by contract
+	UnaryOp:      boolTypeUnaryOp,                                         // PURE by contract
+	Len:          ConstHook(int64(1)),                                     // PURE by contract
+	AsString:     boolTypeAsString,                                        // PURE by contract
+	AsInt:        boolTypeAsInt,                                           // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue: {Fn: memberIsTrue, Pure: true},
+		members.String: {Fn: boolString, Pure: true},
+		members.Format: {Fn: boolFormat, Pure: true},
+		members.Copy:   {Fn: boolCopy, Pure: true},
+		members.Freeze: {Fn: boolFreeze, Pure: true},
+		members.Runes:  {Fn: boolRunes, Pure: true},
+		members.Int:    {Fn: boolInt, Pure: true},
+		members.Bool:   {Fn: boolBool, Pure: true},
+	},
 }
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
@@ -159,67 +169,5 @@ func boolTypeUnaryOp(v Value, op token.Token) (Value, error) {
 		return BoolValue(v.Data == 0), nil
 	default:
 		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	}
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func boolTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "bool":
-		return convMember(name, boolTypeName, args, true, v)
-
-	case "int":
-		i, _ := boolTypeAsInt(v)
-		return convMember(name, boolTypeName, args, true, IntValue(i))
-
-	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		s, _ := boolTypeAsString(v)
-		return NewStringValue(s), nil
-
-	case "runes":
-		s, ok := v.AsString()
-		return convMember(name, boolTypeName, args, ok, NewRunesValue([]rune(s), false))
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := boolTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
 	}
 }
