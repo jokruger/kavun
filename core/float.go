@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jokruger/kavun/core/member/members"
+
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
@@ -29,26 +31,45 @@ func FloatValue(f float64) Value {
 }
 
 var TypeFloat = ValueTypeDescr{
-	Name:              ConstHook(floatTypeName),                                  // PURE by contract
-	String:            floatTypeString,                                           // PURE by contract
-	Format:            floatTypeFormat,                                           // PURE by contract
-	Interface:         func(v Value) any { return math.Float64frombits(v.Data) }, // PURE by contract
-	EncodeJSON:        floatTypeEncodeJSON,                                       // PURE by contract
-	EncodeBinary:      floatTypeEncodeBinary,                                     // PURE by contract
-	DecodeBinary:      floatTypeDecodeBinary,                                     // IMPURE by contract (mutates target)
-	IsTrue:            floatTypeIsTrue,                                           // PURE by contract
-	Len:               ConstHook(int64(1)),                                       // PURE by contract
-	Equal:             floatTypeEqual,                                            // PURE by contract
-	BinaryOp:          floatTypeBinaryOp,                                         // PURE by contract
-	UnaryOp:           floatTypeUnaryOp,                                          // PURE by contract
-	CallNamedMethod:   floatTypeCallNamedMethod,                                  // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsInt:             floatTypeAsInt,                                            // PURE by contract
-	AsFloat:           floatTypeAsFloat,                                          // PURE by contract
-	AsDecimal:         floatTypeAsDecimal,                                        // PURE by contract
-	AsBool:            floatTypeAsBool,                                           // PURE by contract
-	AsString:          floatTypeAsString,                                         // PURE by contract
-	AsTime:            floatTypeAsTime,                                           // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                         // All methods are expected to be pure.
+	Name:         ConstHook(floatTypeName),                                  // PURE by contract
+	String:       floatTypeString,                                           // PURE by contract
+	Format:       floatTypeFormat,                                           // PURE by contract
+	Interface:    func(v Value) any { return math.Float64frombits(v.Data) }, // PURE by contract
+	EncodeJSON:   floatTypeEncodeJSON,                                       // PURE by contract
+	EncodeBinary: floatTypeEncodeBinary,                                     // PURE by contract
+	DecodeBinary: floatTypeDecodeBinary,                                     // IMPURE by contract (mutates target)
+	IsTrue:       floatTypeIsTrue,                                           // PURE by contract
+	Len:          ConstHook(int64(1)),                                       // PURE by contract
+	Equal:        floatTypeEqual,                                            // PURE by contract
+	UnaryOp:      floatTypeUnaryOp,                                          // PURE by contract
+	BinaryOp:     floatTypeBinaryOp,                                         // PURE by contract
+	AsInt:        floatTypeAsInt,                                            // PURE by contract
+	AsFloat:      floatTypeAsFloat,                                          // PURE by contract
+	AsDecimal:    floatTypeAsDecimal,                                        // PURE by contract
+	AsBool:       floatTypeAsBool,                                           // PURE by contract
+	AsString:     floatTypeAsString,                                         // PURE by contract
+	AsTime:       floatTypeAsTime,                                           // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:     {Fn: memberIsTrue, Pure: true},
+		members.String:     {Fn: floatString, Pure: true},
+		members.Format:     {Fn: memberFormat, Pure: true},
+		members.Copy:       {Fn: memberSelf, Pure: true},
+		members.Freeze:     {Fn: memberSelf, Pure: true},
+		members.Runes:      {Fn: floatRunes, Pure: true},
+		members.Int:        {Fn: floatInt, Pure: true},
+		members.Bool:       {Fn: floatBool, Pure: true},
+		members.Float:      {Fn: floatFloat, Pure: true},
+		members.Time:       {Fn: floatTime, Pure: true},
+		members.Decimal:    {Fn: floatDecimal, Pure: true},
+		members.Abs:        {Fn: floatAbs, Pure: true},
+		members.Sign:       {Fn: floatSign, Pure: true},
+		members.IsZero:     {Fn: floatIsZero, Pure: true},
+		members.IsPositive: {Fn: floatIsPositive, Pure: true},
+		members.IsNegative: {Fn: floatIsNegative, Pure: true},
+		members.IsNaN:      {Fn: floatIsNaN, Pure: true},
+		members.IsInf:      {Fn: floatIsInf, Pure: true},
+	},
 }
 
 func floatTypeIsTrue(v Value) (bool, error) {
@@ -584,141 +605,4 @@ func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func floatTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "float":
-		return convMember(name, floatTypeName, args, true, v)
-
-	case "decimal":
-		f := math.Float64frombits(v.Data)
-		// a NaN decimal is an error state, never a produced value: NaN/Inf decline, and so does a finite float
-		// too large for dec128's 128-bit coefficient — FromFloat64 signals that overflow as NaN too
-		ok := !math.IsInf(f, 0) && !math.IsNaN(f)
-		var d Value
-		if ok {
-			dd := dec128.FromFloat64(f)
-			if ok = !dd.IsNaN(); ok {
-				d = NewDecimalValue(dd)
-			}
-		}
-		return convMember(name, floatTypeName, args, ok, d)
-
-	case "int":
-		i, ok := v.AsInt()
-		return convMember(name, floatTypeName, args, ok, IntValue(i))
-
-	case "bool":
-		b, ok := v.AsBool()
-		return convMember(name, floatTypeName, args, ok, BoolValue(b))
-
-	case "time":
-		t, ok := v.AsTime()
-		return convMember(name, floatTypeName, args, ok, NewTimeValue(t))
-
-	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		s, _ := v.AsString()
-		return NewStringValue(s), nil
-
-	case "runes":
-		s, ok := v.AsString()
-		return convMember(name, floatTypeName, args, ok, NewRunesValue([]rune(s), false))
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := floatTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	case "is_nan":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(math.IsNaN(math.Float64frombits(v.Data))), nil
-
-	case "is_inf":
-		// no sign argument: -Inf is x.is_inf() && x.sign() < 0
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(math.IsInf(math.Float64frombits(v.Data), 0)), nil
-
-	case "is_zero":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(math.Float64frombits(v.Data) == 0), nil
-
-	case "is_negative":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(math.Float64frombits(v.Data) < 0), nil
-
-	case "is_positive":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(math.Float64frombits(v.Data) > 0), nil
-
-	case "abs":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return FloatValue(math.Abs(math.Float64frombits(v.Data))), nil
-
-	case "sign":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f := math.Float64frombits(v.Data)
-		if math.IsNaN(f) {
-			return IntValue(0), nil
-		}
-		if f > 0 {
-			return IntValue(1), nil
-		}
-		if f < 0 {
-			return IntValue(-1), nil
-		}
-		return IntValue(0), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }

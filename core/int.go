@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/core/member/members"
+
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
@@ -30,29 +32,51 @@ func IntValue(i int64) Value {
 }
 
 var TypeInt = ValueTypeDescr{
-	Name:              ConstHook(intTypeName),                                                               // PURE by contract
-	String:            func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },                 // PURE by contract
-	Format:            intTypeFormat,                                                                        // PURE by contract
-	Interface:         func(v Value) any { return int64(v.Data) },                                           // PURE by contract
-	EncodeJSON:        intTypeEncodeJSON,                                                                    // PURE by contract
-	EncodeBinary:      intTypeEncodeBinary,                                                                  // PURE by contract
-	DecodeBinary:      intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
-	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
-	Len:               ConstHook(int64(1)),                                                                  // PURE by contract
-	Equal:             intTypeEqual,                                                                         // PURE by contract
-	BinaryOp:          intTypeBinaryOp,                                                                      // PURE by contract
-	UnaryOp:           intTypeUnaryOp,                                                                       // PURE by contract
-	CallNamedMethod:   intTypeCallNamedMethod,                                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
-	AsInt:             func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
-	AsFloat:           func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
-	AsDecimal:         func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
-	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
-	AsRune:            intTypeAsRune,                                                                        // PURE by contract
-	AsTime:            func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0).UTC(), true },   // PURE by contract
-	AsDate:            intTypeAsDate,                                                                        // PURE by contract
-	AsByte:            intTypeAsByte,                                                                        // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
+	Name:         ConstHook(intTypeName),                                                               // PURE by contract
+	String:       func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },                 // PURE by contract
+	Format:       intTypeFormat,                                                                        // PURE by contract
+	Interface:    func(v Value) any { return int64(v.Data) },                                           // PURE by contract
+	EncodeJSON:   intTypeEncodeJSON,                                                                    // PURE by contract
+	EncodeBinary: intTypeEncodeBinary,                                                                  // PURE by contract
+	DecodeBinary: intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
+	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
+	Equal:        intTypeEqual,                                                                         // PURE by contract
+	UnaryOp:      intTypeUnaryOp,                                                                       // PURE by contract
+	BinaryOp:     intTypeBinaryOp,                                                                      // PURE by contract
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
+	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
+	AsRune:       intTypeAsRune,                                                                        // PURE by contract
+	AsTime:       func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0).UTC(), true },   // PURE by contract
+	AsDate:       intTypeAsDate,                                                                        // PURE by contract
+	AsByte:       intTypeAsByte,                                                                        // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:    {Fn: memberIsTrue, Pure: true},
+		members.String:    {Fn: intString, Pure: true},
+		members.Format:    {Fn: memberFormat, Pure: true},
+		members.Copy:      {Fn: memberSelf, Pure: true},
+		members.Freeze:    {Fn: memberSelf, Pure: true},
+		members.Runes:     {Fn: intRunes, Pure: true},
+		members.Int:       {Fn: intInt, Pure: true},
+		members.Bool:      {Fn: intBool, Pure: true},
+		members.Float:     {Fn: intFloat, Pure: true},
+		members.Time:      {Fn: intTime, Pure: true},
+		members.Decimal:   {Fn: intDecimal, Pure: true},
+		members.Date:      {Fn: intDate, Pure: true},
+		members.Byte:      {Fn: intByte, Pure: true},
+		members.Rune:      {Fn: intRune, Pure: true},
+		members.Abs:       {Fn: intAbs, Pure: true},
+		members.Sign:      {Fn: intSign, Pure: true},
+		members.IsNaN:     {Fn: intIsNaN, Pure: true},
+		members.IsInf:     {Fn: intIsInf, Pure: true},
+		members.TimeMs:    {Fn: intTimeMs, Pure: true},
+		members.TimeMicro: {Fn: intTimeMicro, Pure: true},
+		members.TimeNano:  {Fn: intTimeNano, Pure: true},
+	},
 }
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
@@ -423,145 +447,6 @@ func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func intTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "int":
-		return convMember(name, intTypeName, args, true, v)
-
-	case "float":
-		f, ok := v.AsFloat()
-		return convMember(name, intTypeName, args, ok, FloatValue(f))
-
-	case "decimal":
-		d, ok := v.AsDecimal()
-		return convMember(name, intTypeName, args, ok, NewDecimalValue(d))
-
-	case "bool":
-		b, ok := v.AsBool()
-		return convMember(name, intTypeName, args, ok, BoolValue(b))
-
-	case "rune":
-		c, ok := v.AsRune()
-		return convMember(name, intTypeName, args, ok, RuneValue(c))
-
-	case "byte":
-		b, ok := v.AsByte()
-		return convMember(name, intTypeName, args, ok, ByteValue(b))
-
-	case "string":
-		// total — the default slot never fires, but every conversion carries it
-		s, _ := v.AsString()
-		return convMember(name, intTypeName, args, true, NewStringValue(s))
-
-	case "runes":
-		s, ok := v.AsString()
-		return convMember(name, intTypeName, args, ok, NewRunesValue([]rune(s), false))
-
-	// The int -> time family. In conversion context an int is a unix timestamp, never a duration
-	// (that reading belongs to operator context — `t + n` is nanoseconds; see docs/types/time.md).
-	// Each of these names the encoding it reads, and each is the exact inverse of the time accessor
-	// with the matching suffix: time_ms <-> unix_ms, time_micro <-> unix_micro, time_nano <->
-	// unix_nano, and the unsuffixed time() <-> int()/unix(), which are seconds. All produce UTC, so
-	// the result never depends on the host's timezone.
-	case "time":
-		t, _ := v.AsTime()
-		return convMember(name, intTypeName, args, true, NewTimeValue(t))
-
-	case "date":
-		// in conversion context an int is a day count since 1970-01-01 — the inverse of d.int(); in operator
-		// context (d + n) it is a number of days
-		dd, ok := intTypeAsDate(v)
-		return convMember(name, intTypeName, args, ok, DateValue(dd))
-
-	case "time_ms":
-		return convMember(name, intTypeName, args, true, NewTimeValue(time.UnixMilli(int64(v.Data)).UTC()))
-
-	case "time_micro":
-		return convMember(name, intTypeName, args, true, NewTimeValue(time.UnixMicro(int64(v.Data)).UTC()))
-
-	case "time_nano":
-		return convMember(name, intTypeName, args, true, NewTimeValue(time.Unix(0, int64(v.Data)).UTC()))
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := intTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	case "is_nan":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return False, nil
-
-	case "is_inf":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return False, nil
-
-	case "sign":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		if v.Data == 0 {
-			return IntValue(0), nil
-		} else if int64(v.Data) > 0 {
-			return IntValue(1), nil
-		} else {
-			return IntValue(-1), nil
-		}
-
-	case "abs":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i := int64(v.Data)
-		if i == math.MinInt64 {
-			// |MinInt64| does not fit — int is checked, it never wraps
-			return Undefined, errs.NewInvalidValueError("int overflow")
-		}
-		if i < 0 {
-			return IntValue(-i), nil
-		}
-		return v, nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }
 
 // intTypeAsDate reads an int as epoch days (civil.FromDays), failing outside 0001-01-01…9999-12-31.
