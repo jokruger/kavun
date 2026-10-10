@@ -41,7 +41,14 @@
    property read/write and an index write should be attributed to (the selector name is the most useful: emit
    `AccessProperty`/`AssignProperty` with `node.Sel`'s position), and check that a caller frame's saved `ip`
    really is its call instruction before dropping its `-1`.
-   
+7. **Escape code points (U+DC80–U+DCFF) in int sequences → text: array and range disagree, and array substitutes.**
+   Found 2026-10-10. The text model carries an undecodable octet as an escape code point (core/text_escape.go), so
+   a sequence of ints holding one should convert losslessly. Today: `range(0xDCFE, 0xDD00).string()` / `.runes()`
+   raise (`intRangeCodePoints` excludes the whole surrogate block); `range(0xDCFE, 0xDD00).array().runes()` keeps
+   them (56574, 56575); `range(0xDCFE, 0xDD00).array().string()` answers U+FFFD twice — a silent substitution, against
+   "text conversions are total". Decide the rule (escapes accepted as octets everywhere vs refused everywhere), apply
+   it to array and range together, pin it in TestSequenceMemberParity.
+
 ## AI-friendliness / authoring feedback
 
   - **TO DISCUSS: strict assignment by default.** Today `=` to an unresolved name silently declares it

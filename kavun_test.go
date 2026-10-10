@@ -3233,6 +3233,14 @@ func TestRange(t *testing.T) {
 	expectRun(t, `out = range(103, 97, 1).bytes().string()`, nil, "gfedcb")
 	expectRun(t, `out = range(97, 103, 1).string()`, nil, "abcdef")
 	expectRun(t, `out = range(103, 97, 1).string()`, nil, "gfedcb")
+	expectRun(t, `out = range(97, 100).runes().string()`, nil, "abc")
+	// string()/runes() are all-or-nothing over code points; each names itself and honours its trailing default
+	expectError(t, `out = range(-2, 0).string()`, nil, "cannot convert range to string")
+	expectError(t, `out = range(-2, 0).runes()`, nil, "cannot convert range to runes")
+	expectError(t, `out = range(0xD800, 0xD802).runes()`, nil, "cannot convert range to runes")
+	expectRun(t, `out = range(-2, 0).string("none")`, nil, "none")
+	expectRun(t, `out = range(-2, 0).runes(undefined)`, nil, nil)
+	expectRun(t, `out = range(-2, 0).runes(u"none").string()`, nil, "none")
 	expectError(t, `out = range(1, 3, 1).record()`, nil, "invalid_method") // elements are never entries
 	expectError(t, `out = range(1, 3, 1).dict()`, nil, "invalid_method")
 	// the components map is the way back instead

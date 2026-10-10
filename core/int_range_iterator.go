@@ -20,7 +20,7 @@ func (i *IntRangeIterator) Set(start, stop, step int64) {
 	// it stops by count, not by comparing the value against stop: one step past the last element may lie
 	// past int64 and wrap. The value itself may wrap freely — every element it is read at is exact
 	i.i = -1
-	i.n = int64(intRangeCount(start, stop, step))
+	i.n = int64(intRangeSize(start, stop, step))
 	if start <= stop {
 		i.v = start - step
 		i.s = step
