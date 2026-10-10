@@ -1,12 +1,12 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
 
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -115,46 +115,15 @@ var TypeFinDatedCharges = ValueTypeDescr{
 		}
 		return ValueTypes[other.Type].Equal(other, v, true)
 	},
-	CallNamedMethod:   finDatedChargesCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return FinDatedChargesOf(v).String(), true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
-}
+	AsString: func(v Value) (string, bool) { return FinDatedChargesOf(v).String(), true }, // PURE by contract
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func finDatedChargesCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	t := FinDatedChargesOf(v)
-	switch name {
-	case "copy", "freeze":
-		// identities on an immutable value
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
-	case "string":
-		return finTableString(v, t.String(), args)
-	case "format":
-		return finTableFormatMember(v, t.String(), args)
-	case "bands":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		bs := t.Bands()
-		out := make([]Value, len(bs))
-		for i, b := range bs {
-			out[i] = NewRecordValue(map[string]Value{"from": DateValue(b.From), "amount": NewDecimalValue(b.Amount)}, false)
-		}
-		return NewArrayValue(out, false), nil
-	case "at":
-		// at(on): the amount in force (fin128 has no fallback form for a charge table)
-		if err := finArgCount(name, args, 1); err != nil {
-			return Undefined, err
-		}
-		on, err := finDateArg(name, "on", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.At(on)
-		return finDecimal(name, d, err)
-	}
-	return CallMemberByLookup(vm, v, name, args)
+	Methods: []MethodEntry{
+		members.IsTrue: {Fn: memberIsTrue, Pure: true},
+		members.String: {Fn: finDatedChargesString, Pure: true},
+		members.Format: {Fn: memberFormat, Pure: true},
+		members.Copy:   {Fn: memberSelf, Pure: true},
+		members.Freeze: {Fn: memberSelf, Pure: true},
+		members.At:     {Fn: finDatedChargesAt, Pure: true},
+		members.Bands:  {Fn: finDatedChargesBands, Pure: true},
+	},
 }

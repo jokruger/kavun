@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
@@ -136,72 +137,18 @@ var TypeFinTieredCharges = ValueTypeDescr{
 		}
 		return ValueTypes[other.Type].Equal(other, v, true)
 	},
-	CallNamedMethod:   finTieredChargesCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return FinTieredChargesOf(v).String(), true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                            // All methods are expected to be pure.
-}
+	AsString: func(v Value) (string, bool) { return FinTieredChargesOf(v).String(), true }, // PURE by contract
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func finTieredChargesCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	t := FinTieredChargesOf(v)
-	switch name {
-	case "copy", "freeze":
-		// identities on an immutable value
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
-	case "string":
-		return finTableString(v, t.String(), args)
-	case "format":
-		return finTableFormatMember(v, t.String(), args)
-	case "bands":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		bs := t.Bands()
-		out := make([]Value, len(bs))
-		for i, b := range bs {
-			out[i] = finChargeBandValue(b)
-		}
-		return NewArrayValue(out, false), nil
-	case "bounds":
-		// {min, max}; a max of 0 means no cap
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		lo, hi := t.Bounds()
-		return NewRecordValue(map[string]Value{"min": NewDecimalValue(lo), "max": NewDecimalValue(hi)}, false), nil
-	case "at":
-		if err := finArgCount(name, args, 1); err != nil {
-			return Undefined, err
-		}
-		amount, err := decimalOperandArg(name, "amount", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		b, err := t.At(amount)
-		if err != nil {
-			return Undefined, FinError(name, err)
-		}
-		return finChargeBandValue(b), nil
-	case "charge":
-		amount, rule, out, err := finChargeArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.Charge(amount, rule, out)
-		return finDecimal(name, d, err)
-	case "charge_parts":
-		amount, rule, out, err := finChargeArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		parts, err := t.ChargeParts(amount, rule, out)
-		if err != nil {
-			return Undefined, FinError(name, err)
-		}
-		return finTierPartsValue(parts), nil
-	}
-	return CallMemberByLookup(vm, v, name, args)
+	Methods: []MethodEntry{
+		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
+		members.String:      {Fn: finTieredChargesString, Pure: true},
+		members.Format:      {Fn: memberFormat, Pure: true},
+		members.Copy:        {Fn: memberSelf, Pure: true},
+		members.Freeze:      {Fn: memberSelf, Pure: true},
+		members.At:          {Fn: finTieredChargesAt, Pure: true},
+		members.Bands:       {Fn: finTieredChargesBands, Pure: true},
+		members.Charge:      {Fn: finTieredChargesCharge, Pure: true},
+		members.ChargeParts: {Fn: finTieredChargesChargeParts, Pure: true},
+		members.Bounds:      {Fn: finTieredChargesBounds, Pure: true},
+	},
 }

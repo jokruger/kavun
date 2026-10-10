@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"math/big"
 	"unsafe"
 
@@ -65,24 +66,35 @@ func finYearFractionResult(op string, f daycount.Fraction) (Value, error) {
 
 // TypeFinYearFraction is the fin.year_fraction type descriptor.
 var TypeFinYearFraction = ValueTypeDescr{
-	Name:              ConstHook(finYearFractionTypeName),                                          // PURE by contract
-	String:            finYearFractionTypeString,                                                   // PURE by contract
-	Format:            finYearFractionTypeFormat,                                                   // PURE by contract
-	Interface:         func(v Value) any { return FinYearFractionOf(v) },                           // PURE by contract
-	EncodeJSON:        finYearFractionTypeEncodeJSON,                                               // PURE by contract
-	EncodeBinary:      finYearFractionTypeEncodeBinary,                                             // PURE by contract
-	DecodeBinary:      finYearFractionTypeDecodeBinary,                                             // IMPURE by contract (mutates target)
-	IsTrue:            func(v Value) (bool, error) { return !FinYearFractionOf(v).IsZero(), nil },  // PURE by contract: falsy iff equal to the default 0/1
-	Len:               ConstHook(int64(1)),                                                         // PURE by contract
-	Equal:             finYearFractionTypeEqual,                                                    // PURE by contract
-	BinaryOp:          finYearFractionTypeBinaryOp,                                                 // PURE by contract
-	CallNamedMethod:   finYearFractionTypeCallNamedMethod,                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return FinYearFractionOf(v).String(), true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
+	Name:         ConstHook(finYearFractionTypeName),                                          // PURE by contract
+	String:       finYearFractionTypeString,                                                   // PURE by contract
+	Format:       finYearFractionTypeFormat,                                                   // PURE by contract
+	Interface:    func(v Value) any { return FinYearFractionOf(v) },                           // PURE by contract
+	EncodeJSON:   finYearFractionTypeEncodeJSON,                                               // PURE by contract
+	EncodeBinary: finYearFractionTypeEncodeBinary,                                             // PURE by contract
+	DecodeBinary: finYearFractionTypeDecodeBinary,                                             // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return !FinYearFractionOf(v).IsZero(), nil },  // PURE by contract: falsy iff equal to the default 0/1
+	Len:          ConstHook(int64(1)),                                                         // PURE by contract
+	Equal:        finYearFractionTypeEqual,                                                    // PURE by contract
+	BinaryOp:     finYearFractionTypeBinaryOp,                                                 // PURE by contract
+	AsString:     func(v Value) (string, bool) { return FinYearFractionOf(v).String(), true }, // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:     {Fn: memberIsTrue, Pure: true},
+		members.String:     {Fn: finYearFractionString, Pure: true},
+		members.Format:     {Fn: memberFormat, Pure: true},
+		members.Copy:       {Fn: memberSelf, Pure: true},
+		members.Freeze:     {Fn: memberSelf, Pure: true},
+		members.IsZero:     {Fn: finYearFractionIsZero, Pure: true},
+		members.IsPositive: {Fn: finYearFractionIsPositive, Pure: true},
+		members.IsNegative: {Fn: finYearFractionIsNegative, Pure: true},
+		members.Value:      {Fn: finYearFractionValue, Pure: true},
+		members.Terms:      {Fn: finYearFractionTerms, Pure: true},
+	},
 }
 
-// finYearFractionTerms answers the constructor's arguments: [n1, d1] or [n1, d1, n2, d2].
-func finYearFractionTerms(f daycount.Fraction) []int64 {
+// finYearFractionTermsOf answers the constructor's arguments: [n1, d1] or [n1, d1, n2, d2].
+func finYearFractionTermsOf(f daycount.Fraction) []int64 {
 	if f.D2 == 0 {
 		return []int64{int64(f.N1), int64(f.D1)}
 	}
@@ -91,7 +103,7 @@ func finYearFractionTerms(f daycount.Fraction) []int64 {
 
 // PURE by contract
 func finYearFractionTypeString(v Value) string {
-	t := finYearFractionTerms(FinYearFractionOf(v))
+	t := finYearFractionTermsOf(FinYearFractionOf(v))
 	s := "fin.year_fraction("
 	for i, n := range t {
 		if i > 0 {
@@ -118,7 +130,7 @@ func finYearFractionTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 // PURE by contract: the terms array, which fin.year_fraction(v...) reads back.
 func finYearFractionTypeEncodeJSON(v Value) ([]byte, error) {
-	t := finYearFractionTerms(FinYearFractionOf(v))
+	t := finYearFractionTermsOf(FinYearFractionOf(v))
 	out := []byte{'['}
 	for i, n := range t {
 		if i > 0 {
@@ -213,87 +225,4 @@ func finYearFractionTypeBinaryOp(v Value, other Value, op token.Token, reflected
 		}
 	}
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func finYearFractionTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	f := FinYearFractionOf(v)
-	noArgs := func() error {
-		if len(args) != 0 {
-			return errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return nil
-	}
-	switch name {
-	case "copy", "freeze":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return v, nil // immutable: copy and freeze are identities
-	case "terms":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		t := finYearFractionTerms(f)
-		out := make([]Value, len(t))
-		for i, n := range t {
-			out[i] = IntValue(n)
-		}
-		return NewArrayValue(out, false), nil
-	case "value":
-		// the decimal reading, at a stated rounding — the only bridge to decimal
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := f.Value(scale, mode)
-		if err != nil {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
-		}
-		return decimalResult(name, d)
-	case "string":
-		return convMember(name, finYearFractionTypeName, args, true, NewStringValue(f.String()))
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		spec := ""
-		if len(args) == 1 {
-			if args[0].Type != value.String {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-			spec, _ = args[0].AsString()
-		}
-		sp, err := fspec.Parse(spec)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := finYearFractionTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-	case "is_zero":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		n, _ := f.Rational()
-		return BoolValue(n == 0), nil
-	case "is_negative":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		n, _ := f.Rational()
-		return BoolValue(n < 0), nil
-	case "is_positive":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		n, _ := f.Rational()
-		return BoolValue(n > 0), nil
-	}
-	return CallMemberByLookup(vm, v, name, args)
 }

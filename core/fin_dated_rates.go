@@ -1,12 +1,12 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
 
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -114,107 +114,18 @@ var TypeFinDatedRates = ValueTypeDescr{
 		}
 		return ValueTypes[other.Type].Equal(other, v, true)
 	},
-	CallNamedMethod:   finDatedRatesCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return FinDatedRatesOf(v).String(), true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                         // All methods are expected to be pure.
-}
+	AsString: func(v Value) (string, bool) { return FinDatedRatesOf(v).String(), true }, // PURE by contract
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func finDatedRatesCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	t := FinDatedRatesOf(v)
-	switch name {
-	case "copy", "freeze":
-		// identities on an immutable value
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
-	case "string":
-		return finTableString(v, t.String(), args)
-	case "format":
-		return finTableFormatMember(v, t.String(), args)
-	case "bands":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		bs := t.Bands()
-		out := make([]Value, len(bs))
-		for i, b := range bs {
-			out[i] = NewRecordValue(map[string]Value{"from": DateValue(b.From), "rate": NewDecimalValue(b.Rate)}, false)
-		}
-		return NewArrayValue(out, false), nil
-	case "at":
-		// at(on[, fallback]): the rate in force; the fallback answers ONLY a date before the first band
-		if err := finArgCount(name, args, 1, 2); err != nil {
-			return Undefined, err
-		}
-		on, err := finDateArg(name, "on", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if len(args) == 1 {
-			d, err := t.At(on)
-			return finDecimal(name, d, err)
-		}
-		fallback, err := decimalOperandArg(name, "fallback", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.AtOr(on, fallback)
-		return finDecimal(name, d, err)
-	case "apply":
-		// apply(amount, on, [fallback,] scale, mode): amount × the rate in force, rounded once
-		if err := finArgCount(name, args, 4, 5); err != nil {
-			return Undefined, err
-		}
-		amount, err := decimalOperandArg(name, "amount", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		on, err := finDateArg(name, "on", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		out, err := finRoundingArgs(name, args, len(args)-2)
-		if err != nil {
-			return Undefined, err
-		}
-		if len(args) == 4 {
-			d, err := t.Apply(amount, on, out)
-			return finDecimal(name, d, err)
-		}
-		fallback, err := decimalOperandArg(name, "fallback", args[2])
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.ApplyOr(amount, on, fallback, out)
-		return finDecimal(name, d, err)
-	case "accrue":
-		a, err := finAccrualArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.Accrue(a.principal, a.start, a.end, a.conv, a.out)
-		return finDecimal(name, d, err)
-	case "accrue_parts":
-		a, err := finAccrualArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		parts, err := t.AccrueParts(a.principal, a.start, a.end, a.conv, a.out)
-		if err != nil {
-			return Undefined, FinError(name, err)
-		}
-		res := make([]Value, len(parts))
-		for i, p := range parts {
-			res[i] = NewRecordValue(map[string]Value{
-				"start":  DateValue(p.Start),
-				"end":    DateValue(p.End),
-				"rate":   NewDecimalValue(p.Rate),
-				"amount": NewDecimalValue(p.Amount),
-			}, false)
-		}
-		return NewArrayValue(res, false), nil
-	}
-	return CallMemberByLookup(vm, v, name, args)
+	Methods: []MethodEntry{
+		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
+		members.String:      {Fn: finDatedRatesString, Pure: true},
+		members.Format:      {Fn: memberFormat, Pure: true},
+		members.Copy:        {Fn: memberSelf, Pure: true},
+		members.Freeze:      {Fn: memberSelf, Pure: true},
+		members.At:          {Fn: finDatedRatesAt, Pure: true},
+		members.Bands:       {Fn: finDatedRatesBands, Pure: true},
+		members.Accrue:      {Fn: finDatedRatesAccrue, Pure: true},
+		members.AccrueParts: {Fn: finDatedRatesAccrueParts, Pure: true},
+		members.Apply:       {Fn: finDatedRatesApply, Pure: true},
+	},
 }

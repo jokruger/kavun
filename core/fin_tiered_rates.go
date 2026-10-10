@@ -1,12 +1,12 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
 
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -118,95 +118,19 @@ var TypeFinTieredRates = ValueTypeDescr{
 		}
 		return ValueTypes[other.Type].Equal(other, v, true)
 	},
-	CallNamedMethod:   finTieredRatesCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return FinTieredRatesOf(v).String(), true }, // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                          // All methods are expected to be pure.
-}
+	AsString: func(v Value) (string, bool) { return FinTieredRatesOf(v).String(), true }, // PURE by contract
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func finTieredRatesCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	t := FinTieredRatesOf(v)
-	switch name {
-	case "copy", "freeze":
-		// identities on an immutable value
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
-	case "string":
-		return finTableString(v, t.String(), args)
-	case "format":
-		return finTableFormatMember(v, t.String(), args)
-	case "bands":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		bs := t.Bands()
-		out := make([]Value, len(bs))
-		for i, b := range bs {
-			out[i] = finRateBandValue(b)
-		}
-		return NewArrayValue(out, false), nil
-	case "at":
-		// at(amount) -> {from, rate}: the band the amount falls in, no arithmetic
-		if err := finArgCount(name, args, 1); err != nil {
-			return Undefined, err
-		}
-		amount, err := decimalOperandArg(name, "amount", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		b, err := t.At(amount)
-		if err != nil {
-			return Undefined, FinError(name, err)
-		}
-		return finRateBandValue(b), nil
-	case "charge":
-		amount, rule, out, err := finChargeArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.Charge(amount, rule, out)
-		return finDecimal(name, d, err)
-	case "rate":
-		amount, rule, out, err := finChargeArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.Rate(amount, rule, out)
-		return finDecimal(name, d, err)
-	case "charge_parts":
-		amount, rule, out, err := finChargeArgs(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		parts, err := t.ChargeParts(amount, rule, out)
-		if err != nil {
-			return Undefined, FinError(name, err)
-		}
-		return finTierPartsValue(parts), nil
-	case "accrue":
-		// accrue(principal, f, rule, scale, mode): interest on principal at the table's rates over year fraction f
-		if err := finArgCount(name, args, 5); err != nil {
-			return Undefined, err
-		}
-		principal, err := decimalOperandArg(name, "principal", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if args[1].Type != value.FinYearFraction {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "f", "fin.year_fraction", args[1].TypeName())
-		}
-		rule, err := finRuleArg(name, "rule", args[2])
-		if err != nil {
-			return Undefined, err
-		}
-		out, err := finRoundingArgs(name, args, 3)
-		if err != nil {
-			return Undefined, err
-		}
-		d, err := t.Accrue(principal, FinYearFractionOf(args[1]), rule, out)
-		return finDecimal(name, d, err)
-	}
-	return CallMemberByLookup(vm, v, name, args)
+	Methods: []MethodEntry{
+		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
+		members.String:      {Fn: finTieredRatesString, Pure: true},
+		members.Format:      {Fn: memberFormat, Pure: true},
+		members.Copy:        {Fn: memberSelf, Pure: true},
+		members.Freeze:      {Fn: memberSelf, Pure: true},
+		members.At:          {Fn: finTieredRatesAt, Pure: true},
+		members.Bands:       {Fn: finTieredRatesBands, Pure: true},
+		members.Rate:        {Fn: finTieredRatesRate, Pure: true},
+		members.Charge:      {Fn: finTieredRatesCharge, Pure: true},
+		members.ChargeParts: {Fn: finTieredRatesChargeParts, Pure: true},
+		members.Accrue:      {Fn: finTieredRatesAccrue, Pure: true},
+	},
 }
