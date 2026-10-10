@@ -304,8 +304,8 @@ func rebuildWallClock(t time.Time, y, mo, d int) (time.Time, error) {
 	return buildTime(y, mo, d, h, mi, s, t.Nanosecond(), t.Location(), nil)
 }
 
-// timeAddDays is t moved by n calendar days in its own zone, the wall clock kept.
-func timeAddDays(t time.Time, n int64) (time.Time, error) {
+// timeShiftDays is t moved by n calendar days in its own zone, the wall clock kept.
+func timeShiftDays(t time.Time, n int64) (time.Time, error) {
 	y, mo, d := t.Date()
 	day, ok := civil.New(y, civil.Month(mo), d)
 	if !ok || n < -1<<31 || n > 1<<31-1 {
@@ -319,8 +319,8 @@ func timeAddDays(t time.Time, n int64) (time.Time, error) {
 	return rebuildWallClock(t, ry, int(rm), rd)
 }
 
-// timeAddMonths is t moved by n months in its own zone under the end-of-month rule, the wall clock kept.
-func timeAddMonths(t time.Time, n int64, rule civil.EOMRule) (time.Time, error) {
+// timeShiftMonths is t moved by n months in its own zone under the end-of-month rule, the wall clock kept.
+func timeShiftMonths(t time.Time, n int64, rule civil.EOMRule) (time.Time, error) {
 	y, mo, d := t.Date()
 	day, ok := civil.New(y, civil.Month(mo), d)
 	if !ok || n < -1<<31 || n > 1<<31-1 {

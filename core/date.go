@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"maps"
 	"slices"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/jokruger/fin128/civil"
 
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -41,23 +41,52 @@ func dateOf(v Value) civil.Date {
 
 // TypeDate is the date type descriptor.
 var TypeDate = ValueTypeDescr{
-	Name:              ConstHook(dateTypeName),                                                     // PURE by contract
-	String:            dateTypeString,                                                              // PURE by contract
-	Format:            dateTypeFormat,                                                              // PURE by contract
-	Interface:         func(v Value) any { return dateOf(v) },                                      // PURE by contract
-	EncodeJSON:        dateTypeEncodeJSON,                                                          // PURE by contract
-	EncodeBinary:      dateTypeEncodeBinary,                                                        // PURE by contract
-	DecodeBinary:      dateTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
-	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                     // PURE by contract: falsy iff date() (1970-01-01, day 0)
-	Len:               ConstHook(int64(1)),                                                         // PURE by contract
-	Equal:             dateTypeEqual,                                                               // PURE by contract
-	BinaryOp:          dateTypeBinaryOp,                                                            // PURE by contract
-	CallNamedMethod:   dateTypeCallNamedMethod,                                                     // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return dateOf(v).String(), true },            // PURE by contract
-	AsInt:             func(v Value) (int64, bool) { return int64(dateOf(v).Days()), true },        // PURE by contract
-	AsTime:            func(v Value) (time.Time, bool) { return dateMidnightUTC(dateOf(v)), true }, // PURE by contract
-	AsDate:            func(v Value) (civil.Date, bool) { return dateOf(v), true },                 // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
+	Name:         ConstHook(dateTypeName),                                                     // PURE by contract
+	String:       dateTypeString,                                                              // PURE by contract
+	Format:       dateTypeFormat,                                                              // PURE by contract
+	Interface:    func(v Value) any { return dateOf(v) },                                      // PURE by contract
+	EncodeJSON:   dateTypeEncodeJSON,                                                          // PURE by contract
+	EncodeBinary: dateTypeEncodeBinary,                                                        // PURE by contract
+	DecodeBinary: dateTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                     // PURE by contract: falsy iff date() (1970-01-01, day 0)
+	Len:          ConstHook(int64(1)),                                                         // PURE by contract
+	Equal:        dateTypeEqual,                                                               // PURE by contract
+	BinaryOp:     dateTypeBinaryOp,                                                            // PURE by contract
+	AsString:     func(v Value) (string, bool) { return dateOf(v).String(), true },            // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(dateOf(v).Days()), true },        // PURE by contract
+	AsTime:       func(v Value) (time.Time, bool) { return dateMidnightUTC(dateOf(v)), true }, // PURE by contract
+	AsDate:       func(v Value) (civil.Date, bool) { return dateOf(v), true },                 // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:       {Fn: memberIsTrue, Pure: true},
+		members.String:       {Fn: dateString, Pure: true},
+		members.Format:       {Fn: memberFormat, Pure: true},
+		members.Copy:         {Fn: memberSelf, Pure: true},
+		members.Freeze:       {Fn: memberSelf, Pure: true},
+		members.Runes:        {Fn: dateRunes, Pure: true},
+		members.Int:          {Fn: dateInt, Pure: true},
+		members.Time:         {Fn: dateTime, Pure: true},
+		members.Date:         {Fn: dateDate, Pure: true},
+		members.Components:   {Fn: dateComponents, Pure: true},
+		members.Year:         {Fn: dateYear, Pure: true},
+		members.Month:        {Fn: dateMonth, Pure: true},
+		members.Day:          {Fn: dateDay, Pure: true},
+		members.WeekDay:      {Fn: dateWeekDay, Pure: true},
+		members.WeekDayName:  {Fn: dateWeekDayName, Pure: true},
+		members.MonthName:    {Fn: dateMonthName, Pure: true},
+		members.YearDay:      {Fn: dateYearDay, Pure: true},
+		members.DaysInMonth:  {Fn: dateDaysInMonth, Pure: true},
+		members.DaysInYear:   {Fn: dateDaysInYear, Pure: true},
+		members.IsLeapYear:   {Fn: dateIsLeapYear, Pure: true},
+		members.AddYears:     {Fn: dateAddYears, Pure: true},
+		members.AddMonths:    {Fn: dateAddMonths, Pure: true},
+		members.AddDays:      {Fn: dateAddDays, Pure: true},
+		members.StartOfMonth: {Fn: dateStartOfMonth, Pure: true},
+		members.EndOfMonth:   {Fn: dateEndOfMonth, Pure: true},
+		members.IsEndOfMonth: {Fn: dateIsEndOfMonth, Pure: true},
+		members.MonthsSince:  {Fn: dateMonthsSince, Pure: true},
+		members.TimeIn:       {Fn: dateTimeIn, Pure: true},
+	},
 }
 
 func dateMidnightUTC(d civil.Date) time.Time {
@@ -153,8 +182,8 @@ func dateTypeEqual(v Value, other Value, final bool) bool {
 	return ValueTypes[other.Type].Equal(other, v, true)
 }
 
-// dateAddDays is d moved by n days, raising when the result leaves 0001-01-01…9999-12-31.
-func dateAddDays(d civil.Date, n int64) (Value, error) {
+// dateShiftDays is d moved by n days, raising when the result leaves 0001-01-01…9999-12-31.
+func dateShiftDays(d civil.Date, n int64) (Value, error) {
 	if n >= -1<<31 && n <= 1<<31-1 {
 		if r, ok := d.AddDays(int32(n)); ok {
 			return DateValue(r), nil
@@ -169,7 +198,7 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	if reflected {
 		// n + d: days, as d + n
 		if other.Type == value.Int && op == tokens.Add {
-			return dateAddDays(d, int64(other.Data))
+			return dateShiftDays(d, int64(other.Data))
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
 	}
@@ -177,13 +206,13 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	case value.Int:
 		switch op {
 		case tokens.Add:
-			return dateAddDays(d, int64(other.Data))
+			return dateShiftDays(d, int64(other.Data))
 		case tokens.Sub:
 			n := int64(other.Data)
 			if n == -1<<63 {
 				return Undefined, errs.NewInvalidValueError("date out of range")
 			}
-			return dateAddDays(d, -n)
+			return dateShiftDays(d, -n)
 		}
 	case value.Date:
 		o := dateOf(other)
@@ -202,200 +231,6 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
 	}
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func dateTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	d := dateOf(v)
-	noArgs := func() error {
-		if len(args) != 0 {
-			return errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return nil
-	}
-
-	switch name {
-	case "copy", "freeze":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return v, nil // an immutable scalar: copy and freeze are identities
-
-	// conversions
-	case "date":
-		return convMember(name, dateTypeName, args, true, v)
-	case "int":
-		return convMember(name, dateTypeName, args, true, IntValue(int64(d.Days())))
-	case "string":
-		return convMember(name, dateTypeName, args, true, NewStringValue(d.String()))
-	case "runes":
-		return convMember(name, dateTypeName, args, true, NewRunesValue([]rune(d.String()), false))
-	case "time":
-		// midnight UTC — the date's own reading; time_in(zone) is the start of the day elsewhere
-		return convMember(name, dateTypeName, args, true, NewTimeValue(dateMidnightUTC(d)))
-	case "components":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		y, m, dd := d.YMD()
-		return NewRecordValue(map[string]Value{
-			"year":  IntValue(int64(y)),
-			"month": IntValue(int64(m)),
-			"day":   IntValue(int64(dd)),
-		}, false), nil
-	case "format":
-		return memberFormat(vm, v, members.Format, args)
-
-	// calendar
-	case "year":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(d.Year())), nil
-	case "month":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(d.Month())), nil
-	case "day":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(d.Day())), nil
-	case "week_day":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(d.Weekday())), nil
-	case "year_day":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(d.DayOfYear())), nil
-	case "month_name":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(monthNames[d.Month()-1]), nil
-	case "week_day_name":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(weekdayNames[d.Weekday()]), nil
-
-	// month shape and calendar facts
-	case "start_of_month":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return DateValue(d.StartOfMonth()), nil
-	case "end_of_month":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return DateValue(d.EndOfMonth()), nil
-	case "is_end_of_month":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return BoolValue(d.IsEndOfMonth()), nil
-	case "is_leap_year":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return BoolValue(civil.IsLeapYear(d.Year())), nil
-	case "days_in_year":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(civil.DaysInYear(d.Year()))), nil
-	case "days_in_month":
-		if err := noArgs(); err != nil {
-			return Undefined, err
-		}
-		return IntValue(int64(civil.DaysInMonth(d.Year(), d.Month()))), nil
-
-	// arithmetic
-	case "add_days":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return dateAddDays(d, n)
-	case "add_months":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		rule, err := EOMRuleArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		if n < -1<<31 || n > 1<<31-1 {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		r, ok := d.AddMonths(int32(n), rule)
-		if !ok {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		return DateValue(r), nil
-	case "add_years":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		rule, err := EOMRuleArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		if n < -1<<31 || n > 1<<31-1 {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		r, ok := d.AddYears(int32(n), rule)
-		if !ok {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		return DateValue(r), nil
-	case "months_since":
-		// [months, days]: whole months from other to d, and the days left over, so that
-		// other.add_months(months, eom) + days == d
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		if args[0].Type != value.Date {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "date", args[0].TypeName())
-		}
-		rule, err := EOMRuleArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		months, days, ok := d.MonthsSince(dateOf(args[0]), rule)
-		if !ok {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		return NewArrayValue([]Value{IntValue(int64(months)), IntValue(int64(days))}, false), nil
-
-	// bridge to time
-	case "time_in":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		loc, err := zoneArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return NewTimeValue(dateStartIn(d, loc)), nil
-	}
-	return CallMemberByLookup(vm, v, name, args)
 }
 
 // dateStartIn is the first instant whose wall-clock date in loc is d: midnight when midnight exists (the earlier

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"maps"
 	"slices"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -33,25 +33,66 @@ func NewTimeValue(t time.Time) Value {
 
 // TypeTime is a time type descriptor.
 var TypeTime = ValueTypeDescr{
-	Name:              ConstHook(timeTypeName), // PURE by contract
-	String:            timeTypeString,          // PURE by contract
-	Format:            timeTypeFormat,          // PURE by contract
-	Interface:         timeTypeInterface,       // PURE by contract
-	EncodeJSON:        timeTypeEncodeJSON,      // PURE by contract
-	EncodeBinary:      timeTypeEncodeBinary,    // PURE by contract
-	DecodeBinary:      timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
-	IsTrue:            timeTypeIsTrue,          // PURE by contract
-	Len:               ConstHook(int64(1)),     // PURE by contract
-	Equal:             timeTypeEqual,           // PURE by contract
-	BinaryOp:          timeTypeBinaryOp,        // PURE by contract
-	CallNamedMethod:   timeTypeCallNamedMethod, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          timeTypeAsString,        // PURE by contract
-	AsInt:             timeTypeAsInt,           // PURE by contract
-	AsFloat:           timeTypeAsFloat,         // PURE by contract
-	AsDecimal:         timeTypeAsDecimal,       // PURE by contract
-	AsTime:            timeTypeAsTime,          // PURE by contract
-	AsDate:            timeTypeAsDate,          // PURE by contract
-	IsNamedMethodPure: timeTypeIsNamedMethodPure,
+	Name:         ConstHook(timeTypeName), // PURE by contract
+	String:       timeTypeString,          // PURE by contract
+	Format:       timeTypeFormat,          // PURE by contract
+	Interface:    timeTypeInterface,       // PURE by contract
+	EncodeJSON:   timeTypeEncodeJSON,      // PURE by contract
+	EncodeBinary: timeTypeEncodeBinary,    // PURE by contract
+	DecodeBinary: timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
+	IsTrue:       timeTypeIsTrue,          // PURE by contract
+	Len:          ConstHook(int64(1)),     // PURE by contract
+	Equal:        timeTypeEqual,           // PURE by contract
+	BinaryOp:     timeTypeBinaryOp,        // PURE by contract
+	AsString:     timeTypeAsString,        // PURE by contract
+	AsInt:        timeTypeAsInt,           // PURE by contract
+	AsFloat:      timeTypeAsFloat,         // PURE by contract
+	AsDecimal:    timeTypeAsDecimal,       // PURE by contract
+	AsTime:       timeTypeAsTime,          // PURE by contract
+	AsDate:       timeTypeAsDate,          // PURE by contract
+
+	// Every member is pure: zone data is read by name and is the host's tzdata, which the purity contract treats as
+	// fixed for a process (docs/purity.md); no member reads the host's own zone.
+	Methods: []MethodEntry{
+		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
+		members.String:      {Fn: timeString, Pure: true},
+		members.Format:      {Fn: memberFormat, Pure: true},
+		members.Copy:        {Fn: memberSelf, Pure: true},
+		members.Freeze:      {Fn: memberSelf, Pure: true},
+		members.Runes:       {Fn: timeRunes, Pure: true},
+		members.Int:         {Fn: timeInt, Pure: true},
+		members.Float:       {Fn: timeFloat, Pure: true},
+		members.Time:        {Fn: timeTime, Pure: true},
+		members.Decimal:     {Fn: timeDecimal, Pure: true},
+		members.Date:        {Fn: timeDate, Pure: true},
+		members.Components:  {Fn: timeComponents, Pure: true},
+		members.Year:        {Fn: timeYear, Pure: true},
+		members.Month:       {Fn: timeMonth, Pure: true},
+		members.Day:         {Fn: timeDay, Pure: true},
+		members.Hour:        {Fn: timeHour, Pure: true},
+		members.Minute:      {Fn: timeMinute, Pure: true},
+		members.Second:      {Fn: timeSecond, Pure: true},
+		members.Nanosecond:  {Fn: timeNanosecond, Pure: true},
+		members.WeekDay:     {Fn: timeWeekDay, Pure: true},
+		members.WeekDayName: {Fn: timeWeekDayName, Pure: true},
+		members.MonthName:   {Fn: timeMonthName, Pure: true},
+		members.YearDay:     {Fn: timeYearDay, Pure: true},
+		members.DaysInMonth: {Fn: timeDaysInMonth, Pure: true},
+		members.DaysInYear:  {Fn: timeDaysInYear, Pure: true},
+		members.IsLeapYear:  {Fn: timeIsLeapYear, Pure: true},
+		members.AddYears:    {Fn: timeAddYears, Pure: true},
+		members.AddMonths:   {Fn: timeAddMonths, Pure: true},
+		members.AddDays:     {Fn: timeAddDays, Pure: true},
+		members.Unix:        {Fn: timeUnix, Pure: true},
+		members.UnixMs:      {Fn: timeUnixMs, Pure: true},
+		members.UnixMicro:   {Fn: timeUnixMicro, Pure: true},
+		members.UnixNano:    {Fn: timeUnixNano, Pure: true},
+		members.UTC:         {Fn: timeUTC, Pure: true},
+		members.InZone:      {Fn: timeInZone, Pure: true},
+		members.ZoneName:    {Fn: timeZoneName, Pure: true},
+		members.ZoneOffset:  {Fn: timeZoneOffset, Pure: true},
+		members.DateIn:      {Fn: timeDateIn, Pure: true},
+	},
 }
 
 // TimeFromComponents rebuilds an instant from its constitutive parts. Every key is optional and defaults to the
@@ -128,12 +169,6 @@ func TimeFromComponents(m map[string]Value) (time.Time, error) {
 		return time.Time{}, errs.NewInvalidValueError("(time) " + err.Error())
 	}
 	return t, nil
-}
-
-// Every time member is pure: zone data is read by name and is the host's tzdata, which the purity contract
-// treats as fixed for a process (docs/purity.md); no member reads the host's own zone.
-func timeTypeIsNamedMethodPure(name string) bool {
-	return true
 }
 
 // PURE by contract
@@ -309,294 +344,6 @@ func timeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	}
 
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func timeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*time.Time)(v.Ptr)
-
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "time":
-		return convMember(name, timeTypeName, args, true, v)
-
-	case "int":
-		return convMember(name, timeTypeName, args, true, IntValue(o.Unix()))
-
-	case "float":
-		f, ok := timeTypeAsFloat(v)
-		return convMember(name, timeTypeName, args, ok, FloatValue(f))
-
-	case "components":
-		// the constitutive parts only — the minimal set the instant can be rebuilt
-		// from; computed accessors (week_day, month_name, zone_name) stay their own
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		_, off := o.Zone()
-		parts := map[string]Value{
-			"year":        IntValue(int64(o.Year())),
-			"month":       IntValue(int64(o.Month())),
-			"day":         IntValue(int64(o.Day())),
-			"hour":        IntValue(int64(o.Hour())),
-			"minute":      IntValue(int64(o.Minute())),
-			"second":      IntValue(int64(o.Second())),
-			"nanosecond":  IntValue(int64(o.Nanosecond())),
-			"zone_offset": IntValue(int64(off)),
-		}
-		// a named zone is part of the instant's identity (it decides every later wall clock); UTC and fixed
-		// offsets are fully described by zone_offset
-		if z := zoneNameOf(*o); z != "" {
-			parts["zone"] = NewStringValue(z)
-		}
-		return NewRecordValue(parts, false), nil
-
-	case "decimal":
-		d, ok := timeTypeAsDecimal(v)
-		return convMember(name, timeTypeName, args, ok, NewDecimalValue(d))
-
-	case "string":
-		// the ONE text form: RFC3339 with the fraction the instant carries
-		s, ok := v.AsString()
-		return convMember(name, timeTypeName, args, ok, NewStringValue(s))
-
-	case "runes":
-		s, ok := v.AsString()
-		return convMember(name, timeTypeName, args, ok, NewRunesValue([]rune(s), false))
-
-	case "format":
-		return memberFormat(vm, v, members.Format, args)
-
-	case "year":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Year())), nil
-
-	case "month":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Month())), nil
-
-	case "day":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Day())), nil
-
-	case "hour":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Hour())), nil
-
-	case "minute":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Minute())), nil
-
-	case "second":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Second())), nil
-
-	case "nanosecond":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Nanosecond())), nil
-
-	case "unix":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(o.Unix()), nil
-
-	case "unix_ms":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(o.UnixMilli()), nil
-
-	case "unix_micro":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(o.UnixMicro()), nil
-
-	case "unix_nano":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(o.UnixNano()), nil
-
-	case "week_day":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Weekday())), nil
-
-	case "year_day":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.YearDay())), nil
-
-	case "month_name":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.Month().String()), nil
-
-	case "week_day_name":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.Weekday().String()), nil
-
-	case "utc":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewTimeValue(o.UTC()), nil
-
-	case "date":
-		// the civil day the time reads in its own zone
-		d, ok := timeTypeAsDate(v)
-		return convMember(name, timeTypeName, args, ok, DateValue(d))
-
-	case "date_in":
-		// the civil day in a named zone: ≡ t.in_zone(z).date()
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		loc, err := zoneArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		y, m, dd := o.In(loc).Date()
-		d, err := newDate(y, int(m), dd)
-		if err != nil {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
-		}
-		return DateValue(d), nil
-
-	case "in_zone":
-		// the same instant, viewed in a named zone
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		loc, err := zoneArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return NewTimeValue(o.In(loc)), nil
-
-	case "add_days":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		t, err := timeAddDays(*o, n)
-		if err != nil {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
-		}
-		return NewTimeValue(t), nil
-
-	case "add_months":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		rule, err := EOMRuleArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		t, err := timeAddMonths(*o, n, rule)
-		if err != nil {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
-		}
-		return NewTimeValue(t), nil
-
-	case "add_years":
-		// n years is 12n months — checked first, so the multiplication cannot overflow
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		n, err := parseIntArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		rule, err := EOMRuleArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		if n < -1<<31/12 || n > (1<<31-1)/12 {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-		}
-		t, err := timeAddMonths(*o, n*12, rule)
-		if err != nil {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
-		}
-		return NewTimeValue(t), nil
-
-	case "is_leap_year":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(civil.IsLeapYear(o.Year())), nil
-
-	case "days_in_year":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(civil.DaysInYear(o.Year()))), nil
-
-	case "days_in_month":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(civil.DaysInMonth(o.Year(), civil.Month(o.Month())))), nil
-
-	case "zone_offset":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		_, offset := o.Zone()
-		return IntValue(int64(offset)), nil
-
-	case "zone_name":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		name, _ := o.Zone()
-		return NewStringValue(name), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }
 
 // PURE by contract
