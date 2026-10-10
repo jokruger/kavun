@@ -11538,8 +11538,8 @@ out.append_in_place(xs...)
 }
 
 // docs/types/function-matrix.md against the member tables, in both directions: every ✓/— cell of a tabled type
-// matches core.HasMember, and every member a tabled type declares has a ✓ row. A type still answered by its name
-// switch cannot be enumerated and is skipped — the skip list is what remains to be tabled.
+// matches core.HasMember, and every member a type declares has a ✓ row. Every column type answers its members from a
+// table (only record, which has no column, stays name-based), so a column with no table fails here.
 func TestFunctionMatrixInSync(t *testing.T) {
 	columns := map[string]uint8{
 		"int": value.Int, "float": value.Float, "decimal": value.Decimal, "bool": value.Bool, "byte": value.Byte,
@@ -11589,13 +11589,9 @@ func TestFunctionMatrixInSync(t *testing.T) {
 	}
 	require.True(t, len(cells) == len(columns), "function-matrix.md: parsed %d type columns, want %d", len(cells), len(columns))
 
-	var skipped []string
 	for col, typ := range columns {
 		methods := core.ValueTypes[typ].Methods
-		if len(methods) == 0 {
-			skipped = append(skipped, col)
-			continue
-		}
+		require.True(t, len(methods) > 0, "%s has no member table, so function-matrix.md cannot be checked against it", col)
 		for name, has := range cells[col] {
 			require.Equal(t, has, core.HasMember(typ, name), "function-matrix.md: %s.%s", col, name)
 		}
@@ -11609,9 +11605,5 @@ func TestFunctionMatrixInSync(t *testing.T) {
 			}
 			require.True(t, cells[col][name], "%s declares %s, which function-matrix.md does not mark ✓", col, name)
 		}
-	}
-	if len(skipped) > 0 {
-		slices.Sort(skipped)
-		t.Logf("not tabled yet (name path only), not checked: %s", strings.Join(skipped, ", "))
 	}
 }

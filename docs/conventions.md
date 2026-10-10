@@ -45,17 +45,20 @@ cross-cutting rule shared by both (never wildcard-match `undefined`/`error`). Sa
 above: enforced by code review, not by any automated check, and required of any new builtin or embedder
 (`SetValueType`) type that implements operators at all.
 
-### Implementing members (`CallNamedMethod`)
+### Implementing members (`Methods` tables)
 
 Readability beats deduplication here: a member is read far more often than it is added, and a script author's
 question — "what exactly does `bytes.keep("ab")` do?" — should be answerable from one function. So:
 
-- **One name, one `case`.** A `case` lists several member names only if its body never looks at `name` again
-  (a table lookup keyed by the name is fine; an inner `switch name` / `if name == ...` is not). Each case is
-  either a short inline body or one call to `<type><Member>(vm, v, args)`.
+- **One name, one entry.** A builtin type declares its members as `Methods []MethodEntry` at the bottom of its
+  descriptor, keyed by `members.*` ids; each entry names one function `<type><Member>(vm VM, v Value, id member.ID,
+  args []Value) (Value, error)`, kept in `core/<type>_members.go` in table order. Several entries point at one
+  function only if it never branches on which member was called — it may report through `id.String()` (so an error
+  names the member that was called), but an inner `switch`/`if` on the member is not allowed. `record` and
+  embedder types without a table answer by name through `CallNamedMethod`, one `case` per name under the same rule.
 - **One function per member, `_in_place` twins included.** `arrayKeep` and `arrayKeepInPlace` are separate
-  functions with the same `func(VM, Value, []Value) (Value, error)` shape. When they share a body, it is a
-  lowercase helper that takes the member `name` (so every error names the member that was called).
+  functions with the member shape. When twins share a body, it is a lowercase helper taking what differs as a
+  parameter (`arrayTypeAppend(v, args, mutate)`, `decimalRoundFixed(v, id, args, mode)`), never the member name.
 - **Concrete code per type.** Logically identical members on `array`, `string`, `runes` and `bytes` are written
   out per type, over the type's own element slice. Duplication is accepted; cross-type parity is pinned by
   tests (`TestSequenceMemberParity` in `kavun_test.go`), not by a shared engine.

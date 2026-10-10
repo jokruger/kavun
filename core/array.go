@@ -2,12 +2,12 @@ package core
 
 import (
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strings"
 	"unicode"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -61,10 +61,9 @@ var TypeArray = ValueTypeDescr{
 	Slice:        arrayTypeSlice,                                                                // PURE by contract
 	SliceStep:    arrayTypeSliceStep,                                                            // PURE by contract
 
-	CallNamedMethod:     arrayTypeCallNamedMethod, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AccessIndex:         arrayTypeAccessIndex,     // PURE by contract
-	AccessNamedProperty: noNamedProperty,          // PURE by contract
-	AssignIndex:         arrayTypeAssignIndex,     // IMPURE by contract
+	AccessIndex:         arrayTypeAccessIndex, // PURE by contract
+	AccessNamedProperty: noNamedProperty,      // PURE by contract
+	AssignIndex:         arrayTypeAssignIndex, // IMPURE by contract
 
 	AsBool: func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
 	// No AsString hook: an array has no canonical text (its element-wise conversion is a transcoding
@@ -77,7 +76,88 @@ var TypeArray = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order methods
 	// (keep/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
 	// function-valued argument.
-	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+
+	Methods: []MethodEntry{
+		members.IsTrue:              {Fn: memberIsTrue, Pure: true},
+		members.String:              {Fn: arrayString, Pure: true},
+		members.Format:              {Fn: memberFormat, Pure: true},
+		members.Copy:                {Fn: arrayCopy, Pure: true},
+		members.Freeze:              {Fn: arrayFreeze, Pure: true},
+		members.Runes:               {Fn: arrayRunes, Pure: true},
+		members.Array:               {Fn: arrayArray, Pure: true},
+		members.Bytes:               {Fn: arrayBytes, Pure: true},
+		members.Dict:                {Fn: arrayDict, Pure: true},
+		members.Record:              {Fn: arrayRecord, Pure: true},
+		members.Len:                 {Fn: arrayLen, Pure: true},
+		members.IsEmpty:             {Fn: arrayIsEmpty, Pure: true},
+		members.Contains:            {Fn: arrayContains, Pure: true},
+		members.Index:               {Fn: arrayIndex, Pure: true},
+		members.Count:               {Fn: arrayCount, Pure: true},
+		members.All:                 {Fn: arrayAll, Pure: true},
+		members.Any:                 {Fn: arrayAny, Pure: true},
+		members.ForEach:             {Fn: arrayForEach, Pure: true},
+		members.Reduce:              {Fn: arrayReduce, Pure: true},
+		members.Keep:                {Fn: arrayKeep, Pure: true},
+		members.Map:                 {Fn: arrayMap, Pure: true},
+		members.Remove:              {Fn: arrayRemove, Pure: true},
+		members.First:               {Fn: arrayFirst, Pure: true},
+		members.Last:                {Fn: arrayLast, Pure: true},
+		members.IndexLast:           {Fn: arrayIndexLast, Pure: true},
+		members.Min:                 {Fn: arrayMin, Pure: true},
+		members.Max:                 {Fn: arrayMax, Pure: true},
+		members.Slice:               {Fn: memberSlice, Pure: true},
+		members.Reverse:             {Fn: arrayReverse, Pure: true},
+		members.Sort:                {Fn: arraySort, Pure: true},
+		members.Unique:              {Fn: arrayUnique, Pure: true},
+		members.Dedup:               {Fn: arrayDedup, Pure: true},
+		members.Chunk:               {Fn: arrayChunk, Pure: true},
+		members.Append:              {Fn: arrayAppend, Pure: true},
+		members.Prepend:             {Fn: arrayPrepend, Pure: true},
+		members.Push:                {Fn: arrayPush, Pure: true},
+		members.PushFirst:           {Fn: arrayPushFirst, Pure: true},
+		members.Insert:              {Fn: arrayInsert, Pure: true},
+		members.Splice:              {Fn: arraySplice, Pure: true},
+		members.Repeat:              {Fn: arrayRepeat, Pure: true},
+		members.PadStart:            {Fn: arrayPadStart, Pure: true},
+		members.PadEnd:              {Fn: arrayPadEnd, Pure: true},
+		members.Trim:                {Fn: arrayTrim, Pure: true},
+		members.TrimStart:           {Fn: arrayTrimStart, Pure: true},
+		members.TrimEnd:             {Fn: arrayTrimEnd, Pure: true},
+		members.HasPrefix:           {Fn: arrayHasPrefix, Pure: true},
+		members.HasSuffix:           {Fn: arrayHasSuffix, Pure: true},
+		members.RemovePrefix:        {Fn: arrayRemovePrefix, Pure: true},
+		members.RemoveSuffix:        {Fn: arrayRemoveSuffix, Pure: true},
+		members.Replace:             {Fn: arrayReplace, Pure: true},
+		members.FlatMap:             {Fn: arrayFlatMap, Pure: true},
+		members.CopyShallow:         {Fn: arrayCopyShallow, Pure: true},
+		members.FreezeShallow:       {Fn: arrayFreezeShallow, Pure: true},
+		members.Flatten:             {Fn: arrayFlatten, Pure: true},
+		members.Join:                {Fn: arrayJoin, Pure: true},
+		members.Sum:                 {Fn: arraySum, Pure: true},
+		members.Avg:                 {Fn: arrayAvg, Pure: true},
+		members.KeepInPlace:         {Fn: arrayKeepInPlace, Pure: false},
+		members.RemoveInPlace:       {Fn: arrayRemoveInPlace, Pure: false},
+		members.AppendInPlace:       {Fn: arrayAppendInPlace, Pure: false},
+		members.PrependInPlace:      {Fn: arrayPrependInPlace, Pure: false},
+		members.PushInPlace:         {Fn: arrayPushInPlace, Pure: false},
+		members.PushFirstInPlace:    {Fn: arrayPushFirstInPlace, Pure: false},
+		members.InsertInPlace:       {Fn: arrayInsertInPlace, Pure: false},
+		members.SpliceInPlace:       {Fn: arraySpliceInPlace, Pure: false},
+		members.PadStartInPlace:     {Fn: arrayPadStartInPlace, Pure: false},
+		members.PadEndInPlace:       {Fn: arrayPadEndInPlace, Pure: false},
+		members.TrimInPlace:         {Fn: arrayTrimInPlace, Pure: false},
+		members.TrimStartInPlace:    {Fn: arrayTrimStartInPlace, Pure: false},
+		members.TrimEndInPlace:      {Fn: arrayTrimEndInPlace, Pure: false},
+		members.RemovePrefixInPlace: {Fn: arrayRemovePrefixInPlace, Pure: false},
+		members.RemoveSuffixInPlace: {Fn: arrayRemoveSuffixInPlace, Pure: false},
+		members.ReplaceInPlace:      {Fn: arrayReplaceInPlace, Pure: false},
+		members.ReverseInPlace:      {Fn: arrayReverseInPlace, Pure: false},
+		members.SortInPlace:         {Fn: arraySortInPlace, Pure: false},
+		members.UniqueInPlace:       {Fn: arrayUniqueInPlace, Pure: false},
+		members.DedupInPlace:        {Fn: arrayDedupInPlace, Pure: false},
+		members.SliceView:           {Fn: arraySliceView, Pure: true},
+		members.ChunkView:           {Fn: arrayChunkView, Pure: true},
+	},
 }
 
 func arrayTypeString(v Value) string {
@@ -371,334 +451,6 @@ func arrayTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 	return NewArrayValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func arrayTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*Array)(v.Ptr)
-
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return arrayTypeCopy(v, true)
-
-	case "copy_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return arrayTypeCopy(v, false)
-
-	case "freeze_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.ToImmutable()
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.Freeze()
-
-	case "array":
-		// a conversion CONSTRUCTS, on its own type like any other: a new, independent, mutable
-		// shallow copy, exactly array(a) / a.copy_shallow(). Never the receiver itself — an alias
-		// handed out under a conversion spelling wrote through to the caller's array, and it was
-		// invisible (is_view() reports borrowing, and this was not one). Sharing is slice_view's job.
-		c, err := arrayTypeCopy(v, false)
-		if err != nil {
-			return Undefined, err
-		}
-		return convMember(name, arrayTypeName, args, true, c)
-
-	case "bytes":
-		// element-wise, all-or-nothing: a failing element fails the conversion —
-		// the silent NUL/mod-256 corruption is gone
-		bs, ok := ElementsToBytes(o.Elements)
-		return convMember(name, arrayTypeName, args, ok, NewBytesValue(bs, false))
-
-	case "string":
-		// the element step is the rune conversion (string and runes are one text),
-		// so ["a","b"].string() raises — join() is the concatenative spelling
-		rs, ok := ElementsToRunes(o.Elements)
-		return convMember(name, arrayTypeName, args, ok, NewStringValue(string(rs)))
-
-	case "runes":
-		rs, ok := ElementsToRunes(o.Elements)
-		return convMember(name, arrayTypeName, args, ok, NewRunesValue(rs, false))
-
-	case "record":
-		// the ENTRIES reading: each element is exactly a 2-element array [key, value];
-		// the index->element decomposition (invented keys, scrambled order) is gone
-		m, ok := ElementsToEntries(o.Elements)
-		return convMember(name, arrayTypeName, args, ok, NewRecordValue(m, false))
-
-	case "dict":
-		m, ok := ElementsToEntries(o.Elements)
-		return convMember(name, arrayTypeName, args, ok, NewDictValue(m, false))
-
-	case "format":
-		return memberFormat(vm, v, members.Format, args)
-
-	case "is_empty":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(len(o.Elements) == 0), nil
-
-	case "len":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(len(o.Elements))), nil
-
-	case "first":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return o.Elements[0], nil
-
-	case "last":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return o.Elements[len(o.Elements)-1], nil
-
-	case "contains":
-		return arrayContainsMember(vm, v, args)
-
-	case "count":
-		return arrayCount(vm, v, args)
-
-	case "keep":
-		return arrayKeep(vm, v, args)
-
-	case "keep_in_place":
-		return arrayKeepInPlace(vm, v, args)
-
-	case "remove":
-		return arrayRemove(vm, v, args)
-
-	case "remove_in_place":
-		return arrayRemoveInPlace(vm, v, args)
-
-	case "any":
-		return arrayAny(vm, v, args)
-
-	case "all":
-		return arrayAll(vm, v, args)
-
-	case "min":
-		return arrayFnMin(v, args)
-
-	case "max":
-		return arrayFnMax(v, args)
-
-	case "sum":
-		return arrayFnSum(v, args)
-
-	case "avg":
-		return arrayFnAvg(v, args)
-
-	case "sort":
-		return arrayFnSort(v, args, false)
-
-	case "sort_in_place":
-		return arrayFnSort(v, args, true)
-
-	case "dedup":
-		return arrayDedup(vm, v, args)
-
-	case "dedup_in_place":
-		return arrayDedupInPlace(vm, v, args)
-
-	case "unique":
-		return arrayUnique(vm, v, args)
-
-	case "unique_in_place":
-		return arrayUniqueInPlace(vm, v, args)
-
-	case "flat_map":
-		return arrayFlatMap(vm, v, args)
-
-	case "reverse":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Array)(v.Ptr)
-		n := len(o.Elements)
-		t := make([]Value, n)
-		for i, x := range o.Elements {
-			t[n-1-i] = x
-		}
-		return NewArrayValue(t, false), nil
-
-	case "reverse_in_place":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
-		o := (*Array)(v.Ptr)
-		slices.Reverse(o.Elements)
-		return v, nil
-
-	case "map":
-		return arrayMap(vm, v, args)
-
-	case "reduce":
-		return arrayReduce(vm, v, args)
-
-	case "for_each":
-		return arrayForEach(vm, v, args)
-
-	case "index":
-		return arrayIndex(vm, v, args)
-
-	case "index_last":
-		return arrayIndexLast(vm, v, args)
-
-	case "trim":
-		return arrayTrim(vm, v, args)
-
-	case "trim_in_place":
-		return arrayTrimInPlace(vm, v, args)
-
-	case "trim_start":
-		return arrayTrimStart(vm, v, args)
-
-	case "trim_start_in_place":
-		return arrayTrimStartInPlace(vm, v, args)
-
-	case "trim_end":
-		return arrayTrimEnd(vm, v, args)
-
-	case "trim_end_in_place":
-		return arrayTrimEndInPlace(vm, v, args)
-
-	case "has_prefix":
-		return arrayHasPrefix(vm, v, args)
-
-	case "has_suffix":
-		return arrayHasSuffix(vm, v, args)
-
-	case "remove_prefix":
-		return arrayRemovePrefix(vm, v, args)
-
-	case "remove_prefix_in_place":
-		return arrayRemovePrefixInPlace(vm, v, args)
-
-	case "remove_suffix":
-		return arrayRemoveSuffix(vm, v, args)
-
-	case "remove_suffix_in_place":
-		return arrayRemoveSuffixInPlace(vm, v, args)
-
-	case "replace":
-		return arrayReplace(vm, v, args)
-
-	case "replace_in_place":
-		return arrayReplaceInPlace(vm, v, args)
-
-	case "pad_start":
-		return arrayPadStart(vm, v, args)
-
-	case "pad_start_in_place":
-		return arrayPadStartInPlace(vm, v, args)
-
-	case "pad_end":
-		return arrayPadEnd(vm, v, args)
-
-	case "pad_end_in_place":
-		return arrayPadEndInPlace(vm, v, args)
-
-	case "chunk":
-		return arrayChunk(vm, v, args)
-
-	case "chunk_view":
-		return arrayChunkView(vm, v, args)
-
-	case "slice":
-		return memberSlice(vm, v, members.Slice, args)
-
-	case "slice_view":
-		return arraySliceView(vm, v, args)
-
-	case "append":
-		return arrayTypeAppend(v, args, false)
-
-	case "append_in_place":
-		return arrayTypeAppend(v, args, true)
-
-	case "prepend":
-		return arrayPrepend(vm, v, args)
-
-	case "prepend_in_place":
-		return arrayPrependInPlace(vm, v, args)
-
-	case "push":
-		return arrayPush(vm, v, args)
-
-	case "push_in_place":
-		return arrayPushInPlace(vm, v, args)
-
-	case "push_first":
-		return arrayPushFirst(vm, v, args)
-
-	case "push_first_in_place":
-		return arrayPushFirstInPlace(vm, v, args)
-
-	case "insert":
-		return arrayInsert(vm, v, args)
-
-	case "insert_in_place":
-		return arrayInsertInPlace(vm, v, args)
-
-	case "splice":
-		return arraySplice(vm, v, args)
-
-	case "splice_in_place":
-		return arraySpliceInPlace(vm, v, args)
-
-	case "repeat":
-		n, err := parseRepeatCount(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		src := o.Elements
-		sl := len(src)
-		total, err := SeqRepeatTotal(name, n, sl)
-		if err != nil {
-			return Undefined, err
-		}
-		out := make([]Value, total)
-		// step by the receiver's length, never by the count: an empty receiver has total 0 and must not
-		// spin n times copying nothing
-		for i := 0; i < total; i += sl {
-			copy(out[i:], src)
-		}
-		return NewArrayValue(out, false), nil
-
-	case "join":
-		return arrayFnJoin(v, args)
-
-	case "flatten":
-		return arrayFnFlatten(v, args)
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // The match members: contains / count / keep / remove / any / all.
 //
@@ -796,74 +548,6 @@ func arrayRunLengthAt(elems []Value, i int, runs [][]Value) int {
 	return best
 }
 
-// arrayContainsMember is contains(...): is there a match anywhere? The empty run is contained everywhere, the
-// same answer `in` gives.
-func arrayContainsMember(vm VM, v Value, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("contains", args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-
-	if m.runs != nil {
-		for _, r := range m.runs {
-			if len(r) == 0 {
-				return True, nil
-			}
-		}
-		for i := range elems {
-			if arrayRunLengthAt(elems, i, m.runs) > 0 {
-				return True, nil
-			}
-		}
-		return False, nil
-	}
-
-	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			return True, nil
-		}
-	}
-	return False, nil
-}
-
-// arrayCount is count(...): how many matches. Runs count non-overlapping occurrences.
-func arrayCount(vm VM, v Value, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("count", args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-
-	n := int64(0)
-	if m.runs != nil {
-		for i := 0; i < len(elems); {
-			if k := arrayRunLengthAt(elems, i, m.runs); k > 0 {
-				n++
-				i += k
-			} else {
-				i++
-			}
-		}
-		return IntValue(n), nil
-	}
-
-	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			n++
-		}
-	}
-	return IntValue(n), nil
-}
-
 // arrayKept answers the elements keep(...) keeps: the matches, in order. Shared by keep and keep_in_place; name
 // is the member called, for the errors.
 func arrayKept(vm VM, name string, v Value, args []Value) ([]Value, error) {
@@ -896,29 +580,6 @@ func arrayKept(vm VM, name string, v Value, args []Value) ([]Value, error) {
 		}
 	}
 	return out, nil
-}
-
-// arrayKeep is keep(...): a new array of the matches.
-func arrayKeep(vm VM, v Value, args []Value) (Value, error) {
-	out, err := arrayKept(vm, "keep", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayKeepInPlace is keep_in_place(...): keep the matches in the receiver itself.
-func arrayKeepInPlace(vm VM, v Value, args []Value) (Value, error) {
-	const name = "keep_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayKept(vm, name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
 }
 
 // arrayRemaining answers the elements remove(...) leaves: everything but the matches, in order. With no argument
@@ -965,67 +626,6 @@ func arrayRemaining(vm VM, name string, v Value, args []Value) ([]Value, error) 
 	return out, nil
 }
 
-// arrayRemove is remove(...): a new array without the matches.
-func arrayRemove(vm VM, v Value, args []Value) (Value, error) {
-	out, err := arrayRemaining(vm, "remove", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayRemoveInPlace is remove_in_place(...): drop the matches from the receiver
-// itself.
-func arrayRemoveInPlace(vm VM, v Value, args []Value) (Value, error) {
-	const name = "remove_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayRemaining(vm, name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayAny is any(...): does some element match? Elements, a predicate, or nothing — never a run.
-func arrayAny(vm VM, v Value, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("any", args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Array)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			return True, nil
-		}
-	}
-	return False, nil
-}
-
-// arrayAll is all(...): does every element match? Elements, a predicate, or nothing — never a run. True on an
-// empty array.
-func arrayAll(vm VM, v Value, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("all", args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Array)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-		if !hit {
-			return False, nil
-		}
-	}
-	return True, nil
-}
-
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match. The
 // argument's type selects the reading:
@@ -1035,16 +635,6 @@ func arrayAll(vm VM, v Value, args []Value) (Value, error) {
 //   - anything else    one element, compared with == (an array can hold one of anything)
 // A miss answers undefined, or the trailing default. Never variadic: the second slot is the default.
 // ---------------------------------------------------------------------------
-
-// arrayIndex is index(...): the first match.
-func arrayIndex(vm VM, v Value, args []Value) (Value, error) {
-	return arrayLocate(vm, "index", v, args, false)
-}
-
-// arrayIndexLast is index_last(...): the last match.
-func arrayIndexLast(vm VM, v Value, args []Value) (Value, error) {
-	return arrayLocate(vm, "index_last", v, args, true)
-}
 
 // arrayLocate is the body of index and index_last; name is the member called, for the errors.
 func arrayLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
@@ -1321,483 +911,16 @@ func arrayPadded(name string, v Value, args []Value, start bool) ([]Value, error
 	return slices.Concat(elems, pad), nil
 }
 
-// arrayTrim is trim(...): without the leading and trailing elements of the set.
-func arrayTrim(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayTrimmed("trim", v, args, true, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayTrimInPlace is trim_in_place(...): trim(...) applied to the receiver
-// itself.
-func arrayTrimInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayTrimmed(name, v, args, true, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayTrimStart is trim_start(...): without the leading elements of the set.
-func arrayTrimStart(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayTrimmed("trim_start", v, args, true, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayTrimStartInPlace is trim_start_in_place(...): trim_start(...) applied to the receiver
-// itself.
-func arrayTrimStartInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_start_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayTrimmed(name, v, args, true, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayTrimEnd is trim_end(...): without the trailing elements of the set.
-func arrayTrimEnd(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayTrimmed("trim_end", v, args, false, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayTrimEndInPlace is trim_end_in_place(...): trim_end(...) applied to the receiver
-// itself.
-func arrayTrimEndInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_end_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayTrimmed(name, v, args, false, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayRemovePrefix is remove_prefix(...): without the longest matching prefix, once.
-func arrayRemovePrefix(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayWithoutAnchored("remove_prefix", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayRemovePrefixInPlace is remove_prefix_in_place(...): remove_prefix(...) applied to the receiver
-// itself.
-func arrayRemovePrefixInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "remove_prefix_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayWithoutAnchored(name, v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayRemoveSuffix is remove_suffix(...): without the longest matching suffix, once.
-func arrayRemoveSuffix(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayWithoutAnchored("remove_suffix", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayRemoveSuffixInPlace is remove_suffix_in_place(...): remove_suffix(...) applied to the receiver
-// itself.
-func arrayRemoveSuffixInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "remove_suffix_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayWithoutAnchored(name, v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayReplace is replace(...): every occurrence of old replaced by new.
-func arrayReplace(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayReplaced("replace", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayReplaceInPlace is replace_in_place(...): replace(...) applied to the receiver
-// itself.
-func arrayReplaceInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "replace_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayReplaced(name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayPadStart is pad_start(...): filled at the front up to n elements.
-func arrayPadStart(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayPadded("pad_start", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayPadStartInPlace is pad_start_in_place(...): pad_start(...) applied to the receiver
-// itself.
-func arrayPadStartInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "pad_start_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayPadded(name, v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayPadEnd is pad_end(...): filled at the end up to n elements.
-func arrayPadEnd(_ VM, v Value, args []Value) (Value, error) {
-	out, err := arrayPadded("pad_end", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayPadEndInPlace is pad_end_in_place(...): pad_end(...) applied to the receiver
-// itself.
-func arrayPadEndInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "pad_end_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := arrayPadded(name, v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Array)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// arrayHasPrefix is has_prefix(...): does the receiver start with one of the runs?
-func arrayHasPrefix(_ VM, v Value, args []Value) (Value, error) {
-	best, err := arrayAnchoredRun("has_prefix", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return BoolValue(best >= 0), nil
-}
-
-// arrayHasSuffix is has_suffix(...): does the receiver end with one of the runs?
-func arrayHasSuffix(_ VM, v Value, args []Value) (Value, error) {
-	best, err := arrayAnchoredRun("has_suffix", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return BoolValue(best >= 0), nil
-}
-
 // ---------------------------------------------------------------------------
 // The callback members: for_each, map, flat_map, reduce. A per-element callback is f/1(element) or
 // f/2(index, element); reduce's is f/2(acc, element) or f/3(acc, index, element).
 // ---------------------------------------------------------------------------
-
-// arrayForEach is for_each(f): a full pass whose callback result is ignored — early exit belongs to for/break or a
-// search member. Returns the receiver, so it chains.
-func arrayForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Array)(v.Ptr).Elements {
-		if _, err := callElem(vm, fn, i, e); err != nil {
-			return Undefined, err
-		}
-	}
-	return v, nil
-}
-
-// arrayMap is map(f): a new array of the callback results, 1:1.
-func arrayMap(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := readElemCallback("map", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-	out := make([]Value, len(elems))
-	for i, e := range elems {
-		out[i], err = callElem(vm, fn, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// arrayFlatMap is flat_map(f): map, then concatenate — each callback result is read like an append operand: an
-// array result spreads, undefined contributes nothing, anything else is one element.
-func arrayFlatMap(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := readElemCallback("flat_map", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-	out := make([]Value, 0, len(elems))
-	for i, e := range elems {
-		res, err := callElem(vm, fn, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-		switch res.Type {
-		case value.Undefined:
-		case value.Array:
-			out = append(out, (*Array)(res.Ptr).Elements...)
-		default:
-			out = append(out, res)
-		}
-	}
-	return NewArrayValue(out, false), nil
-}
-
-// arrayReduce is reduce(acc, f): folds the elements left to right.
-func arrayReduce(vm VM, v Value, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Array)(v.Ptr).Elements {
-		acc, err = callReduce(vm, fn, acc, i, e)
-		if err != nil {
-			return Undefined, err
-		}
-	}
-	return acc, nil
-}
 
 // ---------------------------------------------------------------------------
 // The add and edit members: chunk, slice_view, splice, insert, prepend, push, push_first (append is the Append
 // hook, arrayTypeAppend; slice is the Slice hook's member spelling). append/prepend/splice's inserts read like
 // the + operator (an array operand spreads, see arrayAddItems); push/push_first/insert never spread.
 // ---------------------------------------------------------------------------
-
-// arrayChunk is chunk(size): the elements in arrays of size elements (the last one shorter), each an independent
-// copy.
-func arrayChunk(_ VM, v Value, args []Value) (Value, error) {
-	size, err := readChunkSize("chunk", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-	step := len(elems)
-	if size < int64(step) {
-		step = int(size)
-	}
-	chunks := make([]Value, 0)
-	for start := 0; start < len(elems); start += step {
-		chunks = append(chunks, NewArrayValue(slices.Clone(elems[start:min(start+step, len(elems))]), false))
-	}
-	return NewArrayValue(chunks, false), nil
-}
-
-// arrayChunkView is chunk_view(size): chunk's pieces sharing the receiver's storage, each marked as a view.
-func arrayChunkView(_ VM, v Value, args []Value) (Value, error) {
-	size, err := readChunkSize("chunk_view", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-	step := len(elems)
-	if size < int64(step) {
-		step = int(size)
-	}
-	chunks := make([]Value, 0)
-	for start := 0; start < len(elems); start += step {
-		c := NewArrayValue(elems[start:min(start+step, len(elems))], v.Immutable)
-		(*Array)(c.Ptr).IsView = true
-		chunks = append(chunks, c)
-	}
-	return NewArrayValue(chunks, false), nil
-}
-
-// arraySliceView is slice_view([start[, end]]): the span sharing the receiver's storage, marked as a view.
-func arraySliceView(_ VM, v Value, args []Value) (Value, error) {
-	const name = "slice_view"
-	s, e, err := readSliceArgs(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Array)(v.Ptr).Elements
-	si, ei, err := resolveSliceBounds(name, s, e, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	res := NewArrayValue(elems[si:ei], v.Immutable)
-	(*Array)(res.Ptr).IsView = true
-	return res, nil
-}
-
-// arraySplice is splice([start[, count[, ...items]]]): a new array with count elements at start replaced by the
-// items (read like append's operands).
-func arraySplice(_ VM, v Value, args []Value) (Value, error) {
-	elems := (*Array)(v.Ptr).Elements
-	start, end, err := readSpliceRange(args, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	var items []Value
-	if len(args) > 2 {
-		items = arrayAddItems(args[2:])
-	}
-	out := make([]Value, 0, start+len(items)+len(elems)-end)
-	out = append(out, elems[:start]...)
-	out = append(out, items...)
-	out = append(out, elems[end:]...)
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arraySpliceInPlace is splice_in_place(...): splice applied to the receiver itself.
-// A side-effecting member returns the RECEIVER, so mutators chain; the removed span is x.slice(i, j) taken
-// beforehand.
-func arraySpliceInPlace(_ VM, v Value, args []Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("splice_in_place", v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	start, end, err := readSpliceRange(args, len(o.Elements))
-	if err != nil {
-		return Undefined, err
-	}
-	var items []Value
-	if len(args) > 2 {
-		items = arrayAddItems(args[2:])
-	}
-	o.Set(append(o.Elements[:start], append(items, o.Elements[end:]...)...))
-	return v, nil
-}
-
-// arrayInsert is insert(i, ...items): a new array with the items — each ONE element whatever its type, never
-// spread — at position i, which raises out of [0, len].
-func arrayInsert(_ VM, v Value, args []Value) (Value, error) {
-	elems := (*Array)(v.Ptr).Elements
-	at, err := readEditPos("insert", args, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	return NewArrayValue(slices.Insert(slices.Clone(elems), at, args[1:]...), false), nil
-}
-
-// IMPURE: mutates the receiver. arrayInsertInPlace is insert_in_place(i, ...items): insert applied to the receiver
-// itself.
-func arrayInsertInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "insert_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	at, err := readEditPos(name, args, len(o.Elements))
-	if err != nil {
-		return Undefined, err
-	}
-	o.Set(slices.Insert(o.Elements, at, args[1:]...))
-	return v, nil
-}
-
-// arrayPrepend is prepend(...items): a new array with the items (read like append's operands) in front, in
-// argument order — x.prepend(a, b) is a + b + x.
-func arrayPrepend(_ VM, v Value, args []Value) (Value, error) {
-	items := arrayAddItems(args)
-	elems := (*Array)(v.Ptr).Elements
-	out := make([]Value, 0, len(items)+len(elems))
-	out = append(out, items...)
-	out = append(out, elems...)
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayPrependInPlace is prepend_in_place(...items): prepend applied to the receiver
-// itself.
-func arrayPrependInPlace(_ VM, v Value, args []Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("prepend_in_place", v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	o.Set(slices.Insert(o.Elements, 0, arrayAddItems(args)...))
-	return v, nil
-}
-
-// arrayPush is push(...items): a new array with the items at the end, each ONE element whatever its type — the
-// spelling that never spreads, so a.push(x).last() == x even when x is an array.
-func arrayPush(_ VM, v Value, args []Value) (Value, error) {
-	elems := (*Array)(v.Ptr).Elements
-	out := make([]Value, 0, len(elems)+len(args))
-	out = append(out, elems...)
-	out = append(out, args...)
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayPushInPlace is push_in_place(...items): push applied to the receiver itself.
-func arrayPushInPlace(_ VM, v Value, args []Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("push_in_place", v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	o.Set(append(o.Elements, args...))
-	return v, nil
-}
-
-// arrayPushFirst is push_first(...items): a new array with the items in front, in argument order, each ONE
-// element whatever its type.
-func arrayPushFirst(_ VM, v Value, args []Value) (Value, error) {
-	elems := (*Array)(v.Ptr).Elements
-	out := make([]Value, 0, len(args)+len(elems))
-	out = append(out, args...)
-	out = append(out, elems...)
-	return NewArrayValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. arrayPushFirstInPlace is push_first_in_place(...items): push_first applied to the
-// receiver itself.
-func arrayPushFirstInPlace(_ VM, v Value, args []Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("push_first_in_place", v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	o.Set(slices.Insert(o.Elements, 0, args...))
-	return v, nil
-}
 
 // arrayDeduped answers the elements with each run of equal neighbours collapsed to one.
 func arrayDeduped(elems []Value) []Value {
@@ -1808,28 +931,6 @@ func arrayDeduped(elems []Value) []Value {
 		}
 	}
 	return out
-}
-
-// arrayDedup is dedup(): a new array with each run of equal neighbours collapsed to one.
-func arrayDedup(_ VM, v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
-	}
-	return NewArrayValue(arrayDeduped((*Array)(v.Ptr).Elements), false), nil
-}
-
-// IMPURE: mutates the receiver. arrayDedupInPlace is dedup_in_place(): dedup applied to the receiver itself.
-func arrayDedupInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "dedup_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Array)(v.Ptr)
-	o.Set(arrayDeduped(o.Elements))
-	return v, nil
 }
 
 // arrayUniqueElements answers the elements without repeats, each kept at its first occurrence.
@@ -1848,28 +949,6 @@ func arrayUniqueElements(elems []Value) []Value {
 		}
 	}
 	return out
-}
-
-// arrayUnique is unique(): a new array without repeats, each element kept at its first occurrence.
-func arrayUnique(_ VM, v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("unique", "0", len(args))
-	}
-	return NewArrayValue(arrayUniqueElements((*Array)(v.Ptr).Elements), false), nil
-}
-
-// IMPURE: mutates the receiver. arrayUniqueInPlace is unique_in_place(): unique applied to the receiver itself.
-func arrayUniqueInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "unique_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("unique", "0", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	o.Set(arrayUniqueElements(o.Elements))
-	return v, nil
 }
 
 // arrayTypeContains is the `in` operator: contains' VALUE readings — an operand of the receiver's own
@@ -2028,131 +1107,6 @@ func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
 	return NewArrayValue(t, false), nil
 }
 
-func arrayFnMin(v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("min", "0 or 1", len(args))
-	}
-
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return emptySeqResult("min", args)
-	}
-
-	e := o.Elements[0]
-	for i := 1; i < len(o.Elements); i++ {
-		less, err := o.Elements[i].BinaryOp(tokens.Less, e)
-		if err != nil {
-			return Undefined, err
-		}
-		lt, terr := less.IsTrue()
-		if terr != nil {
-			return Undefined, terr
-		}
-		if lt {
-			e = o.Elements[i]
-		}
-	}
-
-	return e, nil
-}
-
-func arrayFnMax(v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("max", "0 or 1", len(args))
-	}
-
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return emptySeqResult("max", args)
-	}
-
-	e := o.Elements[0]
-	for i := 1; i < len(o.Elements); i++ {
-		greater, err := o.Elements[i].BinaryOp(tokens.Greater, e)
-		if err != nil {
-			return Undefined, err
-		}
-		gt, terr := greater.IsTrue()
-		if terr != nil {
-			return Undefined, terr
-		}
-		if gt {
-			e = o.Elements[i]
-		}
-	}
-
-	return e, nil
-}
-
-func arrayFnSum(v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("sum", "0 or 1", len(args))
-	}
-
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return emptySeqResult("sum", args)
-	}
-
-	var err error
-	s := o.Elements[0]
-	for i := 1; i < len(o.Elements); i++ {
-		s, err = s.BinaryOp(tokens.Add, o.Elements[i])
-		if err != nil {
-			return Undefined, err
-		}
-	}
-
-	return s, nil
-}
-
-func arrayFnAvg(v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("avg", "0 or 1", len(args))
-	}
-
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return emptySeqResult("avg", args)
-	}
-
-	var err error
-	sum := o.Elements[0]
-	for i := 1; i < len(o.Elements); i++ {
-		sum, err = sum.BinaryOp(tokens.Add, o.Elements[i])
-		if err != nil {
-			return Undefined, err
-		}
-	}
-
-	length := IntValue(int64(len(o.Elements)))
-	avg, err := sum.BinaryOp(tokens.Quo, length)
-	if err != nil {
-		return Undefined, err
-	}
-
-	return avg, nil
-}
-
-// arrayFnJoin implements `array.join(sep)`.
-// sep types: string | runes | byte | rune.
-// Result type follows sep: string→string, runes→runes, byte→bytes, rune→runes.
-// With no argument, defaults to empty string separator.
-func arrayFnJoin(v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("join", "0 or 1", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	if len(args) == 0 {
-		s, err := joinElementsToString(o.Elements, "")
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-	}
-	return joinSeqWithSep(o.Elements, args[0], "join")
-}
-
 // joinSeqWithSep performs the join given pre-resolved seq elements and a separator value.
 // Returns a value whose type is determined by the sep type.
 func joinSeqWithSep(elems []Value, sep Value, name string) (Value, error) {
@@ -2195,31 +1149,6 @@ func joinSeqWithSep(elems []Value, sep Value, name string) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes, bytes, byte, or rune", sep.TypeName())
 	}
-}
-
-func arrayFnFlatten(v Value, args []Value) (Value, error) {
-	const name = "flatten"
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-	}
-	depth := 1
-	if len(args) == 1 {
-		d, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
-		}
-		if d < 0 {
-			depth = -1
-		} else {
-			depth = int(d)
-		}
-	}
-	o := (*Array)(v.Ptr)
-	out := make([]Value, 0, len(o.Elements))
-	out = flattenAppend(out, o.Elements, depth)
-	arr := make([]Value, len(out))
-	copy(arr, out)
-	return NewArrayValue(arr, false), nil
 }
 
 // flattenAppend appends each element of src to dst, unwrapping nested arrays up to `depth` levels.
