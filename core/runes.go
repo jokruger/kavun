@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -66,7 +65,6 @@ var TypeRunes = ValueTypeDescr{
 	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                       // PURE by contract
 	Equal:               runesTypeEqual,                                                                            // PURE by contract
 	BinaryOp:            runesTypeBinaryOp,                                                                         // PURE by contract
-	CallNamedMethod:     runesTypeCallNamedMethod,                                                                  // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
 	AccessIndex:         runesTypeAccessIndex,                                                                      // PURE by contract
 	AccessNamedProperty: noNamedProperty,                                                                           // PURE by contract
 	AssignIndex:         runesTypeAssignIndex,                                                                      // IMPURE by contract
@@ -90,7 +88,99 @@ var TypeRunes = ValueTypeDescr{
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
-	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+
+	Methods: []MethodEntry{
+		members.IsTrue:              {Fn: memberIsTrue, Pure: true},
+		members.String:              {Fn: runesString, Pure: true},
+		members.Format:              {Fn: memberFormat, Pure: true},
+		members.Copy:                {Fn: runesCopy, Pure: true},
+		members.Freeze:              {Fn: runesFreeze, Pure: true},
+		members.Runes:               {Fn: runesRunes, Pure: true},
+		members.Int:                 {Fn: runesInt, Pure: true},
+		members.Bool:                {Fn: runesBool, Pure: true},
+		members.Float:               {Fn: runesFloat, Pure: true},
+		members.Time:                {Fn: runesTime, Pure: true},
+		members.Decimal:             {Fn: runesDecimal, Pure: true},
+		members.Date:                {Fn: runesDate, Pure: true},
+		members.Array:               {Fn: runesArray, Pure: true},
+		members.Bytes:               {Fn: runesBytes, Pure: true},
+		members.Len:                 {Fn: runesLen, Pure: true},
+		members.IsEmpty:             {Fn: runesIsEmpty, Pure: true},
+		members.Contains:            {Fn: runesContains, Pure: true},
+		members.Index:               {Fn: runesIndex, Pure: true},
+		members.Count:               {Fn: runesCount, Pure: true},
+		members.All:                 {Fn: runesAll, Pure: true},
+		members.Any:                 {Fn: runesAny, Pure: true},
+		members.ForEach:             {Fn: runesForEach, Pure: true},
+		members.Reduce:              {Fn: runesReduce, Pure: true},
+		members.Keep:                {Fn: runesKeep, Pure: true},
+		members.Map:                 {Fn: runesMap, Pure: true},
+		members.Remove:              {Fn: runesRemove, Pure: true},
+		members.First:               {Fn: runesFirst, Pure: true},
+		members.Last:                {Fn: runesLast, Pure: true},
+		members.IndexLast:           {Fn: runesIndexLast, Pure: true},
+		members.Min:                 {Fn: runesMin, Pure: true},
+		members.Max:                 {Fn: runesMax, Pure: true},
+		members.Slice:               {Fn: memberSlice, Pure: true},
+		members.Reverse:             {Fn: runesReverse, Pure: true},
+		members.Sort:                {Fn: runesSort, Pure: true},
+		members.Unique:              {Fn: runesUnique, Pure: true},
+		members.Dedup:               {Fn: runesDedup, Pure: true},
+		members.Chunk:               {Fn: runesChunk, Pure: true},
+		members.Append:              {Fn: runesAppend, Pure: true},
+		members.Prepend:             {Fn: runesPrepend, Pure: true},
+		members.Push:                {Fn: runesPush, Pure: true},
+		members.PushFirst:           {Fn: runesPushFirst, Pure: true},
+		members.Insert:              {Fn: runesInsert, Pure: true},
+		members.Splice:              {Fn: runesSplice, Pure: true},
+		members.Repeat:              {Fn: runesRepeat, Pure: true},
+		members.PadStart:            {Fn: runesPadStart, Pure: true},
+		members.PadEnd:              {Fn: runesPadEnd, Pure: true},
+		members.Trim:                {Fn: runesTrim, Pure: true},
+		members.TrimStart:           {Fn: runesTrimStart, Pure: true},
+		members.TrimEnd:             {Fn: runesTrimEnd, Pure: true},
+		members.HasPrefix:           {Fn: runesHasPrefix, Pure: true},
+		members.HasSuffix:           {Fn: runesHasSuffix, Pure: true},
+		members.RemovePrefix:        {Fn: runesRemovePrefix, Pure: true},
+		members.RemoveSuffix:        {Fn: runesRemoveSuffix, Pure: true},
+		members.Replace:             {Fn: runesReplace, Pure: true},
+		members.Split:               {Fn: runesSplit, Pure: true},
+		members.FlatMap:             {Fn: runesFlatMap, Pure: true},
+		members.IsASCII:             {Fn: runesIsASCII, Pure: true},
+		members.IsValid:             {Fn: runesIsValid, Pure: true},
+		members.SplitLines:          {Fn: runesSplitLines, Pure: true},
+		members.Partition:           {Fn: runesPartition, Pure: true},
+		members.Lower:               {Fn: runesLower, Pure: true},
+		members.Upper:               {Fn: runesUpper, Pure: true},
+		members.CaseFold:            {Fn: runesCaseFold, Pure: true},
+		members.TitleCase:           {Fn: runesTitleCase, Pure: true},
+		members.CamelCase:           {Fn: runesCamelCase, Pure: true},
+		members.PascalCase:          {Fn: runesPascalCase, Pure: true},
+		members.SnakeCase:           {Fn: runesSnakeCase, Pure: true},
+		members.KebabCase:           {Fn: runesKebabCase, Pure: true},
+		members.KeepInPlace:         {Fn: runesKeepInPlace, Pure: false},
+		members.RemoveInPlace:       {Fn: runesRemoveInPlace, Pure: false},
+		members.AppendInPlace:       {Fn: runesAppendInPlace, Pure: false},
+		members.PrependInPlace:      {Fn: runesPrependInPlace, Pure: false},
+		members.PushInPlace:         {Fn: runesPushInPlace, Pure: false},
+		members.PushFirstInPlace:    {Fn: runesPushFirstInPlace, Pure: false},
+		members.InsertInPlace:       {Fn: runesInsertInPlace, Pure: false},
+		members.SpliceInPlace:       {Fn: runesSpliceInPlace, Pure: false},
+		members.PadStartInPlace:     {Fn: runesPadStartInPlace, Pure: false},
+		members.PadEndInPlace:       {Fn: runesPadEndInPlace, Pure: false},
+		members.TrimInPlace:         {Fn: runesTrimInPlace, Pure: false},
+		members.TrimStartInPlace:    {Fn: runesTrimStartInPlace, Pure: false},
+		members.TrimEndInPlace:      {Fn: runesTrimEndInPlace, Pure: false},
+		members.RemovePrefixInPlace: {Fn: runesRemovePrefixInPlace, Pure: false},
+		members.RemoveSuffixInPlace: {Fn: runesRemoveSuffixInPlace, Pure: false},
+		members.ReplaceInPlace:      {Fn: runesReplaceInPlace, Pure: false},
+		members.ReverseInPlace:      {Fn: runesReverseInPlace, Pure: false},
+		members.SortInPlace:         {Fn: runesSortInPlace, Pure: false},
+		members.UniqueInPlace:       {Fn: runesUniqueInPlace, Pure: false},
+		members.DedupInPlace:        {Fn: runesDedupInPlace, Pure: false},
+		members.SliceView:           {Fn: runesSliceView, Pure: true},
+		members.ChunkView:           {Fn: runesChunkView, Pure: true},
+	},
 }
 
 // runesEncodeMatchArg: acceptance on a symbol receiver — text content as
@@ -429,432 +519,6 @@ func runesTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 	return NewRunesValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func runesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*Runes)(v.Ptr)
-
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return runesTypeCopy(v, true)
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.Freeze()
-
-	case "runes":
-		// the same-type conversion constructs — a new, independent, mutable copy, exactly
-		// runes(r) / r.copy(); see the note on array's own case.
-		c, err := runesTypeCopy(v, false)
-		if err != nil {
-			return Undefined, err
-		}
-		return convMember(name, runesTypeName, args, true, c)
-
-	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(EncodeText(o.Elements)), nil
-
-	case "array":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		t, _ := runesTypeAsArray(v)
-		return NewArrayValue(t, false), nil
-
-	case "bool":
-		b, ok := runesTypeAsBool(v)
-		return convMember(name, runesTypeName, args, ok, BoolValue(b))
-
-	case "bytes":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewBytesValue(EncodeOctets(o.Elements), false), nil
-
-	case "float":
-		f, ok := runesTypeAsFloat(v)
-		return convMember(name, runesTypeName, args, ok, FloatValue(f))
-
-	case "int":
-		i, ok := runesTypeAsInt(v)
-		return convMember(name, runesTypeName, args, ok, IntValue(i))
-
-	case "decimal":
-		d, ok := runesTypeAsDecimal(v)
-		return convMember(name, runesTypeName, args, ok, NewDecimalValue(d))
-
-	case "time":
-		return textTimeMember(name, runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
-
-	case "date":
-		return textDateMember(name, runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
-
-	case "format":
-		return memberFormat(vm, v, members.Format, args)
-
-	case "is_valid":
-		// no escapes anywhere: every element is a real symbol
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(RunesAreValid(o.Elements)), nil
-
-	case "is_ascii":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(RunesAreASCII(o.Elements)), nil
-
-	case "is_empty":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(len(o.Elements) == 0), nil
-
-	case "len":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(len(o.Elements))), nil
-
-	case "first":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return RuneValue(o.Elements[0]), nil
-
-	case "last":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return RuneValue(o.Elements[len(o.Elements)-1]), nil
-
-	case "min":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return RuneValue(slices.Min(o.Elements)), nil
-
-	case "max":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(o.Elements) == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		return RuneValue(slices.Max(o.Elements)), nil
-
-	case "lower":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		rs := make([]rune, len(o.Elements))
-		for i, r := range o.Elements {
-			rs[i] = unicode.ToLower(r)
-		}
-		return NewRunesValue(rs, false), nil
-
-	case "upper":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		rs := make([]rune, len(o.Elements))
-		for i, r := range o.Elements {
-			rs[i] = unicode.ToUpper(r)
-		}
-		return NewRunesValue(rs, false), nil
-
-	case "contains":
-		return runesContainsMember(vm, v, args)
-
-	case "count":
-		return runesCount(vm, v, args)
-
-	case "keep":
-		return runesKeep(vm, v, args)
-
-	case "keep_in_place":
-		return runesKeepInPlace(vm, v, args)
-
-	case "remove":
-		return runesRemove(vm, v, args)
-
-	case "remove_in_place":
-		return runesRemoveInPlace(vm, v, args)
-
-	case "any":
-		return runesAny(vm, v, args)
-
-	case "all":
-		return runesAll(vm, v, args)
-
-	case "sort":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		sorted := make([]rune, len(o.Elements))
-		copy(sorted, o.Elements)
-		slices.Sort(sorted)
-		return NewRunesValue(sorted, false), nil
-
-	case "sort_in_place":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
-		slices.Sort(o.Elements)
-		return v, nil
-
-	case "dedup":
-		return runesDedup(vm, v, args)
-
-	case "dedup_in_place":
-		return runesDedupInPlace(vm, v, args)
-
-	case "unique":
-		return runesUnique(vm, v, args)
-
-	case "unique_in_place":
-		return runesUniqueInPlace(vm, v, args)
-
-	case "reverse":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		n := len(o.Elements)
-		rev := make([]rune, n)
-		for i, r := range o.Elements {
-			rev[n-1-i] = r
-		}
-		return NewRunesValue(rev, false), nil
-
-	case "reverse_in_place":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
-		slices.Reverse(o.Elements)
-		return v, nil
-
-	case "for_each":
-		return runesForEach(vm, v, args)
-
-	case "index":
-		return runesIndex(vm, v, args)
-
-	case "index_last":
-		return runesIndexLast(vm, v, args)
-
-	case "chunk":
-		return runesChunk(vm, v, args)
-
-	case "chunk_view":
-		return runesChunkView(vm, v, args)
-
-	case "slice":
-		return memberSlice(vm, v, members.Slice, args)
-
-	case "slice_view":
-		return runesSliceView(vm, v, args)
-
-	case "append":
-		return runesTypeAppend(v, args, false)
-
-	case "append_in_place":
-		return runesTypeAppend(v, args, true)
-
-	case "prepend":
-		return runesPrepend(vm, v, args)
-
-	case "prepend_in_place":
-		return runesPrependInPlace(vm, v, args)
-
-	case "push":
-		return runesPush(vm, v, args)
-
-	case "push_in_place":
-		return runesPushInPlace(vm, v, args)
-
-	case "push_first":
-		return runesPushFirst(vm, v, args)
-
-	case "push_first_in_place":
-		return runesPushFirstInPlace(vm, v, args)
-
-	case "insert":
-		return runesInsert(vm, v, args)
-
-	case "insert_in_place":
-		return runesInsertInPlace(vm, v, args)
-
-	case "splice":
-		return runesSplice(vm, v, args)
-
-	case "splice_in_place":
-		return runesSpliceInPlace(vm, v, args)
-
-	case "map":
-		return runesMap(vm, v, args)
-
-	case "flat_map":
-		return runesFlatMap(vm, v, args)
-
-	case "case_fold":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		out := make([]rune, len(o.Elements))
-		for i, r := range o.Elements {
-			out[i] = foldRuneCanonical(r)
-		}
-		return NewRunesValue(out, false), nil
-
-	case "title_case":
-		// the label rendering segments on WRITTEN boundaries only (case transitions stay inside words);
-		// the identifier renderings re-segment fully
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewRunesValue(caseJoinTitle(caseSegmentWritten(o.Elements)), false), nil
-
-	case "snake_case":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewRunesValue(caseJoinLower(caseSegmentWords(o.Elements), '_'), false), nil
-
-	case "kebab_case":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewRunesValue(caseJoinLower(caseSegmentWords(o.Elements), '-'), false), nil
-
-	case "camel_case":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewRunesValue(caseJoinCapitalized(caseSegmentWords(o.Elements), true), false), nil
-
-	case "pascal_case":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewRunesValue(caseJoinCapitalized(caseSegmentWords(o.Elements), false), false), nil
-
-	case "reduce":
-		return runesReduce(vm, v, args)
-
-	case "repeat":
-		n, err := parseRepeatCount(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		src := o.Elements
-		sl := len(src)
-		total, err := SeqRepeatTotal(name, n, sl)
-		if err != nil {
-			return Undefined, err
-		}
-		out := make([]rune, total)
-		// step by the receiver's length, never by the count: an empty receiver has total 0 and must not
-		// spin n times copying nothing
-		for i := 0; i < total; i += sl {
-			copy(out[i:], src)
-		}
-		return NewRunesValue(out, false), nil
-
-	case "split":
-		return runesSplit(vm, v, args)
-
-	case "split_lines":
-		return runesFnSplitLines(v, args)
-
-	case "partition":
-		return runesPartition(vm, v, args)
-
-	case "trim":
-		return runesTrim(vm, v, args)
-
-	case "trim_in_place":
-		return runesTrimInPlace(vm, v, args)
-
-	case "trim_start":
-		return runesTrimStart(vm, v, args)
-
-	case "trim_start_in_place":
-		return runesTrimStartInPlace(vm, v, args)
-
-	case "trim_end":
-		return runesTrimEnd(vm, v, args)
-
-	case "trim_end_in_place":
-		return runesTrimEndInPlace(vm, v, args)
-
-	case "has_prefix":
-		return runesHasPrefix(vm, v, args)
-
-	case "has_suffix":
-		return runesHasSuffix(vm, v, args)
-
-	case "remove_prefix":
-		return runesRemovePrefix(vm, v, args)
-
-	case "remove_prefix_in_place":
-		return runesRemovePrefixInPlace(vm, v, args)
-
-	case "remove_suffix":
-		return runesRemoveSuffix(vm, v, args)
-
-	case "remove_suffix_in_place":
-		return runesRemoveSuffixInPlace(vm, v, args)
-
-	case "replace":
-		return runesReplace(vm, v, args)
-
-	case "replace_in_place":
-		return runesReplaceInPlace(vm, v, args)
-
-	case "pad_start":
-		return runesPadStart(vm, v, args)
-
-	case "pad_start_in_place":
-		return runesPadStartInPlace(vm, v, args)
-
-	case "pad_end":
-		return runesPadEnd(vm, v, args)
-
-	case "pad_end_in_place":
-		return runesPadEndInPlace(vm, v, args)
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
-}
-
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func runesTypeIterator(v Value) (Value, error) {
 	return NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
@@ -1006,74 +670,6 @@ func (m *runesMatch) matches(vm VM, i int, r rune) (bool, error) {
 	return slices.Contains(m.elems, r), nil
 }
 
-// runesContainsMember is contains(...): is there a match anywhere? The empty run is contained everywhere, the
-// same answer `in` gives.
-func runesContainsMember(vm VM, v Value, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("contains", args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-
-	if m.runs != nil {
-		for _, r := range m.runs {
-			if len(r) == 0 {
-				return True, nil
-			}
-		}
-		for i := range elems {
-			if runLengthAt(elems, i, m.runs) > 0 {
-				return True, nil
-			}
-		}
-		return False, nil
-	}
-
-	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			return True, nil
-		}
-	}
-	return False, nil
-}
-
-// runesCount is count(...): how many matches. Runs count non-overlapping occurrences.
-func runesCount(vm VM, v Value, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("count", args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-
-	n := int64(0)
-	if m.runs != nil {
-		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
-				n++
-				i += k
-			} else {
-				i++
-			}
-		}
-		return IntValue(n), nil
-	}
-
-	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			n++
-		}
-	}
-	return IntValue(n), nil
-}
-
 // runesKept answers the symbols keep(...) keeps: the matches, in order. Shared by keep and keep_in_place; name is
 // the member called, for the errors.
 func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
@@ -1106,29 +702,6 @@ func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
 		}
 	}
 	return out, nil
-}
-
-// runesKeep is keep(...): new runes of the matches.
-func runesKeep(vm VM, v Value, args []Value) (Value, error) {
-	out, err := runesKept(vm, "keep", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesKeepInPlace is keep_in_place(...): keep the matches in the receiver itself.
-func runesKeepInPlace(vm VM, v Value, args []Value) (Value, error) {
-	const name = "keep_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesKept(vm, name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
 }
 
 // runesRemaining answers the symbols remove(...) leaves: everything but the matches, in order. With no argument
@@ -1175,67 +748,6 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 	return out, nil
 }
 
-// runesRemove is remove(...): new runes without the matches.
-func runesRemove(vm VM, v Value, args []Value) (Value, error) {
-	out, err := runesRemaining(vm, "remove", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesRemoveInPlace is remove_in_place(...): drop the matches from the receiver
-// itself.
-func runesRemoveInPlace(vm VM, v Value, args []Value) (Value, error) {
-	const name = "remove_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesRemaining(vm, name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesAny is any(...): does some symbol match? Symbols, a predicate, or nothing — never a run.
-func runesAny(vm VM, v Value, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("any", args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, r := range (*Runes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
-		if err != nil {
-			return Undefined, err
-		}
-		if hit {
-			return True, nil
-		}
-	}
-	return False, nil
-}
-
-// runesAll is all(...): does every symbol match? Symbols, a predicate, or nothing — never a run. True on empty
-// runes.
-func runesAll(vm VM, v Value, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("all", args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, r := range (*Runes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
-		if err != nil {
-			return Undefined, err
-		}
-		if !hit {
-			return False, nil
-		}
-	}
-	return True, nil
-}
-
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
 // counted in symbols. The argument's type selects the reading:
@@ -1245,16 +757,6 @@ func runesAll(vm VM, v Value, args []Value) (Value, error) {
 //   - anything else    one symbol, compared with ==; a value that is not one symbol raises
 // A miss answers undefined, or the trailing default. Never variadic: the second slot is the default.
 // ---------------------------------------------------------------------------
-
-// runesIndex is index(...): the first match.
-func runesIndex(vm VM, v Value, args []Value) (Value, error) {
-	return runesLocate(vm, "index", v, args, false)
-}
-
-// runesIndexLast is index_last(...): the last match.
-func runesIndexLast(vm VM, v Value, args []Value) (Value, error) {
-	return runesLocate(vm, "index_last", v, args, true)
-}
 
 // runesLocate is the body of index and index_last; name is the member called, for the errors.
 func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
@@ -1527,353 +1029,11 @@ func runesPadded(name string, v Value, args []Value, start bool) ([]rune, error)
 	return slices.Concat(elems, pad), nil
 }
 
-// runesTrim is trim(...): without the leading and trailing elements of the set.
-func runesTrim(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesTrimmed("trim", v, args, true, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesTrimInPlace is trim_in_place(...): trim(...) applied to the receiver
-// itself.
-func runesTrimInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesTrimmed(name, v, args, true, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesTrimStart is trim_start(...): without the leading elements of the set.
-func runesTrimStart(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesTrimmed("trim_start", v, args, true, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesTrimStartInPlace is trim_start_in_place(...): trim_start(...) applied to the receiver
-// itself.
-func runesTrimStartInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_start_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesTrimmed(name, v, args, true, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesTrimEnd is trim_end(...): without the trailing elements of the set.
-func runesTrimEnd(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesTrimmed("trim_end", v, args, false, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesTrimEndInPlace is trim_end_in_place(...): trim_end(...) applied to the receiver
-// itself.
-func runesTrimEndInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "trim_end_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesTrimmed(name, v, args, false, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesRemovePrefix is remove_prefix(...): without the longest matching prefix, once.
-func runesRemovePrefix(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesWithoutAnchored("remove_prefix", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesRemovePrefixInPlace is remove_prefix_in_place(...): remove_prefix(...) applied to the receiver
-// itself.
-func runesRemovePrefixInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "remove_prefix_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesWithoutAnchored(name, v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesRemoveSuffix is remove_suffix(...): without the longest matching suffix, once.
-func runesRemoveSuffix(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesWithoutAnchored("remove_suffix", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesRemoveSuffixInPlace is remove_suffix_in_place(...): remove_suffix(...) applied to the receiver
-// itself.
-func runesRemoveSuffixInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "remove_suffix_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesWithoutAnchored(name, v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesReplace is replace(...): every occurrence of old replaced by new.
-func runesReplace(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesReplaced("replace", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesReplaceInPlace is replace_in_place(...): replace(...) applied to the receiver
-// itself.
-func runesReplaceInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "replace_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesReplaced(name, v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesPadStart is pad_start(...): filled at the front up to n elements.
-func runesPadStart(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesPadded("pad_start", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesPadStartInPlace is pad_start_in_place(...): pad_start(...) applied to the receiver
-// itself.
-func runesPadStartInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "pad_start_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesPadded(name, v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesPadEnd is pad_end(...): filled at the end up to n elements.
-func runesPadEnd(_ VM, v Value, args []Value) (Value, error) {
-	out, err := runesPadded("pad_end", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesPadEndInPlace is pad_end_in_place(...): pad_end(...) applied to the receiver
-// itself.
-func runesPadEndInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "pad_end_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	out, err := runesPadded(name, v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	(*Runes)(v.Ptr).Set(out)
-	return v, nil
-}
-
-// runesHasPrefix is has_prefix(...): does the receiver start with one of the runs?
-func runesHasPrefix(_ VM, v Value, args []Value) (Value, error) {
-	best, err := runesAnchoredRun("has_prefix", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return BoolValue(best >= 0), nil
-}
-
-// runesHasSuffix is has_suffix(...): does the receiver end with one of the runs?
-func runesHasSuffix(_ VM, v Value, args []Value) (Value, error) {
-	best, err := runesAnchoredRun("has_suffix", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return BoolValue(best >= 0), nil
-}
-
 // ---------------------------------------------------------------------------
 // split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
 // of runs, a predicate on single symbols, or — no argument — the blank set (IsBlankRune). Runs match leftmost-longest
 // and never overlap; an empty run matches nothing.
 // ---------------------------------------------------------------------------
-
-// runesSplit is split(...): the pieces between the separators. Explicit separators keep the empty pieces between
-// adjacent hits (n hits answer n+1 pieces); the blank form answers the maximal runs of significant symbols, the
-// classic whitespace split.
-func runesSplit(vm VM, v Value, args []Value) (Value, error) {
-	const name = "split"
-	elems := (*Runes)(v.Ptr).Elements
-
-	if len(args) == 0 {
-		var pieces []Value
-		start := -1
-		for i, e := range elems {
-			if IsBlankRune(e) {
-				if start >= 0 {
-					pieces = append(pieces, runesPiece(elems[start:i]))
-					start = -1
-				}
-			} else if start < 0 {
-				start = i
-			}
-		}
-		if start >= 0 {
-			pieces = append(pieces, runesPiece(elems[start:]))
-		}
-		return NewArrayValue(pieces, false), nil
-	}
-
-	pieces := make([]Value, 0, 4)
-	start := 0
-
-	if args[0].IsCallable() {
-		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
-		}
-		if err := checkElemCallback(name, args[0]); err != nil {
-			return Undefined, err
-		}
-		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
-			if err != nil {
-				return Undefined, err
-			}
-			hit, err := res.IsTrue()
-			if err != nil {
-				return Undefined, err
-			}
-			if hit {
-				pieces = append(pieces, runesPiece(elems[start:i]))
-				start = i + 1
-			}
-		}
-		pieces = append(pieces, runesPiece(elems[start:]))
-		return NewArrayValue(pieces, false), nil
-	}
-
-	runs, err := runesReadRunSet(name, args, "one reading per call (a function among several arguments always raises)")
-	if err != nil {
-		return Undefined, err
-	}
-	for i := 0; i < len(elems); {
-		if k := runLengthAt(elems, i, runs); k > 0 {
-			pieces = append(pieces, runesPiece(elems[start:i]))
-			i += k
-			start = i
-		} else {
-			i++
-		}
-	}
-	pieces = append(pieces, runesPiece(elems[start:]))
-	return NewArrayValue(pieces, false), nil
-}
-
-// runesPartition is partition(...): the one-split form, [before, separator, after] around the first hit (the
-// longest run at that position); a miss answers [receiver, empty, empty]. The blank form takes the whole run of
-// blanks as the separator.
-func runesPartition(vm VM, v Value, args []Value) (Value, error) {
-	const name = "partition"
-	elems := (*Runes)(v.Ptr).Elements
-	found, n := -1, 0
-
-	switch {
-	case len(args) == 0:
-		for i, e := range elems {
-			if IsBlankRune(e) {
-				found, n = i, 1
-				for found+n < len(elems) && IsBlankRune(elems[found+n]) {
-					n++
-				}
-				break
-			}
-		}
-
-	case args[0].IsCallable():
-		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
-		}
-		if err := checkElemCallback(name, args[0]); err != nil {
-			return Undefined, err
-		}
-		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
-			if err != nil {
-				return Undefined, err
-			}
-			hit, err := res.IsTrue()
-			if err != nil {
-				return Undefined, err
-			}
-			if hit {
-				found, n = i, 1
-				break
-			}
-		}
-
-	default:
-		runs, err := runesReadRunSet(name, args, "one reading per call (a function among several arguments always raises)")
-		if err != nil {
-			return Undefined, err
-		}
-		for i := range elems {
-			if k := runLengthAt(elems, i, runs); k > 0 {
-				found, n = i, k
-				break
-			}
-		}
-	}
-
-	if found < 0 {
-		return NewArrayValue([]Value{runesPiece(elems), runesPiece(nil), runesPiece(nil)}, false), nil
-	}
-	return NewArrayValue([]Value{runesPiece(elems[:found]), runesPiece(elems[found : found+n]), runesPiece(elems[found+n:])}, false), nil
-}
 
 // runesPiece is one piece of split/partition: new runes, independent of the receiver.
 func runesPiece(elems []rune) Value {
@@ -1884,96 +1044,6 @@ func runesPiece(elems []rune) Value {
 // The callback members: for_each, map, flat_map, reduce. A per-element callback is f/1(symbol) or
 // f/2(index, symbol); reduce's is f/2(acc, symbol) or f/3(acc, index, symbol).
 // ---------------------------------------------------------------------------
-
-// runesForEach is for_each(f): a full pass whose callback result is ignored — early exit belongs to for/break or a
-// search member. Returns the receiver, so it chains.
-func runesForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Runes)(v.Ptr).Elements {
-		if _, err := callElem(vm, fn, i, RuneValue(e)); err != nil {
-			return Undefined, err
-		}
-	}
-	return v, nil
-}
-
-// runesMap is map(f): strictly 1:1, answering runes — each callback result must be exactly one symbol (an
-// in-range int, byte or rune); a run or undefined raises, because widening and dropping are flat_map's job.
-func runesMap(vm VM, v Value, args []Value) (Value, error) {
-	const name = "map"
-	fn, err := readElemCallback(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	out := make([]rune, len(elems))
-	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
-		if err != nil {
-			return Undefined, err
-		}
-		if res.Type == value.Undefined {
-			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered undefined — map is 1:1; the dropping form is flat_map")
-		}
-		enc, isElement, err := runesEncodeMatchArg(name, res)
-		if err != nil {
-			return Undefined, err
-		}
-		if !isElement {
-			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered a sequence — map is 1:1; the concatenating form is flat_map")
-		}
-		if len(enc) != 1 {
-			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback result does not fit a single element of the receiver")
-		}
-		out[i] = enc[0]
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// runesFlatMap is flat_map(f): map, then concatenate — each callback result is text content appended as a run (a
-// single element being a run of one); undefined contributes nothing.
-func runesFlatMap(vm VM, v Value, args []Value) (Value, error) {
-	const name = "flat_map"
-	fn, err := readElemCallback(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	out := make([]rune, 0, len(elems))
-	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
-		if err != nil {
-			return Undefined, err
-		}
-		if res.Type == value.Undefined {
-			continue
-		}
-		enc, _, err := runesEncodeMatchArg(name, res)
-		if err != nil {
-			return Undefined, err
-		}
-		out = append(out, enc...)
-	}
-	return NewRunesValue(out, false), nil
-}
-
-// runesReduce is reduce(acc, f): folds the symbols left to right.
-func runesReduce(vm VM, v Value, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
-	if err != nil {
-		return Undefined, err
-	}
-	for i, e := range (*Runes)(v.Ptr).Elements {
-		acc, err = callReduce(vm, fn, acc, i, RuneValue(e))
-		if err != nil {
-			return Undefined, err
-		}
-	}
-	return acc, nil
-}
 
 // ---------------------------------------------------------------------------
 // The add and edit members: chunk, slice_view, splice, insert, prepend, push, push_first (append is the Append
@@ -2002,229 +1072,6 @@ func runesPushItems(name string, args []Value) ([]rune, error) {
 	return runesReadElementSet(name, args, "one element (a sequence argument never reads as an element here; append/prepend take runs)")
 }
 
-// runesChunk is chunk(size): the symbols in pieces of size (the last one shorter), each an independent copy.
-func runesChunk(_ VM, v Value, args []Value) (Value, error) {
-	size, err := readChunkSize("chunk", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	step := len(elems)
-	if size < int64(step) {
-		step = int(size)
-	}
-	chunks := make([]Value, 0)
-	for start := 0; start < len(elems); start += step {
-		chunks = append(chunks, NewRunesValue(slices.Clone(elems[start:min(start+step, len(elems))]), false))
-	}
-	return NewArrayValue(chunks, false), nil
-}
-
-// runesChunkView is chunk_view(size): chunk's pieces sharing the receiver's storage, each marked as a view.
-func runesChunkView(_ VM, v Value, args []Value) (Value, error) {
-	size, err := readChunkSize("chunk_view", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	step := len(elems)
-	if size < int64(step) {
-		step = int(size)
-	}
-	chunks := make([]Value, 0)
-	for start := 0; start < len(elems); start += step {
-		c := NewRunesValue(elems[start:min(start+step, len(elems))], v.Immutable)
-		(*Runes)(c.Ptr).IsView = true
-		chunks = append(chunks, c)
-	}
-	return NewArrayValue(chunks, false), nil
-}
-
-// runesSliceView is slice_view([start[, end]]): the span sharing the receiver's storage, marked as a view.
-func runesSliceView(_ VM, v Value, args []Value) (Value, error) {
-	const name = "slice_view"
-	s, e, err := readSliceArgs(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	si, ei, err := resolveSliceBounds(name, s, e, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	res := NewRunesValue(elems[si:ei], v.Immutable)
-	(*Runes)(res.Ptr).IsView = true
-	return res, nil
-}
-
-// runesSplice is splice([start[, count[, ...items]]]): a new runes with count symbols at start replaced by
-// the items (read like append's operands).
-func runesSplice(_ VM, v Value, args []Value) (Value, error) {
-	elems := (*Runes)(v.Ptr).Elements
-	start, end, err := readSpliceRange(args, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	var items []rune
-	if len(args) > 2 {
-		if items, err = runesAddItems("splice", args[2:]); err != nil {
-			return Undefined, err
-		}
-	}
-	out := make([]rune, 0, start+len(items)+len(elems)-end)
-	out = append(out, elems[:start]...)
-	out = append(out, items...)
-	out = append(out, elems[end:]...)
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesSpliceInPlace is splice_in_place(...): splice applied to the receiver itself.
-// A side-effecting member returns the RECEIVER, so mutators chain; the removed span is x.slice(i, j) taken
-// beforehand.
-func runesSpliceInPlace(_ VM, v Value, args []Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("splice_in_place", v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	start, end, err := readSpliceRange(args, len(o.Elements))
-	if err != nil {
-		return Undefined, err
-	}
-	var items []rune
-	if len(args) > 2 {
-		if items, err = runesAddItems("splice", args[2:]); err != nil {
-			return Undefined, err
-		}
-	}
-	o.Set(append(o.Elements[:start], append(items, o.Elements[end:]...)...))
-	return v, nil
-}
-
-// runesInsert is insert(i, ...items): a new runes with the items — one symbol each — at position i, which
-// raises out of [0, len].
-func runesInsert(_ VM, v Value, args []Value) (Value, error) {
-	const name = "insert"
-	elems := (*Runes)(v.Ptr).Elements
-	at, err := readEditPos(name, args, len(elems))
-	if err != nil {
-		return Undefined, err
-	}
-	items, err := runesPushItems(name, args[1:])
-	if err != nil {
-		return Undefined, err
-	}
-	out := slices.Insert(slices.Clone(elems), at, items...)
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesInsertInPlace is insert_in_place(i, ...items): insert applied to the receiver
-// itself.
-func runesInsertInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "insert_in_place"
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	at, err := readEditPos(name, args, len(o.Elements))
-	if err != nil {
-		return Undefined, err
-	}
-	items, err := runesPushItems(name, args[1:])
-	if err != nil {
-		return Undefined, err
-	}
-	o.Set(slices.Insert(o.Elements, at, items...))
-	return v, nil
-}
-
-// runesPrepend is prepend(...items): a new runes with the items (read like append's operands) in front, in
-// argument order — x.prepend(a, b) is a + b + x.
-func runesPrepend(_ VM, v Value, args []Value) (Value, error) {
-	items, err := runesAddItems("prepend", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	out := make([]rune, 0, len(items)+len(elems))
-	out = append(out, items...)
-	out = append(out, elems...)
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesPrependInPlace is prepend_in_place(...items): prepend applied to the receiver
-// itself.
-func runesPrependInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "prepend_in_place"
-	items, err := runesAddItems(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	o.Set(slices.Insert(o.Elements, 0, items...))
-	return v, nil
-}
-
-// runesPush is push(...items): a new runes with the items — exactly one symbol each — at the end.
-func runesPush(_ VM, v Value, args []Value) (Value, error) {
-	items, err := runesPushItems("push", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	out := make([]rune, 0, len(elems)+len(items))
-	out = append(out, elems...)
-	out = append(out, items...)
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesPushInPlace is push_in_place(...items): push applied to the receiver itself.
-func runesPushInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "push_in_place"
-	items, err := runesPushItems(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	o.Set(append(o.Elements, items...))
-	return v, nil
-}
-
-// runesPushFirst is push_first(...items): a new runes with the items — exactly one symbol each — in front,
-// in argument order.
-func runesPushFirst(_ VM, v Value, args []Value) (Value, error) {
-	items, err := runesPushItems("push_first", args)
-	if err != nil {
-		return Undefined, err
-	}
-	elems := (*Runes)(v.Ptr).Elements
-	out := make([]rune, 0, len(items)+len(elems))
-	out = append(out, items...)
-	out = append(out, elems...)
-	return NewRunesValue(out, false), nil
-}
-
-// IMPURE: mutates the receiver. runesPushFirstInPlace is push_first_in_place(...items): push_first applied to the
-// receiver itself.
-func runesPushFirstInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "push_first_in_place"
-	items, err := runesPushItems(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	o.Set(slices.Insert(o.Elements, 0, items...))
-	return v, nil
-}
-
 // runesDeduped answers the elements with each run of equal neighbours collapsed to one.
 func runesDeduped(elems []rune) []rune {
 	out := make([]rune, 0, len(elems))
@@ -2234,28 +1081,6 @@ func runesDeduped(elems []rune) []rune {
 		}
 	}
 	return out
-}
-
-// runesDedup is dedup(): a new runes with each run of equal neighbours collapsed to one.
-func runesDedup(_ VM, v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
-	}
-	return NewRunesValue(runesDeduped((*Runes)(v.Ptr).Elements), false), nil
-}
-
-// IMPURE: mutates the receiver. runesDedupInPlace is dedup_in_place(): dedup applied to the receiver itself.
-func runesDedupInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "dedup_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	o.Set(runesDeduped(o.Elements))
-	return v, nil
 }
 
 // runesUniqueElements answers the elements without repeats, each kept at its first occurrence.
@@ -2271,28 +1096,6 @@ func runesUniqueElements(elems []rune) []rune {
 	return out
 }
 
-// runesUnique is unique(): a new runes without repeats, each element kept at its first occurrence.
-func runesUnique(_ VM, v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("unique", "0", len(args))
-	}
-	return NewRunesValue(runesUniqueElements((*Runes)(v.Ptr).Elements), false), nil
-}
-
-// IMPURE: mutates the receiver. runesUniqueInPlace is unique_in_place(): unique applied to the receiver itself.
-func runesUniqueInPlace(_ VM, v Value, args []Value) (Value, error) {
-	const name = "unique_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	if v.Immutable {
-		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	o := (*Runes)(v.Ptr)
-	o.Set(runesUniqueElements(o.Elements))
-	return v, nil
-}
-
 // runesTypeContains is the `in` operator: every accepted operand is text content encoded into the
 // receiver's representation and matched as a run (the member's own acceptance); a callable raises.
 func runesTypeContains(v Value, e Value) (bool, error) {
@@ -2304,19 +1107,4 @@ func runesTypeContains(v Value, e Value) (bool, error) {
 		return false, err
 	}
 	return strings.Contains(EncodeText((*Runes)(v.Ptr).Elements), string(run)), nil
-}
-
-// PURE by contract
-func runesFnSplitLines(v Value, args []Value) (Value, error) {
-	const name = "split_lines"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Runes)(v.Ptr)
-	pieces := splitLinesString(EncodeText(o.Elements))
-	arr := make([]Value, len(pieces))
-	for i, p := range pieces {
-		arr[i] = NewRunesValue(DecodeText(p), false)
-	}
-	return NewArrayValue(arr, false), nil
 }
