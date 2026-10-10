@@ -1526,6 +1526,9 @@ out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, t
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
 	expectRun(t, `out = error("some error").value()`, nil, "some error")
 	expectRun(t, `out = error("some error").string()`, nil, "some error")
+	// runes() is a text conversion, so it is total: an undecodable octet rides as its escape, never U+FFFD
+	expectRun(t, `s := b"a\xffb".string(); out = error(s).runes().array().map(func(r) { return r.int() })`, nil, ARR{97, 0xDCFF, 98})
+	expectRun(t, `s := b"a\xffb".string(); out = error(s).runes() == error(s).string().runes()`, nil, true)
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
 	expectRun(t, `out = error("some error").format("v")`, nil, `error("some error")`)
 

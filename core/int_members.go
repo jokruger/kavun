@@ -56,7 +56,7 @@ func intString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func intRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), intTypeName, args, ok, NewRunesValue([]rune(s), false))
+	return convMember(id.String(), intTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 
 	// The int -> time family. In conversion context an int is a unix timestamp, never a duration
 	// (that reading belongs to operator context — `t + n` is nanoseconds; see docs/types/time.md).

@@ -62,7 +62,7 @@ func floatString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func floatRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), floatTypeName, args, ok, NewRunesValue([]rune(s), false))
+	return convMember(id.String(), floatTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 }
 
 // PURE by contract

@@ -101,5 +101,5 @@ func errorRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), errorTypeName, args, true, NewRunesValue([]rune(s), false))
+	return convMember(id.String(), errorTypeName, args, true, NewRunesValue(DecodeText(s), false))
 }

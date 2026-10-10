@@ -8,9 +8,10 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/member/members"
+
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -29,26 +30,89 @@ func NewDecimalValue(d dec128.Dec128) Value {
 }
 
 var TypeDecimal = ValueTypeDescr{
-	Name:              ConstHook(decimalTypeName),                                                          // PURE by contract
-	String:            decimalTypeString,                                                                   // PURE by contract
-	Format:            decimalTypeFormat,                                                                   // PURE by contract
-	Interface:         func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                               // PURE by contract
-	EncodeJSON:        func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },      // PURE by contract
-	EncodeBinary:      decimalTypeEncodeBinary,                                                             // PURE by contract
-	DecodeBinary:      decimalTypeDecodeBinary,                                                             // IMPURE by contract (mutates target)
-	IsTrue:            decimalTypeIsTrue,                                                                   // PURE by contract
-	Equal:             decimalTypeEqual,                                                                    // PURE by contract
-	BinaryOp:          decimalTypeBinaryOp,                                                                 // PURE by contract
-	UnaryOp:           decimalTypeUnaryOp,                                                                  // PURE by contract
-	Len:               ConstHook(int64(1)),                                                                 // PURE by contract
-	CallNamedMethod:   decimalTypeCallNamedMethod,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).StringFixed(), true }, // PURE by contract
-	AsInt:             decimalTypeAsInt,                                                                    // PURE by contract
-	AsFloat:           decimalTypeAsFloat,                                                                  // PURE by contract
-	AsDecimal:         func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },       // PURE by contract
-	AsTime:            decimalTypeAsTime,                                                                   // PURE by contract
-	AsBool:            decimalTypeAsBool,                                                                   // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                                                   // All methods are expected to be pure.
+	Name:         ConstHook(decimalTypeName),                                                          // PURE by contract
+	String:       decimalTypeString,                                                                   // PURE by contract
+	Format:       decimalTypeFormat,                                                                   // PURE by contract
+	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                               // PURE by contract
+	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },      // PURE by contract
+	EncodeBinary: decimalTypeEncodeBinary,                                                             // PURE by contract
+	DecodeBinary: decimalTypeDecodeBinary,                                                             // IMPURE by contract (mutates target)
+	IsTrue:       decimalTypeIsTrue,                                                                   // PURE by contract
+	Equal:        decimalTypeEqual,                                                                    // PURE by contract
+	UnaryOp:      decimalTypeUnaryOp,                                                                  // PURE by contract
+	BinaryOp:     decimalTypeBinaryOp,                                                                 // PURE by contract
+	Len:          ConstHook(int64(1)),                                                                 // PURE by contract
+	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).StringFixed(), true }, // PURE by contract
+	AsInt:        decimalTypeAsInt,                                                                    // PURE by contract
+	AsFloat:      decimalTypeAsFloat,                                                                  // PURE by contract
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },       // PURE by contract
+	AsTime:       decimalTypeAsTime,                                                                   // PURE by contract
+	AsBool:       decimalTypeAsBool,                                                                   // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:            {Fn: memberIsTrue, Pure: true},
+		members.String:            {Fn: decimalString, Pure: true},
+		members.Format:            {Fn: memberFormat, Pure: true},
+		members.Copy:              {Fn: memberSelf, Pure: true},
+		members.Freeze:            {Fn: memberSelf, Pure: true},
+		members.Runes:             {Fn: decimalRunes, Pure: true},
+		members.Int:               {Fn: decimalInt, Pure: true},
+		members.Bool:              {Fn: decimalBool, Pure: true},
+		members.Float:             {Fn: decimalFloat, Pure: true},
+		members.Time:              {Fn: decimalTime, Pure: true},
+		members.Decimal:           {Fn: decimalDecimal, Pure: true},
+		members.Split:             {Fn: decimalSplit, Pure: true},
+		members.Abs:               {Fn: decimalAbs, Pure: true},
+		members.Sign:              {Fn: decimalSign, Pure: true},
+		members.IsZero:            {Fn: decimalIsZero, Pure: true},
+		members.IsPositive:        {Fn: decimalIsPositive, Pure: true},
+		members.IsNegative:        {Fn: decimalIsNegative, Pure: true},
+		members.IsNaN:             {Fn: decimalIsNaN, Pure: true},
+		members.IsInf:             {Fn: decimalIsInf, Pure: true},
+		members.Clamp:             {Fn: decimalClamp, Pure: true},
+		members.Sqrt:              {Fn: decimalSqrt, Pure: true},
+		members.Pow:               {Fn: decimalPow, Pure: true},
+		members.CopySign:          {Fn: decimalCopySign, Pure: true},
+		members.Round:             {Fn: decimalRound, Pure: true},
+		members.RoundHalfEven:     {Fn: decimalRoundHalfEven, Pure: true},
+		members.RoundHalfUp:       {Fn: decimalRoundHalfUp, Pure: true},
+		members.RoundHalfDown:     {Fn: decimalRoundHalfDown, Pure: true},
+		members.RoundUp:           {Fn: decimalRoundUp, Pure: true},
+		members.RoundDown:         {Fn: decimalRoundDown, Pure: true},
+		members.RoundCeiling:      {Fn: decimalRoundCeiling, Pure: true},
+		members.RoundFloor:        {Fn: decimalRoundFloor, Pure: true},
+		members.RoundSignificant:  {Fn: decimalRoundSignificant, Pure: true},
+		members.RoundToMultiple:   {Fn: decimalRoundToMultiple, Pure: true},
+		members.Rescale:           {Fn: decimalRescale, Pure: true},
+		members.Scale:             {Fn: decimalScale, Pure: true},
+		members.ScaleByPow10:      {Fn: decimalScaleByPow10, Pure: true},
+		members.Canonical:         {Fn: decimalCanonical, Pure: true},
+		members.IntegerDigits:     {Fn: decimalIntegerDigits, Pure: true},
+		members.SignificantDigits: {Fn: decimalSignificantDigits, Pure: true},
+		members.IsInteger:         {Fn: decimalIsInteger, Pure: true},
+		members.Negate:            {Fn: decimalNegate, Pure: true},
+		members.NextUp:            {Fn: decimalNextUp, Pure: true},
+		members.NextDown:          {Fn: decimalNextDown, Pure: true},
+		members.CanFit:            {Fn: decimalCanFit, Pure: true},
+		members.QuoRem:            {Fn: decimalQuoRem, Pure: true},
+		members.DivRound:          {Fn: decimalDivRound, Pure: true},
+		members.MulRound:          {Fn: decimalMulRound, Pure: true},
+		members.MulAddRound:       {Fn: decimalMulAddRound, Pure: true},
+		members.MulDivRound:       {Fn: decimalMulDivRound, Pure: true},
+		members.MulPercentRound:   {Fn: decimalMulPercentRound, Pure: true},
+		members.PowRound:          {Fn: decimalPowRound, Pure: true},
+		members.PowRationalRound:  {Fn: decimalPowRationalRound, Pure: true},
+		members.SqrtRound:         {Fn: decimalSqrtRound, Pure: true},
+		members.NthRootRound:      {Fn: decimalNthRootRound, Pure: true},
+		members.ExpRound:          {Fn: decimalExpRound, Pure: true},
+		members.LnRound:           {Fn: decimalLnRound, Pure: true},
+		members.Log2Round:         {Fn: decimalLog2Round, Pure: true},
+		members.Log10Round:        {Fn: decimalLog10Round, Pure: true},
+		members.Allocate:          {Fn: decimalAllocate, Pure: true},
+		members.AllocateResidual:  {Fn: decimalAllocateResidual, Pure: true},
+		members.SplitResidual:     {Fn: decimalSplitResidual, Pure: true},
+		members.ErrorDetails:      {Fn: decimalErrorDetails, Pure: true},
+	},
 }
 
 // decimal NaN is an error state, not a domain value; a boolean context refuses
@@ -644,17 +708,6 @@ func decimalRoundTo(d dec128.Dec128, places int, mode dec128.RoundingMode) dec12
 	return d.RoundToPlaces(int8(places), mode)
 }
 
-// decimalRoundTwins maps each round_<mode> member to its mode, so the twin and round(n, "<mode>") cannot drift.
-var decimalRoundTwins = map[string]string{
-	"round_ceiling":   "ceiling",
-	"round_floor":     "floor",
-	"round_down":      "down",
-	"round_up":        "up",
-	"round_half_down": "half_down",
-	"round_half_up":   "half_up",
-	"round_half_even": "half_even",
-}
-
 // decimalCountArg reads a strictly positive int-shaped argument (a root degree, a share count, a digit count).
 //
 // PURE by contract.
@@ -777,618 +830,6 @@ func decimalShares(name string, d dec128.Dec128, scale uint8, shares []dec128.De
 		out[i] = NewDecimalValue(s)
 	}
 	return NewArrayValue(out, false), nil
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func decimalTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*dec128.Dec128)(v.Ptr)
-
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "decimal":
-		return convMember(name, decimalTypeName, args, true, v)
-
-	case "float":
-		f, ok := v.AsFloat()
-		return convMember(name, decimalTypeName, args, ok, FloatValue(f))
-
-	case "int":
-		i, ok := v.AsInt()
-		return convMember(name, decimalTypeName, args, ok, IntValue(i))
-
-	case "time":
-		t, ok := v.AsTime()
-		return convMember(name, decimalTypeName, args, ok, NewTimeValue(t))
-
-	case "bool":
-		b, ok := v.AsBool()
-		return convMember(name, decimalTypeName, args, ok, BoolValue(b))
-
-	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// scale-preserving, like every other rendering; canonical() is the value-level way to drop the zeros
-		return NewStringValue(o.StringFixed()), nil
-
-	case "runes":
-		s, ok := v.AsString()
-		return convMember(name, decimalTypeName, args, ok, NewRunesValue([]rune(s), false))
-
-	case "format":
-		return memberFormat(vm, v, members.Format, args)
-
-	case "is_zero":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsZero()), nil
-
-	case "is_negative":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsNegative()), nil
-
-	case "is_positive":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsPositive()), nil
-
-	case "is_inf":
-		// constant false: dec128 has no Inf representation at all
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return False, nil
-
-	case "is_nan":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsNaN()), nil
-
-	case "error_details":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// a valid decimal has no error details; ErrorDetails() is nil then and must not be dereferenced
-		if !o.IsNaN() {
-			return Undefined, nil
-		}
-		if details := o.ErrorDetails(); details != nil {
-			return NewErrorValue(NewStringValue(details.Error()), KindUser, errs.CategoryUser, false), nil
-		}
-		return Undefined, nil
-
-	case "sign":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Sign())), nil
-
-	case "scale":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.Scale())), nil
-
-	case "rescale":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		// LOSSLESS only: widening pads, narrowing is allowed only when the digits it drops are zeros. A value that
-		// would change raises — round(n, mode) is the spelling that changes it, and it names how.
-		scale, err := decimalScaleArg(name, "scale", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		r, inexact := o.RescaleRoundInexact(scale, dec128.ROUND_TOWARD_ZERO)
-		if inexact {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf(
-				"(%s) %s has non-zero digits past scale %d; use round(n, mode) to round it", name, o.StringFixed(), scale))
-		}
-		return decimalResult(name, r)
-
-	case "canonical":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.Canonical())
-
-	case "next_up":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.NextUp())
-
-	case "next_down":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.NextDown())
-
-	case "abs":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.Abs())
-
-	case "negate":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.Neg())
-
-	case "sqrt":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return decimalResult(name, o.Sqrt())
-
-	case "pow":
-		// Integer exponent only. A negative one is the reciprocal (2d.pow(-1) is 0.5d), so a zero base with a
-		// negative exponent is a division by zero and is reported as one rather than as a bad value.
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		exp, err := parseIntArg(name, "exponent", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if exp < 0 && o.IsZero() {
-			return Undefined, errs.NewDivisionByZeroError()
-		}
-		return decimalResult(name, o.PowInt64(exp))
-
-	case "round":
-		// EXACTLY n places (1.5 at 2 is 1.50, as Python's round(Decimal, n) answers); a negative n rounds to tens,
-		// hundreds, … and answers a whole number at scale 0.
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		places, err := decimalPlacesArg(name, "places", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		mode, err := decimalModeArg(name, "mode", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, decimalRoundTo(*o, places, mode))
-
-	case "round_ceiling", "round_floor", "round_down", "round_up", "round_half_down", "round_half_up", "round_half_even":
-		// the fixed-mode twins of round(n, mode): same contract, the mode spelled in the name
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		places, err := decimalPlacesArg(name, "places", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, decimalRoundTo(*o, places, decimalRoundingModes[decimalRoundTwins[name]]))
-
-	case "round_to_multiple":
-		// the nearest multiple of m: cash rounding to 0.05, "the next whole 10". The result carries m's scale.
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		m, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if !m.IsPositive() {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the multiple must be positive, got %s", name, m.StringFixed()))
-		}
-		mode, err := decimalModeArg(name, "mode", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.RoundToMultiple(m, mode))
-
-	case "round_significant":
-		// at most k significant digits — the grid a rate is quoted on; a shorter value is answered unchanged
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		digits, err := decimalCountArg(name, "digits", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		mode, err := decimalModeArg(name, "mode", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.RoundToSignificant(uint8(min(digits, 255)), mode))
-
-	case "div_round":
-		// one operation, one rounding decision against the exact result, landing on exactly the given scale
-		if len(args) != 3 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
-		}
-		other, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 1)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.DivRound(other, scale, mode))
-
-	case "mul_round":
-		if len(args) != 3 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
-		}
-		other, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 1)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.MulRound(other, scale, mode))
-
-	case "mul_percent_round":
-		// x * rate / 100: the percentage is a move of the point, not a second division
-		if len(args) != 3 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
-		}
-		other, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 1)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.MulPercentRound(other, scale, mode))
-
-	case "mul_add_round":
-		// x*b + c, the intermediate held exactly and a single rounding at the end
-		if len(args) != 4 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
-		}
-		b, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		c, err := decimalOperandArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 2)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.MulAddRound(b, c, scale, mode))
-
-	case "mul_div_round":
-		// x*b / c, the intermediate held exactly and a single rounding at the end
-		if len(args) != 4 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
-		}
-		b, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		c, err := decimalOperandArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 2)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.MulDivRound(b, c, scale, mode))
-
-	case "sqrt_round":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.SqrtRound(scale, mode))
-
-	case "exp_round":
-		// exp/ln/log10/log2 are the only operations here that are not exact: faithfully rounded, within one unit
-		// in the last place (dec128 measures them correctly rounded in practice). log10/log2 of an exact power of
-		// the base are exact.
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.Exp(scale, mode))
-
-	case "ln_round":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.Ln(scale, mode))
-
-	case "log10_round":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.Log10(scale, mode))
-
-	case "log2_round":
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 0)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.Log2(scale, mode))
-
-	case "pow_round":
-		// an integer power computed with guard digits and rounded once — pow(k) truncates at every step, which is
-		// what compounding over thousands of periods cannot afford
-		if len(args) != 3 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
-		}
-		exp, err := parseIntArg(name, "exponent", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 1)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.PowIntRound(exp, scale, mode))
-
-	case "nth_root_round":
-		// the inverse of pow_round: the monthly factor of an annual rate is factor.nth_root_round(12, n, mode)
-		if len(args) != 3 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
-		}
-		degree, err := decimalCountArg(name, "degree", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if degree > decimalMaxRootDegree {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) degree must be at most %d, got %d", name, decimalMaxRootDegree, degree))
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 1)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.NthRootRound(int(degree), scale, mode))
-
-	case "pow_rational_round":
-		// x^(p/q) in one correctly rounded step; the fraction is reduced first
-		if len(args) != 4 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
-		}
-		p, err := parseIntArg(name, "numerator", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		q, err := decimalCountArg(name, "denominator", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, mode, err := decimalScaleModeArgs(name, args, 2)
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.PowRational(p, q, scale, mode))
-
-	case "quo_rem":
-		// [quotient, remainder]: the quotient is truncated toward zero (as Python's divmod on Decimal) and the
-		// remainder carries the receiver's sign; both are exact and q*y + r == x
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		other, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		q, r := o.QuoRem(other)
-		qv, err := decimalResult(name, q)
-		if err != nil {
-			return Undefined, err
-		}
-		rv, err := decimalResult(name, r)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewArrayValue([]Value{qv, rv}, false), nil
-
-	case "scale_by_pow10":
-		// x * 10^k as a move of the point: exact, or raises — never rounded
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		k, err := parseIntArg(name, "exponent", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.ScaleByPow10(int(max(min(k, 1000), -1000))))
-
-	case "copy_sign":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		other, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		return decimalResult(name, o.CopySign(other))
-
-	case "clamp":
-		// numeric comparison; the answer keeps its own scale (1.5 clamped to [0, 2.00] is 1.5, 3 is 2.00)
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		lo, err := decimalOperandArg(name, "first", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		hi, err := decimalOperandArg(name, "second", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		if lo.GreaterThan(hi) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) lower bound %s is above upper bound %s", name, lo.StringFixed(), hi.StringFixed()))
-		}
-		return decimalResult(name, o.Clamp(lo, hi))
-
-	case "is_integer":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsInteger()), nil
-
-	case "significant_digits":
-		// the p the value AS WRITTEN needs: 1.50 has 3, because a trailing zero is a digit of the representation
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.SignificantDigits())), nil
-
-	case "integer_digits":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return IntValue(int64(o.IntegerDigits())), nil
-
-	case "can_fit":
-		// would a SQL NUMERIC(precision, scale) column hold this exactly? Trailing zeros are not places the column
-		// has to hold, so 1.50 fits NUMERIC(3, 1).
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		precision, err := parseIntArg(name, "precision", args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, err := parseIntArg(name, "scale", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		if precision < 1 || precision > 255 {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) precision must be between 1 and 255", name))
-		}
-		if scale < 0 || scale > precision {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and the precision %d", name, precision))
-		}
-		return BoolValue(o.FitsNumeric(uint8(precision), uint8(scale))), nil
-
-	case "split":
-		// n shares that sum to EXACTLY the receiver; the leftover quanta go to the largest remainders (ties to the
-		// lowest index)
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		count, err := decimalSharesCountArg(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, err := decimalScaleArg(name, "scale", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		shares, ok := o.Split(count, scale)
-		return decimalShares(name, *o, scale, shares, ok)
-
-	case "split_residual":
-		// split(count, scale) with every share rounded by mode, and the share at index taking what is left — the
-		// last installment of a schedule, the lead bank of a facility
-		if len(args) != 4 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
-		}
-		count, err := decimalSharesCountArg(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, err := decimalScaleArg(name, "scale", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		idx, err := decimalResidualIndexArg(name, args[2], count)
-		if err != nil {
-			return Undefined, err
-		}
-		mode, err := decimalModeArg(name, "mode", args[3])
-		if err != nil {
-			return Undefined, err
-		}
-		shares, ok := o.SplitResidual(count, scale, idx, mode)
-		return decimalShares(name, *o, scale, shares, ok)
-
-	case "allocate":
-		// shares proportional to ratios, summing to EXACTLY the receiver
-		if len(args) != 2 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-		}
-		ratios, err := decimalRatiosArg(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, err := decimalScaleArg(name, "scale", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		shares, ok := o.Allocate(ratios, scale)
-		return decimalShares(name, *o, scale, shares, ok)
-
-	case "allocate_residual":
-		// allocate(ratios, scale) with the residual taken by the share at index, as for split_residual
-		if len(args) != 4 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
-		}
-		ratios, err := decimalRatiosArg(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		scale, err := decimalScaleArg(name, "scale", args[1])
-		if err != nil {
-			return Undefined, err
-		}
-		idx, err := decimalResidualIndexArg(name, args[2], len(ratios))
-		if err != nil {
-			return Undefined, err
-		}
-		mode, err := decimalModeArg(name, "mode", args[3])
-		if err != nil {
-			return Undefined, err
-		}
-		shares, ok := o.AllocateResidual(ratios, scale, idx, mode)
-		return decimalShares(name, *o, scale, shares, ok)
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }
 
 // The decimal argument rules, exported for the modules that compute in decimal (fin): one vocabulary, one set of
