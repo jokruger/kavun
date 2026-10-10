@@ -931,10 +931,16 @@ func memberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	f := ""
 	if len(args) == 1 {
-		var ok bool
-		f, ok = args[0].AsString()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		// the spec is text: string, runes or bytes — not anything that merely renders (format(5) raises)
+		switch a := args[0]; a.Type {
+		case value.String:
+			f = *(*string)(a.Ptr)
+		case value.Runes:
+			f = EncodeText((*Runes)(a.Ptr).Elements)
+		case value.Bytes:
+			f = string((*Bytes)(a.Ptr).Elements)
+		default:
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes or bytes", a.TypeName())
 		}
 	}
 	sp, err := fspec.Parse(f)

@@ -56,7 +56,8 @@ format("{0:{1}}",   [42, "05d"])          // "00042"
 Restrictions:
 
 - The reference must occupy the entire spec body — `"{x:>{w}}"` is not accepted (use a precomputed spec string instead).
-- The referenced value must be a `string`.
+- The referenced value must be text — a `string`, `runes` or `bytes`; any other type raises
+  `invalid_argument_type` (a number is not read as a width).
 - Only one level of nesting is allowed: the inner `{...}` may not itself contain `{...}`.
 
 These restrictions are intentional — they keep the template parser small, fast, and unambiguous.
@@ -76,7 +77,7 @@ These restrictions are intentional — they keep the template parser small, fast
 | Template uses named placeholders but `args` is array      | logic error                  |
 | Index out of range                                        | logic error                  |
 | Missing key                                               | logic error                  |
-| Spec reference is not a string                            | logic error                  |
+| Spec reference is not text (`string`, `runes`, `bytes`)   | invalid argument type        |
 | Spec parsing failure                                      | logic error                  |
 | Type's `Format` rejects the spec                          | unsupported format spec      |
 

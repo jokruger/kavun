@@ -345,6 +345,7 @@ f"{{literal braces}}"            // '{{' / '}}' escape to a literal brace
 
 format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"})   // runtime template, same {…} syntax
 format("pi = {x:.3f}", {x: 3.14159})                         // "pi = 3.142"
+(42).format(">5")                // "   42" -- the spec is text: string, runes or bytes; (42).format(5) raises
 ```
 
 Format spec (after `:`) — `[[fill]align][sign][width][,|_][.precision][~|!][verb]`:

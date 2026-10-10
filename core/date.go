@@ -11,6 +11,7 @@ import (
 
 	"github.com/jokruger/fin128/civil"
 
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -243,25 +244,7 @@ func dateTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, 
 			"day":   IntValue(int64(dd)),
 		}, false), nil
 	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			if args[0].Type != value.String {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-			f, _ = args[0].AsString()
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := dateTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
+		return memberFormat(vm, v, members.Format, args)
 
 	// calendar
 	case "year":

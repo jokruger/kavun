@@ -196,6 +196,7 @@ func TestParse(t *testing.T) {
 				t.Errorf("Parse(%q): unexpected error: %v", c.in, err)
 				continue
 			}
+			c.want.Text = c.in
 			if got != c.want {
 				t.Errorf("Parse(%q):\n got  %+v\n want %+v", c.in, got, c.want)
 			}

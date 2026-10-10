@@ -520,7 +520,7 @@ already governs the digits, and `!` is a parse error:
 (1234.5d).format(",.2f")    // "1,234.50"
 (0.125d).format(".1%")      // "12.5%"
 (1.5d).format("+.2f")       // "+1.50"
-(1.500d).format(".2!f")     // Error: type decimal does not support format spec
+(1.500d).format(".2!f")     // Error: type decimal does not support format spec ".2!f"
 ```
 
 A precision past the 19-place ceiling pads with zeros — a decimal has no digits there, so writing them is exact:

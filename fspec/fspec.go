@@ -39,8 +39,15 @@ type FormatSpec struct {
 	// discriminator
 	Verb byte   // 0 = default; one ASCII letter; or '#' when a tail is present
 	Tail string // anything after '#'; "" if absent
+
+	// source
+	Text string // the text Parse built this spec from; "" for a spec built in Go
 }
 
+// String answers the text the spec was parsed from, verbatim.
+func (s FormatSpec) String() string { return s.Text }
+
+// Equal compares what the specs mean; the source Text is not part of it.
 func (s FormatSpec) Equal(other FormatSpec) bool {
 	return s.Fill == other.Fill &&
 		s.Align == other.Align &&

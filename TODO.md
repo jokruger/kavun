@@ -384,6 +384,22 @@
 
 - coalesce(...) return first non-null arg
 
+- **Type families as declared descriptor contracts** — not designed, not started. Code asks "is this value in
+  family X" in many places and answers each time with a hand-written type switch (13 counted on 2026-10-10:
+  `case value.String, value.Runes, value.Bytes`, `value.Int, value.Float, value.Decimal`, …, plus
+  `textOperandString`/`textOperandOctets` in `core/tools.go`), so the checks drift apart and an embedder type
+  can never join one. Example: the format spec (the `format` member, the `format()` spec reference) is text —
+  `string`, `runes` or `bytes` — and that rule is spelled out in place at each call site today. Idea: a family is
+  declared on `ValueTypeDescr` and the checks ask the descriptor. Candidate families: text (string, runes,
+  bytes), numeric (int, float, decimal), ordinal (byte, rune), temporal (time, date), sequence (array, string,
+  runes, bytes, range), map (dict), callable (the three function types). The catch: membership alone is not
+  enough, because every check is followed by reading the value in a concrete-type switch — an embedder type
+  that declared itself "text" would pass the check and fall into the default arm. So each family is a contract:
+  the hooks it guarantees answer correctly (text → lossless content as string/octets; numeric → `AsInt`/
+  `AsDecimal` with defined exactness; …). The same gap explains why `AsString` was unfit as a spec check: it
+  conflates "is text" with "renders as text". Open: bitset on the descriptor vs registry, the per-family
+  contract, whether embedders may define new families or only join builtin ones, script visibility.
+
 ## Optimizations
 
 - `copy()`'s deep-clone traversal could short-circuit at an already-immutable subtree — an immutable `Value` can

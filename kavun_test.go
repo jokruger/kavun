@@ -4109,6 +4109,23 @@ func TestFormatting(t *testing.T) {
 
 	// runtime error when the dynamic spec resolves to invalid fspec text
 	expectError(t, `bad = "zzz"; out = f"{1:{bad}}"`, nil, `unsupported_format_spec: (f-string "zzz") trailing characters "zz" in "zzz"`)
+
+	// the format member's spec is text — string, runes or bytes — never a value that merely renders as text
+	expectRun(t, `out = (42).format(">5")`, nil, "   42")
+	expectRun(t, `out = (42).format(u">5")`, nil, "   42")
+	expectRun(t, `out = (42).format(b">5")`, nil, "   42")
+	expectRun(t, `out = true.format(runes("^7"))`, nil, " true  ")
+	expectError(t, `out = (42).format(5)`, nil, "invalid_argument_type: (format) argument first expects type string, runes or bytes, got int")
+	expectError(t, `out = true.format(5)`, nil, "invalid_argument_type: (format) argument first expects type string, runes or bytes, got int")
+	expectError(t, `out = "ab".format(5)`, nil, "invalid_argument_type: (format) argument first expects type string, runes or bytes, got int")
+	expectError(t, `out = (42).format('>')`, nil, "invalid_argument_type: (format) argument first expects type string, runes or bytes, got rune")
+	expectError(t, `out = (42).format([">5"])`, nil, "invalid_argument_type: (format) argument first expects type string, runes or bytes, got array")
+
+	// a rejected spec is reported as the text it was written as
+	expectError(t, `out = (1.5d).format(".2!f")`, nil, `unsupported_format_spec: type decimal does not support format spec ".2!f"`)
+	expectError(t, `out = (1.5d).format(b".2!f")`, nil, `unsupported_format_spec: type decimal does not support format spec ".2!f"`)
+	expectError(t, `out = f"{1.5d:.2!f}"`, nil, `unsupported_format_spec: type decimal does not support format spec ".2!f"`)
+	expectError(t, `s = ".2!f"; out = f"{1.5d:{s}}"`, nil, `unsupported_format_spec: type decimal does not support format spec ".2!f"`)
 }
 
 func TestFStringDynamicSpecParseErrors(t *testing.T) {
@@ -4794,11 +4811,14 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	// --- spec-by-reference runtime errors ---
 	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `invalid_value: format: missing spec ref key "fmt"`)
 	expectError(t, `format("{0:{1}}", [1])`, nil, "index_out_of_bounds: (format spec ref) 1 out of range [0, 1]")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, got int")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, runes or bytes, got int")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: '>'})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, runes or bytes, got rune")
+	expectRun(t, `out = format("{x:{fmt}}", {x: 1, fmt: u">3"})`, nil, "  1")
+	expectRun(t, `out = format("{x:{fmt}}", {x: 1, fmt: b">3"})`, nil, "  1")
 	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `unsupported_format_spec: (format) trailing characters "zz" in "zzz"`)
 
 	// --- type's Format method rejects an unsupported spec ---
-	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
+	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec ".2f"`)
 }
 
 // TestBuiltinFunctionDelete checks the free remove() builtin, kept alive specifically because record has no

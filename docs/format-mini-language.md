@@ -2,7 +2,10 @@
 
 This document specifies the format mini-language used by Kavun for value formatting and f-strings. It is parsed at
 compile time into a `FormatSpec` struct; at runtime each interpolation site invokes the value type's `Format` method
-with the prebuilt spec.
+with the prebuilt spec. A spec supplied at run time — the `format([spec])` member, a `format()` spec reference — is
+text: a `string`, `runes` or `bytes` value; any other type raises `invalid_argument_type` (`(42).format(5)` is not
+width 5). When a type rejects a spec, the error quotes the spec as written:
+`type decimal does not support format spec ".2!f"`.
 
 For the surrounding f-string syntax (the part outside the spec), see [F-Strings](f-strings.md).
 

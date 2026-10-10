@@ -372,7 +372,7 @@ func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) *Error {
 	return &Error{
 		Kind:        KindUnsupportedFormatSpec,
 		Recoverable: true,
-		Message:     fmt.Sprintf("type %s does not support format spec %v", valType, spec),
+		Message:     fmt.Sprintf("type %s does not support format spec %q", valType, spec.String()),
 	}
 }
 

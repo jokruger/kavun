@@ -245,7 +245,7 @@ Four members exist on (nearly) everything; `record` reaches them through the fre
 | --- | --- | --- |
 | `is_true()` | every type | truthiness (see the table below); raises on an error state (NaN) |
 | `copy()` / `freeze()` | every type except `undefined` | never type-errors in generic code; no-ops on scalars and callables, real deep operations on containers and `error` |
-| `format([spec])` | every type | the render — total, callables included; f-strings use the same path |
+| `format([spec])` | every type | the render — total, callables included; f-strings use the same path. `spec` is text (`string`, `runes` or `bytes`); any other type raises |
 | `copy_shallow()` / `freeze_shallow()` | `array` and `dict` only (+ `record` free forms) | one level deep — the only types whose elements can be containers |
 
 `undefined` takes no `copy` or `freeze` — `copy(undefined)` raises — but predicates about it answer honestly

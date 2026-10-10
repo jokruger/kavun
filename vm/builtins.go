@@ -654,10 +654,18 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			if refVal.Type != value.String {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName())
+			// the spec is text: string, runes or bytes, as for the format member
+			var specStr string
+			switch refVal.Type {
+			case value.String:
+				specStr = *(*string)(refVal.Ptr)
+			case value.Runes:
+				specStr = core.EncodeText((*core.Runes)(refVal.Ptr).Elements)
+			case value.Bytes:
+				specStr = string((*core.Bytes)(refVal.Ptr).Elements)
+			default:
+				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string, runes or bytes", refVal.TypeName())
 			}
-			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
 				return core.Undefined, errs.FromFormatSpecError("format", ferr)

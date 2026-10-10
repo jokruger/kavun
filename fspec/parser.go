@@ -6,8 +6,15 @@ import (
 	"strings"
 )
 
-// Parse parses the format mini-language expression (see docs/format-mini-language.md).
+// Parse parses the format mini-language expression (see docs/format-mini-language.md). The spec keeps text as its
+// String().
 func Parse(text string) (FormatSpec, error) {
+	spec, err := parse(text)
+	spec.Text = text
+	return spec, err
+}
+
+func parse(text string) (FormatSpec, error) {
 	var spec FormatSpec
 
 	// fast-path

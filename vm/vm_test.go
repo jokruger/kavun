@@ -462,7 +462,7 @@ func Test_builtinFormat(t *testing.T) {
 			wantedErr: "invalid_argument_type: (format) argument args expects type array, got record"},
 		{name: "ref spec wrong type",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": I(2)})},
-			wantedErr: "invalid_argument_type: (format) argument spec ref expects type string, got int"},
+			wantedErr: "invalid_argument_type: (format) argument spec ref expects type string, runes or bytes, got int"},
 		{name: "ref spec parse error",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": S("zzz")})},
 			wantedErr: "unsupported_format_spec: (format) trailing characters \"zz\" in \"zzz\""},

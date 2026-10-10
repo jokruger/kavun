@@ -173,35 +173,11 @@ func finTableFormat(v Value, typeName, text string, sp fspec.FormatSpec) (string
 }
 
 // The members every table has — copy/freeze (identities on an immutable value), string(), format([spec]) — are
-// cases in each table's own switch; string and format share these two bodies.
+// entries in each table's member table; copy/freeze/format are the shared memberSelf/memberFormat, string is this.
 
 // finTableString is string([default]): the table's canonical text, the form its constructor reads back.
 func finTableString(v Value, text string, args []Value) (Value, error) {
 	return convMember("string", v.TypeName(), args, true, NewStringValue(text))
-}
-
-// finTableFormatMember is format([spec]): the table's text under a format spec (alignment and width only).
-func finTableFormatMember(v Value, text string, args []Value) (Value, error) {
-	const name = "format"
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-	}
-	spec := ""
-	if len(args) == 1 {
-		if args[0].Type != value.String {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-		}
-		spec, _ = args[0].AsString()
-	}
-	sp, err := fspec.Parse(spec)
-	if err != nil {
-		return Undefined, errs.FromFormatSpecError(name, err)
-	}
-	s, err := finTableFormat(v, v.TypeName(), text, sp)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(s), nil
 }
 
 // finChargeArgs reads the amount-banded tables' (amount, rule, scale, mode): charge, rate, charge_parts.
