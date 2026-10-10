@@ -628,7 +628,7 @@ func arrayTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return arrayChunkView(vm, v, args)
 
 	case "slice":
-		return sliceMember(v, args)
+		return memberSlice(vm, v, members.Slice, args)
 
 	case "slice_view":
 		return arraySliceView(vm, v, args)

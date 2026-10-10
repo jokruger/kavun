@@ -173,10 +173,10 @@ func readSliceArgs(name string, args []Value) (Value, Value, error) {
 	return s, e, nil
 }
 
-// sliceMember is slice([start[, end]]), the member spelling of a[i:j]: it goes through the receiver's own Slice
-// hook, so the two spellings cannot drift apart.
-func sliceMember(v Value, args []Value) (Value, error) {
-	s, e, err := readSliceArgs("slice", args)
+// memberSlice is slice([start[, end]]), the member spelling of a[i:j], shared by the sequence types: it goes through
+// the receiver's own Slice hook, so the two spellings cannot drift apart.
+func memberSlice(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	s, e, err := readSliceArgs(id.String(), args)
 	if err != nil {
 		return Undefined, err
 	}

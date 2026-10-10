@@ -64,7 +64,8 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   ...) is an engine, and is not.
 - **One shared member function only for a body that is identical on every type and reaches the type only
   through its own hooks**: `memberIsTrue` (the `IsTrue` hook), `memberFormat` (the `Format` hook), `memberSelf`
-  (`copy`/`freeze` of an always-immutable type answer the receiver). It must stay as simple as the per-type copy
+  (`copy`/`freeze` of an always-immutable type answer the receiver), `memberSlice` (the `Slice` hook — `slice()` on
+  the sequence types). It must stay as simple as the per-type copy
   it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would
   need anything varied per type stays per type.
 - **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,

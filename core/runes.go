@@ -676,7 +676,7 @@ func runesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value,
 		return runesChunkView(vm, v, args)
 
 	case "slice":
-		return sliceMember(v, args)
+		return memberSlice(vm, v, members.Slice, args)
 
 	case "slice_view":
 		return runesSliceView(vm, v, args)
