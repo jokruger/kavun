@@ -84,7 +84,7 @@ Truthiness:
 | everything else        | yes                                                |
 
 Truthiness has two spellings — the member `x.is_true()` and the free `is_true(x)` (which also serves `record`,
-the one type with no member surface) — plus the implicit contexts (`if`, `!`, `&&`/`||`).
+the one type with no member surface — `r.is_true()` calls a field named `is_true`) — plus the implicit contexts (`if`, `!`, `&&`/`||`).
 
 Equality is coercive across types. `==` tries to convert both sides to a common type, exactly and
 commutatively — never approximately, and never with an error, even for unrelated types:

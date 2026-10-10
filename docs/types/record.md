@@ -73,6 +73,15 @@ r = {f: func() { return 7 }}
 r.f()             // 7
 ```
 
+That holds for every name, the universal ones included: a record has no `is_true` member, so `r.is_true()` calls a
+field named `is_true` — truthiness is the free `is_true(r)`:
+
+```go
+{is_true: func() { return "field" }}.is_true()   // "field"
+{a: 1}.is_true()                                // raises: type record has no method is_true
+is_true({a: 1})                                 // true
+```
+
 ## The free-builtin surface
 
 Everything a member would do elsewhere is a free builtin here. Free and member forms share one domain — each of
@@ -165,3 +174,9 @@ v2.c                     // 9 — live
 
 The entries boundary works in both directions and round-trips up to ordering: `array(r)` answers the key-sorted
 `[[k, v], ...]` entries, `record([[k, v], ...])` builds from them.
+
+## Migration notes
+
+- `r.is_true()` no longer answers truthiness: it calls a field named `is_true` (and raises when there is none, or
+  when it is not callable), like every other `r.name()`. Write the free `is_true(r)`. Module values (`import("os")`,
+  a compiled `regexp`) are records too.

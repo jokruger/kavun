@@ -9,7 +9,6 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/member"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -301,18 +300,6 @@ func (v *Value) Copy(deep bool) (Value, error) {
 // bound) is looked up again here, and a miss is always answered by name.
 // METHOD-DEPENDENT by contract: purity varies per member, reported by MemberIsPure (see docs/purity.md)
 func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value, error) {
-	// universal members are answered here, once for every type — builtin and
-	// host-defined alike — instead of being repeated in each type's member set
-	if id == members.IsTrue || (id == member.Unknown && name == "is_true") {
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		t, err := ValueTypes[v.Type].IsTrue(v)
-		if err != nil {
-			return Undefined, err
-		}
-		return BoolValue(t), nil
-	}
 	d := &ValueTypes[v.Type]
 	if id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
 		return d.Methods[id].Fn(vm, v, id, args)

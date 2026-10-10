@@ -12,13 +12,15 @@ directions, by `TestFunctionMatrixInSync`). `—` = no member-call form on that 
 builtin or operator of the same meaning may still exist; `record` has NO member surface at all by design —
 free builtins only — so it has no column).
 
-`is_true` is answered once in `core/value.go` for every type (host-defined included) and therefore appears
-in no switch; it is listed in its own section rather than per column.
+`is_true` is an ordinary entry in every column type's table, all pointing at the one shared `memberIsTrue`; it is
+listed in its own section rather than per column.
 
-## Universal (dispatched once in `core/value.go` for every type, host-defined included)
+## Universal (an entry in every column type's table)
 
-`is_true()` — every type, zero arguments, answers the type's truthiness; raises where truthiness is an
-error state (NaN).
+`is_true()` — every column type, zero arguments, answers the type's truthiness; raises where truthiness is an
+error state (NaN). Nothing answers it centrally: `record` declares no members, so `r.is_true()` is a call of a
+field named `is_true` (truthiness is the free `is_true(r)`), and a host type has the member only if it declares
+the entry.
 
 ## Universal-by-switch
 

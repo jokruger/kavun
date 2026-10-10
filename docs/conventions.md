@@ -56,6 +56,8 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   function only if it never branches on which member was called — it may report through `id.String()` (so an error
   names the member that was called), but an inner `switch`/`if` on the member is not allowed. `record` and
   embedder types without a table answer by name through `CallNamedMethod`, one `case` per name under the same rule.
+  Nothing is answered centrally: even `is_true` is an entry each builtin type declares
+  (`members.IsTrue: {Fn: memberIsTrue, Pure: true}`), and a host type has it only if it declares it too.
 - **One function per member, `_in_place` twins included.** `arrayKeep` and `arrayKeepInPlace` are separate
   functions with the member shape. When twins share a body, it is a lowercase helper taking what differs as a
   parameter (`arrayTypeAppend(v, args, mutate)`, `decimalRoundFixed(v, id, args, mode)`), never the member name.

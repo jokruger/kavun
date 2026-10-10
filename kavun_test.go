@@ -1886,6 +1886,12 @@ func TestRecord(t *testing.T) {
 	expectRun(t, `out = format("{0}", [dict({b: 2, a: 1})])`, nil, `dict({"a": 1, "b": 2})`)
 	expectRun(t, `json := import("json"); out = json.encode({b: 2, a: 1}).string()`, nil, `{"a":1,"b":2}`)
 
+	// record has no member surface, is_true included: r.is_true() is a field call; truthiness is the free is_true(r)
+	expectRun(t, `r := {is_true: func() { return "field" }}; out = r.is_true()`, nil, "field")
+	expectError(t, `out = {a: 1}.is_true()`, nil, "type record has no method is_true")
+	expectError(t, `out = {is_true: 5}.is_true()`, nil, "record.is_true is not callable, got int")
+	expectRun(t, `out = [is_true({a: 1}), is_true(record())]`, nil, ARR{true, false})
+
 	expectRun(t, `
 out = {
 	one: 10 - 9,
