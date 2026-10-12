@@ -11393,8 +11393,9 @@ func TestRuneRosterParity(t *testing.T) {
 	expectRun(t, `out = (-5).abs()`, nil, 5)
 }
 
-// float and decimal answer the same numeric members (D-47's parity): every shared member exists on both and gives
-// the same value on the same receiver, and a bad argument raises the same kind on both. The four logs are
+// float and decimal answer the same numeric members (a numeric operation is a float member iff decimal has it):
+// every shared member exists on both and gives the same value on the same receiver, and a bad argument raises the
+// same kind on both. The four logs are
 // float-only — decimal's result is inexact, so it spells them with a scale (exp_round, …) — and decimal's scale
 // and representation members have no float twin.
 func TestNumericMemberParity(t *testing.T) {
