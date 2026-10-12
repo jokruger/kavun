@@ -377,8 +377,6 @@ func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) *Error {
 	}
 }
 
-// NewUnsupportedFormatSpecMsg constructs an unsupported_format_spec error from a hand-written explanation, for the
-// cases where the spec is well-formed but the combination it asks for is not supported by the receiver.
 // FromFormatSpecError is the SINGLE translation point for the fspec parser's Go errors. A malformed format spec
 // is a bad argument the script can catch, not a VM stop — and a raw fspec error travelling further would be read
 // as fatal by IsCritical, because it is not an *Error.
@@ -401,6 +399,8 @@ func FromFormatSpecError(context string, err error) *Error {
 	}
 }
 
+// NewUnsupportedFormatSpecMsg constructs an unsupported_format_spec error from a hand-written explanation, for the
+// cases where the spec is well-formed but the combination it asks for is not supported by the receiver.
 func NewUnsupportedFormatSpecMsg(detail string) *Error {
 	return &Error{
 		Kind:        KindUnsupportedFormatSpec,
@@ -417,8 +417,6 @@ func NewConversionError(from string, to string, detail string) *Error {
 	return &Error{Kind: KindConversion, Recoverable: true, Message: msg}
 }
 
-// NewRequirementError constructs the error the require() builtin raises. The script-visible payload is the value
-// require was given, carried on the Kavun error value; this Message is the rendering used for host text.
 // NewIOError translates a Go error from the world — a file, a directory, an environment variable, a process —
 // into a recoverable error of kind "io". context is the operation as the script spells it ("os.chmod").
 func NewIOError(context string, err error) *Error {
@@ -429,6 +427,8 @@ func NewIOError(context string, err error) *Error {
 	}
 }
 
+// NewRequirementError constructs the error the require() builtin raises. The script-visible payload is the value
+// require was given, carried on the Kavun error value; this Message is the rendering used for host text.
 func NewRequirementError(detail string) *Error {
 	return &Error{
 		Kind:        KindRequirement,

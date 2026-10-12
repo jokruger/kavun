@@ -277,7 +277,7 @@ func walkStmt(s ast.Statement, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.
 
 	case *statement.IncDec:
 		// Do NOT rewrite the LHS of ++/-- (it is an assignment target).
-		// Only descend into IndexExpr / SelectorExpr targets to fold their sub-parts.
+		// Only descend into expression.Index / expression.Selector targets to fold their sub-parts.
 		if exprFn != nil || stmtFn != nil {
 			switch t := n.Expr.(type) {
 			case *expression.Index:
@@ -411,7 +411,7 @@ func isTruthyLiteral(e ast.Expression) (bool, bool) {
 	return t, true
 }
 
-// isBuiltinName reports whether name is a globally-defined pure builtin function. Used to allow calls like `len("abc")`
+// isBuiltinPureName reports whether name is a globally-defined pure builtin function. Used to allow calls like `len("abc")`
 // inside foldable subtrees.
 func isBuiltinPureName(name string) bool {
 	v, ok := vm.BuiltinFunctions[name]
@@ -506,7 +506,7 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 
 	case *expression.MethodCall:
 		// Receiver must be foldable, and every argument must be foldable. The higher-order rule from docs/purity.md is
-		// enforced implicitly: FuncLit / Ident / CallExpr / MethodCallExpr arguments that carry a function value never
+		// enforced implicitly: expression.Function / Ident / expression.Call / expression.MethodCall arguments that carry a function value never
 		// satisfy isFoldableExpr, so any callback would disqualify the tree here.
 		if !isFoldableExpr(n.Object, shadowed) {
 			return false
@@ -521,13 +521,13 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 			return false
 		}
 		// Unlike the Call case (bare builtin functions, gated by isBuiltinPureName), a method's purity depends on its
-		// receiver's TYPE, which core.ValueTypeDescr exposes per-type via IsMethodPure, not per-function. That type is
+		// receiver's TYPE — each type's Methods table records it per member, answered by core.MemberIsPure. That type is
 		// only knowable here without evaluating anything if the receiver has already been reduced to a literal — true
 		// for a literal written directly in source, and also true after this same bottom-up pass has already folded an
 		// eligible receiver subtree into one (walkExprWithStmt recurses into n.Object before applying rewriteExpr to
 		// the enclosing MethodCall, so any foldable receiver has already been replaced with its literal by this point).
 		// If the receiver isn't a literal at this point (its own fold was rejected, or it's an identifier/reference),
-		// its type is unknown — conservatively treat the method as unfoldable, matching IsMethodPure's own conservative
+		// its type is unknown — conservatively treat the method as unfoldable, matching MemberIsPure's own conservative
 		// default for types that don't opt in (see docs/purity.md).
 		if !n.Object.IsScalarLiteral() {
 			return false
@@ -641,7 +641,7 @@ func evalConstantExprUnsafe(expr ast.Expression, fset *ast.SourceFileSet) (core.
 	symTable := NewSymbolTable()
 
 	// Empty allowed-modules set (not nil) so imports are disallowed.
-	// isFoldable already excludes ImportExpr but this is defense-in-depth.
+	// isFoldableExpr already excludes expression.Import but this is defense-in-depth.
 	emptyAllowed := []string{}
 
 	c := NewCompiler(O0(), nil, srcFile, symTable, emptyAllowed, nil, nil)
@@ -886,7 +886,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 
 		case *statement.Assign:
 			// LHS ident is a write; other targets recurse as reads (index/selector receivers are read to locate the
-			// target). For compound LHS targets (SelectorExpr / IndexExpr), any embedded ident is being used as the
+			// target). For compound LHS targets (expression.Selector / expression.Index), any embedded ident is being used as the
 			// base of a mutation — mark it addressed so propagation refuses to replace it with a literal (which would
 			// break the store target).
 			for _, lh := range n.LHS {

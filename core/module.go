@@ -62,14 +62,15 @@ func PureModuleNames() []string {
 	return names
 }
 
-// ModuleBuilder declares a module's functions and constants, then registers it as a type:
+// ModuleBuilder declares a module's functions, constants and owned types, then registers it as a type:
 //
 //	core.NewModule(value.ModuleMath, "math", true).
 //		Const(members.Pi, core.FloatValue(math.Pi)).
-//		PureFn(members.Sqrt, 40, mathSqrt, 1, core.Fixed).
+//		PureFn(members.Cbrt, 2, mathCbrt, 1, core.Fixed).
 //		Register()
 //
-// Builtin modules take a type id in 112–143, embedder modules one in 192–255 (shared with embedder types).
+// Builtin modules take a type id in 112–143 (their owned types 144–191), embedder modules one in 192–255 (shared
+// with embedder types).
 type ModuleBuilder struct {
 	def    *ModuleDef
 	descr  ValueTypeDescr

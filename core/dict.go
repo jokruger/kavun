@@ -496,7 +496,7 @@ func dictTypeLen(v Value) int64 {
 
 // IMPURE: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
 // Selector access is the record's feature: a dict refuses the dot in BOTH directions, mirroring
-// dictTypeAccess — d.a = 5 raises exactly like d.a, and d[k] is the dict's data spelling.
+// dictTypeAccessNamedProperty — d.a = 5 raises exactly like d.a, and d[k] is the dict's data spelling.
 func dictTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())

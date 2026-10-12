@@ -630,7 +630,7 @@ func floatArithResult(f float64) (Value, error) {
 
 func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
-	case tokens.Sub: // see also fast track in VM OpMinus
+	case tokens.Sub: // see also fast track in VM UnaryNeg
 		f := math.Float64frombits(v.Data)
 		return floatArithResult(-f)
 	}

@@ -1267,8 +1267,8 @@ func builtinRecordView(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 }
 
-// builtinDelete returns a dict/record without the given key, without mutating the receiver.
-// usage: out := delete(map, "key")
+// builtinRemove is remove(map, key): a dict/record without the given key, without mutating the receiver.
+// usage: out := remove(map, "key")
 // key must be a string
 func builtinRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
@@ -1278,8 +1278,8 @@ func builtinRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	return args[0].Delete(args[1], false)
 }
 
-// builtinDeleteInPlace deletes a dict/record key in place, mutating the receiver.
-// usage: delete_in_place(map, "key")
+// builtinRemoveInPlace is remove_in_place(map, key): deletes a dict/record key in place, mutating the receiver.
+// usage: remove_in_place(map, "key")
 // key must be a string
 func builtinRemoveInPlace(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)

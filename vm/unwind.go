@@ -11,7 +11,7 @@ import (
 )
 
 // runUntilSuspend repeatedly drives v.run() and the cooperative unwinder. It returns when either v.err is nil
-// (clean OpSuspend) or v.err is set with an error that escapes past the trampoline frame at index stopAt.
+// (clean Suspend) or v.err is set with an error that escapes past the trampoline frame at index stopAt.
 //
 // stopAt is the index of the frame above which the runner is allowed to unwind. Frames at or below stopAt are not
 // touched; an error reaching stopAt is reported back to the caller (via v.err remaining set).
@@ -85,7 +85,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 }
 
 // unwindToFrameAndReturn pops all frames above and including frameIdx, resetting their per-call state, and resumes
-// execution in the caller of frameIdx with `res` placed in the callee result slot. Mirrors the OpReturn handler's tail
+// execution in the caller of frameIdx with `res` placed in the callee result slot. Mirrors the Return handler's tail
 // logic.
 func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	// Clear state on all popped frames.
@@ -103,7 +103,7 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 }
 
 // invokeDeferred runs a single deferred call belonging to owner.
-// It pushes a synthetic trampoline frame (so the deferred's OpReturn suspends back into Go) plus the deferred call's
+// It pushes a synthetic trampoline frame (so the deferred's Return suspends back into Go) plus the deferred call's
 // frame, then runs the VM with cooperative unwinding bounded by the trampoline. On exit, the trampoline + any remaining
 // sub-frames are unwound and v.err reflects any error that escaped the deferred subtree.
 func (v *VM) invokeDeferred(owner *frame, d deferred) {
@@ -167,7 +167,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		return
 	}
 
-	// Push trampoline frame so deferred's OpReturn cleanly exits run().
+	// Push trampoline frame so deferred's Return cleanly exits run().
 	tf := &v.frames[v.framesIndex]
 	tf.ip = -1
 	tf.basePointer = v.sp
@@ -179,8 +179,8 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	trampolineIdx := v.framesIndex
 	v.framesIndex++
 
-	// Push callee + args (matches OpCall layout: callee slot, then args).
-	// Ownership transfers from the defer queue into the stack slots (no Retain); OpReturn releases the callee
+	// Push callee + args (matches CallFunction layout: callee slot, then args).
+	// Ownership transfers from the defer queue into the stack slots (no Retain); Return releases the callee
 	// slot, and releaseFrameLocals releases each arg local.
 	v.stack[v.sp] = callee
 	v.sp++
@@ -214,7 +214,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		return
 	}
 
-	// Push deferred function's frame, marking it as running on behalf of `owner` so OpRecover can find the in-flight
+	// Push deferred function's frame, marking it as running on behalf of `owner` so recover() (VM.Recover) can find the in-flight
 	// error.
 	df := &v.frames[v.framesIndex]
 	df.ip = -1
@@ -253,7 +253,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 
 // runFrameDefers executes f's defers in LIFO order at normal return time. Mirrors the unwind path but starts with
 // f.inFlightErr cleared. If a deferred raises an error (and isn't recovered by a later defer), the new error is
-// returned via v.err so the OpReturn handler can route the frame into the unwind path instead of normal return.
+// returned via v.err so the Return handler can route the frame into the unwind path instead of normal return.
 func (v *VM) runFrameDefers(f *frame) {
 	for len(f.defers) > 0 {
 		d := f.defers[len(f.defers)-1]
@@ -270,7 +270,7 @@ func (v *VM) runFrameDefers(f *frame) {
 }
 
 // readNamedResult returns the named-result value of frame f, dereferencing the value-pointer indirection that
-// GetLocalPtr installs when the slot is captured by a closure (e.g. when a deferred function assigns to res).
+// LoadLocalPtr installs when the slot is captured by a closure (e.g. when a deferred function assigns to res).
 func (v *VM) readNamedResult(f *frame) core.Value {
 	if !f.fn.HasNamedResult() {
 		return core.Undefined

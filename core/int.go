@@ -450,14 +450,14 @@ func IntShlChecked(l, r int64) (int64, bool) {
 
 func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
-	case tokens.Sub: // see also fast track in VM OpMinus
+	case tokens.Sub: // see also fast track in VM UnaryNeg
 		i := int64(v.Data)
 		if i == math.MinInt64 {
 			return Undefined, errs.NewInvalidValueError("int overflow")
 		}
 		return IntValue(-i), nil
 
-	case tokens.Xor: // see also fast track in VM OpBComplement
+	case tokens.Xor: // see also fast track in VM UnaryBitNot
 		i := int64(v.Data)
 		return IntValue(^i), nil
 	}

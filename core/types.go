@@ -195,7 +195,7 @@ func NewPureProperty(get func(vm VM, v Value, id member.ID) (Value, error), set 
 	return Property{Get: get, Set: set, Pure: true}
 }
 
-// DefaultValueType provides default implementations for all ValueType hooks.
+// DefaultValueType provides default implementations for all ValueTypeDescr hooks.
 var DefaultValueType = ValueTypeDescr{
 	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },                     // PURE by contract
 	String:       func(v Value) string { return v.TypeName() },                                            // PURE by contract

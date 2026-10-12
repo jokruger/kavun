@@ -11,7 +11,7 @@ import (
 const formatSpecTypeName = "format-spec"
 
 // FormatSpec wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal value
-// kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
+// kind: it lives only in the constant pool (referenced by FormatStaticSpec) and is never visible to user code.
 type FormatSpec struct {
 	Spec fspec.FormatSpec
 	Text string // original mini-language text (without the leading ':')

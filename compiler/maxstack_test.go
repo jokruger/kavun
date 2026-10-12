@@ -38,7 +38,7 @@ func collectFuncs(bc *vm.Bytecode) []*core.CompiledFunction {
 }
 
 // Compiles and runs a snippet via the standard VM. It panics-recovers and returns the run error (if any). Used to
-// confirm that MaxStack is at least sufficient — if it were undersized, the OpCall stack-bounds guard would reject
+// confirm that MaxStack is at least sufficient — if it were undersized, the CallFunction stack-bounds guard would reject
 // calls and the script would fail.
 func runOK(t *testing.T, src string) {
 	t.Helper()
@@ -223,7 +223,7 @@ func TestComputeMaxStack_UnknownOpcodePanics(t *testing.T) {
 }
 
 // Asserts exact MaxStack values for hand-traced sources. The expected `main` is MaxStack of the top-level function
-// (which always ends with OpSuspend). The `inner` slice lists expected MaxStacks for nested compiled functions in the
+// (which always ends with Suspend). The `inner` slice lists expected MaxStack values for nested compiled functions in the
 // order they appear in the constants table.
 func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 	cases := []struct {
@@ -256,14 +256,14 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 		{
 			"lambda no params, returns literal",
 			`f := func() { return 1 }`,
-			1, // OpConstant<f>, OpSetGlobal
+			1, // LoadStaticCompiledFunction, StoreGlobal
 			[]int{1},
 		},
 		{
 			"lambda two params, returns sum",
 			`f := func(a, b) { return a + b }`,
 			1,
-			// inner: GetLocal a, GetLocal b, OpBinaryOp, OpReturn 1 -> peak 2
+			// inner: LoadLocal a, LoadLocal b, BinaryOp, Return 1 -> peak 2
 			[]int{2},
 		},
 		{
@@ -272,7 +272,7 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 			`g := func(a,b,c,d) { return a }
 			 f := func() { return g(1, 2, 3, 4) }`,
 			1,
-			[]int{1, 5}, // g first (peak 1: just GetLocal+Return), then f
+			[]int{1, 5}, // g first (peak 1: just LoadLocal+Return), then f
 		},
 
 		// --- Closures ---
@@ -283,8 +283,8 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 				return func() { return x }
 			}`,
 			1,
-			// inner-most: GetFree 0, OpReturn 1 -> peak 1
-			// outer: push 1 / DefLocal, GetLocalPtr(x), OpClosure(...,1), OpReturn 1 -> peak 1
+			// inner-most: LoadFree 0, Return 1 -> peak 1
+			// outer: push 1 / DefineLocal, LoadLocalPtr(x), MakeClosure(...,1), Return 1 -> peak 1
 			[]int{1, 1},
 		},
 		{
@@ -294,8 +294,8 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 				return func() { return a + b + c }
 			}`,
 			1,
-			// inner-most: GetFree 0, GetFree 1, +, GetFree 2, +, OpReturn 1 -> peak 2
-			// outer: pushing 3 free-var pointers before OpClosure -> peak 3
+			// inner-most: LoadFree 0, LoadFree 1, +, LoadFree 2, +, Return 1 -> peak 2
+			// outer: pushing 3 free-var pointers before MakeClosure -> peak 3
 			[]int{2, 3},
 		},
 
@@ -367,7 +367,7 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 		// --- if/else statements ---
 		{
 			"if/else assigning result",
-			// Both arms: 1 push + SetGlobal/Pop. Peak 1.
+			// Both arms: 1 push + StoreGlobal/Pop. Peak 1.
 			`a := true
 			 if a { x := 1 } else { x := 2 }`,
 			1,
@@ -446,7 +446,7 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 		{
 			"for-in over array",
 			`for k, v in [1, 2, 3] { x := k + v }`,
-			3, // [1,2,3] literal pushes 3 slots before OpArray
+			3, // [1,2,3] literal pushes 3 slots before MakeArray
 			nil,
 		},
 
@@ -467,7 +467,7 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 			"f-string with one interpolation",
 			`a := 1
 			 x := f"val={a}"`,
-			// "val=" (1) ; push a, OpFormat (1) -> total 2 before Add
+			// "val=" (1) ; push a, FormatStaticSpec (1) -> total 2 before Add
 			2,
 			nil,
 		},
@@ -497,7 +497,7 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 }
 
 // Verifies that scripts using closures, nested calls, recursion, deferred calls, etc. compile *and* run cleanly.
-// If MaxStack were undersized for any inner function, the VM's OpCall stack-bound check would trip and Run() would
+// If MaxStack were undersized for any inner function, the VM's CallFunction stack-bound check would trip and Run() would
 // return an error.
 func TestComputeMaxStack_Compile_RunOK(t *testing.T) {
 	scripts := []string{
@@ -695,7 +695,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			2 + 128,
 		},
 		{
-			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
+			// defer fn(a, b): push fn, a, b; Defer pops all 3
 			"defer with 2 args -> peak 3",
 			bc.Instructions{
 				compiler.NewLoadGlobal(0),
@@ -717,7 +717,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			3,
 		},
 		{
-			// OpClosure NF=3: 3 free-var pointers must be on stack before
+			// MakeClosure NF=3: 3 free-var pointers must be on stack before
 			"closure with 3 free vars -> peak 3",
 			bc.Instructions{
 				compiler.NewLoadLocalPtr(0),
@@ -768,7 +768,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			8,
 		},
 		{
-			// SliceIndexStep pops 4 (target+lo+hi+step), pushes 1
+			// SliceStep pops 4 (target+lo+hi+step), pushes 1
 			"slice with step -> peak 4",
 			bc.Instructions{
 				compiler.NewLoadGlobal(0),          // target
@@ -780,7 +780,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			4,
 		},
 		{
-			// OpOrJump: same behaviour as OpAndJump for MaxStack
+			// OrJump: same behaviour as AndJump for MaxStack
 			"or chain a || b -> peak 1",
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -790,7 +790,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			1,
 		},
 		{
-			// Dead-code after OpReturn is skipped (analyzer treats Return as terminator)
+			// Dead-code after Return is skipped (analyzer treats Return as terminator)
 			"unreachable code after return is ignored",
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),

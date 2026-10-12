@@ -902,7 +902,7 @@ func (c *Compiler) compileForInStmt(stmt *statement.ForIn) error {
 	preCondPos := len(c.currentInstructions())
 
 	// condition
-	//  :it.HasMore()
+	//   IterNext(:it)
 	if itSymbol.Scope == ScopeGlobal {
 		if _, err := c.emit(stmt, NewLoadGlobal(itSymbol.Index)); err != nil {
 			return err

@@ -67,7 +67,7 @@ func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStrin
 	if len(p.SpecExprs) > 0 {
 		// Dynamic spec: build the spec string at run time by interleaving SpecLiterals and SpecExprs.
 		// Stack layout:  ..., value          (from p.Expr above)
-		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
+		// We push the spec string on top and emit FormatRuntimeSpec so the VM pops [spec, value] and pushes the formatted
 		// result.
 		i := c.addStaticString(p.SpecLiterals[0])
 		if _, err := c.emit(node, NewLoadStaticString(i)); err != nil {

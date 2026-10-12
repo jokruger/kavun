@@ -765,7 +765,7 @@ func finDaysBetweenFinal(_ core.VM, args []core.Value) (core.Value, error) {
 }
 
 // finDaysInYear is the year length the convention takes on's year to have (360 under ACT/360 even in a leap
-// year) — the calendar's answer is times.days_in_year(y).
+// year) — the calendar's answer is a date's days_in_year().
 func finDaysInYear(_ core.VM, args []core.Value) (core.Value, error) {
 	a := newFinArgs("days_in_year", args, 2)
 	on, c := a.date(0, "on"), a.convention(1)

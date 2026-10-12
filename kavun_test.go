@@ -4242,7 +4242,7 @@ func TestBuiltinFunctionLen(t *testing.T) {
 	expectRun(t, `if true { len := 10 }; out = len("hi")`, nil, 2)
 
 	// reassignment changes resolution from this point onward; earlier
-	// references compiled to OpGetBuiltin keep the builtin semantics
+	// references compiled to LoadBuiltinFunction keep the builtin semantics
 	expectRun(t, `a := len("ab"); len = 99; b := len; out = a + b`, nil, 101)
 
 	// compound assignment to a builtin remains disallowed (no storage)
@@ -5594,10 +5594,6 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 	expectRun(t, "out = bytes(\"a\u00A0b\").split().len()", nil, int64(1)) // NBSP octets are content
 }
 
-// TestMemberFunctionRosterCompletions checks the per-type roster completions: string's gains (its roster is
-// runes' minus the twins, the views, sum/avg, the _shallow pair and the byte/rune conversions), range's
-// closed-form roster (computed on start/stop/step, nothing materialised), dict's transform block, and the
-// remaining derived _in_place twins (keep/dedup/unique).
 // TestKeepReplacesFilter pins the rename: the keep-matching member is `keep`, and `filter` is gone outright
 // rather than kept as an alias. `keep`/`remove` is a self-documenting antonym pair — the old `filter`/`remove`
 // named one half for a mechanism and the other for an effect, so the direction had to be documented instead of
@@ -5651,6 +5647,10 @@ func TestKeepReplacesFilter(t *testing.T) {
 	expectError(t, `(1..6).filter(func(x) { return x % 2 == 0 })`, nil, "invalid_method")
 }
 
+// TestMemberFunctionRosterCompletions checks the per-type roster completions: string's gains (its roster is
+// runes' minus the twins, the views, sum/avg, the _shallow pair and the byte/rune conversions), range's
+// closed-form roster (computed on start/stop/step, nothing materialised), dict's transform block, and the
+// remaining derived _in_place twins (keep/dedup/unique).
 func TestMemberFunctionRosterCompletions(t *testing.T) {
 	// string's gains — unsuffixed only
 	expectRun(t, `out = "bca".sort()`, nil, "abc")
@@ -7988,9 +7988,6 @@ func TestRepeat(t *testing.T) {
 	expectRun(t, `out = "".repeat(9223372036854775807)`, nil, "")
 }
 
-// TestRepeatOperator pins `*` as repeat's operator form on the four buildable sequences: the right operand is
-// a COUNT, not an element, and there is NO reflected direction — `seq * n` reads as "apply n to the
-// sequence", while `n * seq` has no such reading.
 // TestUndecodableText pins the octet-escape model: text that is not valid UTF-8 is data too, so every
 // conversion among byte/bytes/string/runes is TOTAL and LOSSLESS — an octet no decoder can read as a symbol
 // becomes its own reserved rune (U+DC80–U+DCFF, one per octet 0x80–0xFF) and encodes back to exactly that
@@ -8091,6 +8088,9 @@ out = try(func(){ return json.encode(bytes([97, 255]).runes()) })
 	expectRun(t, `s := bytes([97, 255, 98]).string(); out = (s.slice(0, 2) + s.slice(2, 3)).bytes()`, nil, []byte{97, 255, 98})
 }
 
+// TestRepeatOperator pins `*` as repeat's operator form on the four buildable sequences: the right operand is
+// a COUNT, not an element, and there is NO reflected direction — `seq * n` reads as "apply n to the
+// sequence", while `n * seq` has no such reading.
 func TestRepeatOperator(t *testing.T) {
 	// member ≡ operator on every type that has repeat
 	expectRun(t, `out = [1, 2] * 3`, nil, ARR{1, 2, 1, 2, 1, 2})
@@ -10248,7 +10248,7 @@ func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
 }
 
 func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
-	// Stress OpMethodCall's spread path. `d.keys` is a no-arg method, but the
+	// Stress CallMember's spread path. `d.keys` is a no-arg method, but the
 	// spread expansion happens before arg-count validation, so a huge array
 	// still trips the bounds check.
 	src := `
@@ -10273,7 +10273,7 @@ func TestSpread_SmallArray_OK(t *testing.T) {
 }
 
 func TestSplice_HugeDeleteCountClamps(t *testing.T) {
-	// Regression: large positive count must be clamped, not overflow startIdx+delCount.
+	// Regression: a large positive count must be clamped, not overflow start + count.
 	expectRun(t, `
 		a := [1, 2, 3, 4, 5]
 		d := a.splice_in_place(2, 9223372036854775807)
@@ -10886,7 +10886,7 @@ func TestFormatDyn_BadSpec_Recoverable(t *testing.T) {
 
 func TestFormatDyn_NonStringSpec(t *testing.T) {
 	// The dynamic-spec inner expression is always coerced to a string by the compiler
-	// (via OpFormat with empty spec), so this guard is mostly defensive — verify that
+	// (via FormatStaticSpec with empty spec), so this guard is mostly defensive — verify that
 	// even purely non-string-looking values produce a valid (or recoverable) result
 	// rather than panicking. Numeric specs parse as width.
 	expectRun(t, `x := 1; spec := 5; out = f"{x:{spec}}"`, nil, "    1")
@@ -11393,11 +11393,6 @@ func TestRuneRosterParity(t *testing.T) {
 	expectRun(t, `out = (-5).abs()`, nil, 5)
 }
 
-// TestSequenceMemberParity pins the members array, runes, bytes and string share to ONE behaviour. Each type
-// implements them on its own (core/<type>.go), so this table is what keeps them from drifting apart: every call
-// runs on the same ASCII content as a string, runes, bytes and an array of runes, and the normalised answers —
-// text as its string, an element as its code, an error as its kind — must agree. X is the receiver, R the same
-// receiver's own kind of run ("ab", or ['a', 'b'] on the array).
 // float and decimal answer the same numeric members (D-47's parity): every shared member exists on both and gives
 // the same value on the same receiver, and a bad argument raises the same kind on both. The four logs are
 // float-only — decimal's result is inexact, so it spells them with a scale (exp_round, …) — and decimal's scale
@@ -11519,6 +11514,11 @@ func TestFloatRoundingMatchesDecimal(t *testing.T) {
 	require.True(t, compared > 2000, "only %d values were in decimal's range", compared)
 }
 
+// TestSequenceMemberParity pins the members array, runes, bytes and string share to ONE behaviour. Each type
+// implements them on its own (core/<type>_members.go), so this table is what keeps them from drifting apart: every call
+// runs on the same ASCII content as a string, runes, bytes and an array of runes, and the normalised answers —
+// text as its string, an element as its code, an error as its kind — must agree. X is the receiver, R the same
+// receiver's own kind of run ("ab", or ['a', 'b'] on the array).
 func TestSequenceMemberParity(t *testing.T) {
 	type receiver struct{ x, run string }
 	all := []receiver{

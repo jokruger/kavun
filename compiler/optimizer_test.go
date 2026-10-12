@@ -135,7 +135,7 @@ func normalizeStr(s string) string {
 }
 
 // ---------------------------------------------------------------------------
-// tryEvaluateConstant / foldConstantSubexpressions
+// evalConstantExpr / foldConstantSubexpressions
 // ---------------------------------------------------------------------------
 
 func TestOptimizer_FoldConstantSubexpressions(t *testing.T) {
@@ -862,8 +862,8 @@ func TestOptimizer_O2_Pipeline(t *testing.T) {
 }
 
 func TestOptimizer_O3_Pipeline_NoOp_Passes_AreSafe(t *testing.T) {
-	// foldPureFunctionCalls / inlinePureFunctions are safe no-ops today.
-	// The test below verifies they don't corrupt otherwise-valid programs.
+	// O3 has no interprocedural pass yet (folding or inlining calls to user-defined pure functions is not
+	// implemented); verify that O3 leaves programs built around such functions intact.
 	cases := []optCase{
 		{
 			name:    "user pure function preserved",
@@ -1111,7 +1111,7 @@ func TestRangeSliceAndArrayInteractions(t *testing.T) {
 // collectNameUsage (optimizer_impl.go) tracks name usage in one flat, file-wide map keyed by identifier string, with
 // no real lexical-scope awareness. propagateConstants/copyPropagation/eliminateDeadAssignments only collect
 // substitution *candidates* from top-level file.Stmts, but their rewrite step walks the ENTIRE tree, including
-// nested blocks and FuncLit bodies. These cases pin down that shadowing a candidate name in a nested block, a FuncLit
+// nested blocks and expression.Function bodies. These cases pin down that shadowing a candidate name in a nested block, a expression.Function
 // parameter, or a for-in loop variable never leaks the outer literal into the shadowed scope: every such shadowing
 // construct also counts as a "write" (or sets insideFuncLit) in the same flat usage record, which conservatively
 // disqualifies the outer name from substitution. Verified empirically at O0 vs O3 before writing these down.
@@ -1262,10 +1262,10 @@ func TestOptimizer_DynamicTypingCornerCases(t *testing.T) {
 // isFoldableExpr's *expression.MethodCall case used to have no purity check on the method name at all — unlike its
 // *expression.Call case, which gates on isBuiltinPureName. It relied entirely on (a) container-literal receivers
 // having no matching AST case and (b) safeValueToLiteral refusing non-scalar return types, neither of which catches
-// a method that returns a scalar value that is nonetheless environment-dependent. core.ValueTypeDescr.IsMethodPure
-// closes that gap: isFoldableExpr now requires the receiver to already be a literal (so its concrete type is known
+// a method that returns a scalar value that is nonetheless environment-dependent. core.MemberIsPure (the Pure flag
+// of the receiver type's member-table entry) closes that gap: isFoldableExpr now requires the receiver to already be a literal (so its concrete type is known
 // without evaluating anything — true immediately for a literal written in source, and true after this same
-// bottom-up pass has already folded an eligible receiver into one) and consults that type's IsMethodPure(name).
+// bottom-up pass has already folded an eligible receiver into one) and consults core.MemberIsPure(type, name).
 // ---------------------------------------------------------------------------
 
 func TestOptimizer_MethodCallPurityGate(t *testing.T) {

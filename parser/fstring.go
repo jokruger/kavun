@@ -157,9 +157,6 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FSt
 	return parts, nil
 }
 
-// findFStringExprEnd returns the index of the '}' that closes the '{' whose content begins at start. It tracks balanced
-// (), [], {} and skips quoted strings ("..." and '...') so a colon or '}' inside e.g. a record literal or a string does
-// not prematurely terminate the expression.
 // skipFStringStringLit advances past a string literal embedded in an f-string interpolation expression.
 // In the f-string body, the surrounding quote of an embedded `"..."` literal is written `\"` (because a bare
 // `"` would terminate the f-string itself), while `'...'` rune literals appear with bare `'` delimiters since
@@ -207,6 +204,9 @@ func skipFStringStringLit(body string, i int) (int, error) {
 	return 0, fmt.Errorf("f-string: unterminated string inside interpolation")
 }
 
+// findFStringExprEnd returns the index of the '}' that closes the '{' whose content begins at start. It tracks balanced
+// (), [], {} and skips quoted strings ("..." and '...') so a colon or '}' inside e.g. a record literal or a string does
+// not prematurely terminate the expression.
 func findFStringExprEnd(body string, start int) (int, error) {
 	depth := 0
 	i := start

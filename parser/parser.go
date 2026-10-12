@@ -383,7 +383,7 @@ func (p *Parser) parseCall(x ast.Expression) ast.Expression {
 
 	// Distinguish method call from regular function call.
 	if sel, ok := x.(*expression.Selector); ok {
-		// parseSelector currently stores selector as StringLit from an identifier.
+		// parseSelector currently stores selector as scalar.String from an identifier.
 		if method, ok := sel.Sel.(*scalar.String); ok {
 			return &expression.MethodCall{
 				Object:     sel.Expr,
@@ -798,7 +798,7 @@ func (p *Parser) parseDateLit() ast.Expression {
 
 func (p *Parser) parseFuncLit() ast.Expression {
 	if p.trace {
-		defer untracep(tracep(p, "FuncLit"))
+		defer untracep(tracep(p, "expression.Function"))
 	}
 
 	typ := p.parseFuncType()

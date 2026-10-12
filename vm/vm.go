@@ -46,7 +46,7 @@ type frame struct {
 	fn       *core.CompiledFunction // the function being executed
 	freeVars []*core.Value          // captured free variables for closures
 
-	// Deferred-call queue (LIFO). Nil unless OpDefer was executed.
+	// Deferred-call queue (LIFO). Nil unless Defer was executed.
 	defers []deferred
 
 	// inFlightErr is the error currently propagating through this frame. Set by the unwinder when this frame is on the
@@ -55,7 +55,7 @@ type frame struct {
 	inFlightErr core.Value
 
 	// deferredFor, if non-nil, points to the frame that owns this defer. Set when this frame is invoked as a deferred
-	// call. Used by OpRecover to identify the "owner" frame whose in-flight error it should clear.
+	// call. Used by recover() (VM.Recover) to identify the "owner" frame whose in-flight error it should clear.
 	// Per Go semantics, recover() works only when called directly from a deferred function — other functions called
 	// from the deferred do not inherit deferredFor.
 	deferredFor *frame
@@ -174,7 +174,7 @@ func (v *VM) IsStackEmpty() bool {
 //   - v.curFrame is a real compiled Kavun function (not the trampoline / not nil), and
 //   - v.curFrame.deferredFor is non-nil (i.e. the current frame was entered as a deferred call).
 //
-// Calling recover() one level deeper (through another Kavun function invocation) does not work because OpCall resets
+// Calling recover() one level deeper (through another Kavun function invocation) does not work because CallFunction resets
 // deferredFor on the new frame. Host builtins invoked as defers also do not flip deferredFor, so recover() from such
 // a builtin returns Undefined as well. Matches Go's "recover only in a deferred function" rule.
 func (v *VM) Recover() core.Value {
@@ -264,7 +264,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 		return core.Undefined, v.err
 	}
 
-	// Create a synthetic trampoline frame that returns into OpSuspend.
+	// Create a synthetic trampoline frame that returns into Suspend.
 	// The function object is immutable and shared; the per-call state lives in the frame.
 	trampolineFrame := &v.frames[v.framesIndex]
 	trampolineFrame.ip = -1
@@ -273,7 +273,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	trampolineFrame.freeVars = nil
 	v.framesIndex++
 
-	// Push callee slot (matches normal OpCall stack layout). This is where OpReturn will write the return value.
+	// Push callee slot (matches normal CallFunction stack layout). This is where Return will write the return value.
 	v.stack[v.sp] = cfv
 	v.sp++
 
@@ -283,7 +283,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 		v.sp++
 	}
 
-	// Set up callback frame (similar to OpCall for CompiledFunction)
+	// Set up callback frame (similar to CallFunction for CompiledFunction)
 	v.curFrame = &v.frames[v.framesIndex]
 	v.curFrame.ip = -1
 	v.curFrame.basePointer = v.sp - numArgs // Points to first arg (after callee slot)
@@ -302,15 +302,15 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	}
 
 	// Execute the callback by calling run()
-	// When callback returns (OpReturn), it will return to trampoline frame.
-	// Trampoline executes OpSuspend, which exits run().
+	// When callback returns (Return), it will return to trampoline frame.
+	// Trampoline executes Suspend, which exits run().
 	// Cooperative unwinding: errors raised by the callback may be caught by deferred recover() inside the callee chain,
 	// bounded by the trampoline frame at savedFramesIndex.
 	trampolineIdx := savedFramesIndex // the trampoline frame's index
 	v.runUntilSuspend(trampolineIdx)
 
 	// Extract result before restoring state
-	// OpReturn places the result at sp-1, which is the callee slot we reserved
+	// Return places the result at sp-1, which is the callee slot we reserved
 	var result core.Value
 	if v.err == nil {
 		// The return value is at savedSp (the callee slot position)
@@ -921,7 +921,7 @@ func (v *VM) run() {
 				switch arg.Type {
 				case value.Array:
 					o := (*core.Array)(arg.Ptr)
-					// Bounds-check before expansion: spread is the one OpCall case whose stack growth is data-driven
+					// Bounds-check before expansion: spread is the one CallFunction case whose stack growth is data-driven
 					// and cannot be modeled by the compile-time MaxStack analyzer.
 					if v.sp+len(o.Elements) > len(v.stack) {
 						v.err = errs.NewStackOverflowError("spread argument expansion")
@@ -970,7 +970,7 @@ func (v *VM) run() {
 
 				// test if it's tail-call
 				// Note: tail-call optimization is unsafe when the current frame has registered defers, because reusing
-				// the frame would skip running them. Skip the optimization in that case so OpReturn can run the defers
+				// the frame would skip running them. Skip the optimization in that case so Return can run the defers
 				// as usual.
 				if callee == v.curFrame.fn && len(v.curFrame.defers) == 0 { // recursion
 					nextOp := v.curInsts[v.ip+1].Op
@@ -1063,7 +1063,7 @@ func (v *VM) run() {
 			switch arg.Type {
 			case value.Array:
 				o := (*core.Array)(arg.Ptr)
-				// Bounds-check before expansion (see OpCall for rationale).
+				// Bounds-check before expansion (see CallFunction for rationale).
 				if v.sp+len(o.Elements) > len(v.stack) {
 					v.err = errs.NewStackOverflowError("spread argument expansion")
 					return
@@ -1197,7 +1197,7 @@ func (v *VM) run() {
 			numFree := int(v.curInsts[v.ip].Op2)
 			free := make([]*core.Value, numFree)
 			for i := 0; i < numFree; i++ {
-				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
+				// Compiler guarantees each free-var operand is a ValuePtr pushed by LoadLocalPtr/LoadFreePtr.
 				ptr := v.stack[v.sp-numFree+i]
 				free[i] = (*core.Value)(ptr.Ptr)
 			}

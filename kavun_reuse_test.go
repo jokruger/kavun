@@ -228,7 +228,7 @@ func TestVMReuse_Recover_NoCrossScriptLeak(t *testing.T) {
 }
 
 // Stress: same script invoked many times with raise+recover paths alternating with success paths. Exercises the
-// in-flight-error slot reset, the defer list reset, and the deferredFor link reset on every OpCall, repeatedly on the
+// in-flight-error slot reset, the defer list reset, and the deferredFor link reset on every CallFunction, repeatedly on the
 // same VM.
 func TestVMReuse_DeferRecover_StressRepeat(t *testing.T) {
 	src := `

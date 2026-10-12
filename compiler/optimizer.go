@@ -238,7 +238,7 @@ func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 // foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant sub-expression" to
 // a single literal. This is a UNIFIED pass — instead of implementing a separate detector for each operator, builtin,
 // or literal shape (arithmetic, string concat, len/type_name/etc. on literals, indexing on literal collections,
-// f-string with only literal interpolations, ...), it delegates to tryEvaluateConstant which speculatively compiles
+// f-string with only literal interpolations, ...), it delegates to evalConstantExpr which speculatively compiles
 // and runs the subtree.
 //
 // Rationale for the unified approach:
@@ -260,17 +260,17 @@ func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 //     pass folds today; user-defined functions are never folded (no interprocedural purity analysis exists yet — see
 //     docs/purity.md's Call hook rule for the contract such a pass would need to satisfy if implemented).
 //
-// Eligibility check (per subtree, before calling tryEvaluateConstant):
+// Eligibility check (per subtree, before calling evalConstantExpr):
 //   - Only literal leaves and calls to pure builtins/methods.
 //   - No identifier references (they may resolve to shadowed or reassigned builtins, or to closed-over mutable
 //     state; see docs/language.md on builtin shadowing).
-//   - No FuncLit values (identity-sensitive).
+//   - No expression.Function values (identity-sensitive).
 //   - Deterministic operators only (no time, random, I/O, imports).
 //   - Container literal results (arrays/records/dicts) are folded ONLY when the result cannot be mutated afterwards,
 //     e.g. when the folded expression is immediately consumed by a scalar-producing operator/method (len, indexing,
 //     comparison) and does not escape as a stored/returned value.
 //
-// Runtime-error handling: see tryEvaluateConstant. On error the subtree is left untouched by default.
+// Runtime-error handling: see evalConstantExpr. On error the subtree is left untouched by default.
 //
 // This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
 // FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
@@ -344,7 +344,7 @@ func (c *Compiler) foldWithEligibility(node ast.Node, eligible func(ast.Expressi
 //   - Runs BEFORE foldConstantSubexpressions so short-circuit can prune an expensive/impure RHS before the folder
 //     touches it.
 //   - When the RHS is discarded (`false && x`, `true || x`), any side effects in x are ALSO discarded. This matches
-//     the language's short-circuit semantics, so no compensating ExprStmt is required.
+//     the language's short-circuit semantics, so no compensating statement.Expression is required.
 //   - LHS truthiness follows Kavun's rules: undefined, false, 0 (int), decimal(0), "", [], {}, empty dict are falsy;
 //     everything else (including 0.0 float, non-empty containers, non-zero numerics) is truthy.
 //   - Do NOT rewrite `x && y` or `x || y` when neither side is a constant — Kavun returns one of the operand values
@@ -390,9 +390,9 @@ func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error
 // i.e. `y := x; use(y)`, with `x` at every use site. Safety requirements (all must hold):
 //   - Both x and y are top-level file identifiers.
 //   - y is single-assignment.
-//   - y is not referenced from inside a FuncLit, defer, or as an assign target.
+//   - y is not referenced from inside a expression.Function, defer, or as an assign target.
 //   - x is not written after the copy point.
-//   - x is not referenced from inside a FuncLit that could rebind it.
+//   - x is not referenced from inside a expression.Function that could rebind it.
 //   - x is not `undefined`.
 //
 // Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
@@ -493,7 +493,7 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 // itself, but only in strictly safe cases:
 //   - The declaration is a single-LHS := / assign with a literal RHS.
 //   - The variable is NEVER written after that point (only reads).
-//   - The variable is NEVER referenced from inside a FuncLit (closures capture
+//   - The variable is NEVER referenced from inside a expression.Function (closures capture
 //     by reference).
 //   - The variable is NEVER referenced from inside a defer.
 //   - The variable is NEVER a for-loop-in bound (each iteration re-binds).
@@ -552,7 +552,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 	}
 
 	// Rewrite reads of tracked identifiers to the corresponding literal. Avoid rewriting occurrences at LHS positions
-	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
+	// (walker already skips plain-ident LHS in statement.Assign / statement.IncDec).
 	changed := false
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
 		id, ok := e.(*expression.Identifier)
@@ -777,7 +777,7 @@ func (c *Compiler) eliminateUnreachableAfterTerminator(node ast.Node) (ast.Node,
 
 // eliminateDeadAssignments removes declarations of the form `x := <literal>` or `x := <ident>` where x is:
 //   - Never read anywhere.
-//   - Never captured by a FuncLit.
+//   - Never captured by a expression.Function.
 //   - Never referenced by a defer.
 //   - Never re-assigned or addressed (single-assignment).
 //   - Its RHS is side-effect-free (a literal or another identifier).
