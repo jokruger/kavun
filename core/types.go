@@ -35,13 +35,13 @@ const (
 	// Pos constants
 	NoPos Pos = 0
 
-	// Builtin module/function slot constants
+	// Builtin function slots: a module's functions live at its type id × ModuleSlotSize + index
 	ModuleSlotSize = 128
-	MaxModules     = 32
+	GlobalSlotBase = 0 // the global builtins' slot base: not a module, no type
 )
 
-// Builtin module/function registry
-var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
+// Builtin function registry, indexed by slot (see ModuleSlotSize)
+var BuiltinFunctions [256 * ModuleSlotSize]*BuiltinFunction
 
 // Primitive value (used in static storage)
 type Primitive struct {

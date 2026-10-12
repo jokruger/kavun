@@ -41,3 +41,23 @@ list of LHS names for one destructuring-assignment statement (see `docs/language
 position. It backs the `Unpack` opcode (`Op1` = number of positions, `Op3` = `NameLists` index), which pops the
 right-hand side value and pushes that many results — by position for an array, by name (via the same `AccessIndex` hook
 ordinary indexing uses) for a dict/record, filling `undefined` for a name with no matching key.
+
+## Type ids
+
+Every value carries a one-byte type id (`core/value`); `core.ValueTypes[256]` holds one descriptor per id. Bytecode
+records type ids (in the static pool's primitives) and builtin-function slots, so moving either is a bytecode break.
+
+| ids | group |
+| --- | --- |
+| 0–15 | data-only primitives: `undefined` 0 (must be zero), `bool`, `byte`, `rune`, `int`, `float`, `date`; the rest reserved. Contiguous from 0: only these go into the static pool as primitives |
+| 16–31 | internal values and callables: value pointer, builtin function, builtin closure, compiled function, bound member, format spec |
+| 32–47 | heap scalars: `string`, `decimal`, `time`, `error` |
+| 48–79 | containers: `array`, `dict`, `record`, `range`, `bytes`, `runes`; the rest reserved for planned containers and vectors |
+| 80–111 | iterators, each at its container's id + 32 |
+| 112–143 | builtin module types |
+| 144–191 | module-owned types (`fin.year_fraction`, the `fin.*` tables, …) |
+| 192–255 | embedder types (`kavun.UserDefinedType` is 192) |
+
+The language owns ids 0–191, embedders 192–255. Ids 112–191 are frozen: allocated alphabetically on first use,
+then append-only, never renumbered. A module's builtin functions live in `core.BuiltinFunctions` at slot *module
+id* × `core.ModuleSlotSize` (128) + their index; the global builtins use slot base 0.

@@ -11543,6 +11543,37 @@ out.append_in_place(xs...)
 	require.Equal(t, kavun.MustValueOf(ARR{"d", 5, 2, 7}), globals[sym.Index])
 }
 
+// Values whose type id or builtin slot moved in bytecode 002 survive an encode/decode round trip: a builtin module,
+// a module-owned type, a container, a static primitive, a global builtin.
+func TestTypeIDsBytecodeRoundTrip(t *testing.T) {
+	src := `
+math := import("math")
+fin := import("fin")
+yf := fin.year_fraction(31, 365)
+out := [math.abs(-2), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
+`
+	file := parse(t, src)
+	symTable := compiler.NewSymbolTable()
+	for idx, name := range vm.BuiltinFunctionNames {
+		symTable.DefineBuiltin(idx, name)
+	}
+	c := compiler.NewCompiler(compiler.O0(), nil, file.InputFile, symTable, nil, nil, nil)
+	require.NoError(t, c.CompileNode(file))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.Bytecode().Encode(&buf))
+	decoded := &vm.Bytecode{}
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+
+	globals := make([]core.Value, vm.GlobalsSize)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.Reset(decoded, globals)
+	require.NoError(t, machine.Run())
+	sym, _, ok := symTable.Resolve("out", false)
+	require.True(t, ok)
+	require.Equal(t, kavun.MustValueOf(ARR{2, "31/365", "fin.year_fraction", 2, 'x', 1.5}), globals[sym.Index])
+}
+
 // docs/types/function-matrix.md against the member tables, in both directions: every ✓/— cell of a tabled type
 // matches core.HasMember, and every member a type declares has a ✓ row. Every column type answers its members from a
 // table (only record, which has no column, stays name-based), so a column with no table fails here.

@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 )
@@ -220,4 +222,59 @@ func TestMemberTablesValidation(t *testing.T) {
 		require.True(t, ok, c.name)
 		require.Equal(t, errs.KindHost, e.Kind, c.name)
 	}
+}
+
+// builtinTypeIDs is the registry as core's init left it: test-package variables initialise before any test runs, so
+// no embedder type a test registers is in it.
+var builtinTypeIDs = func() map[uint8]bool {
+	defaultName := reflect.ValueOf(core.DefaultValueType.Name).Pointer()
+	ids := map[uint8]bool{}
+	for id := range core.ValueTypes {
+		if reflect.ValueOf(core.ValueTypes[id].Name).Pointer() != defaultName {
+			ids[uint8(id)] = true
+		}
+	}
+	return ids
+}()
+
+// The type-id layout: Undefined is 0, the primitives are contiguous below 16, each iterator sits at its container
+// + 32, every builtin descriptor is registered below 192, the module ids fill 112–143 and the module-owned ids
+// 144–191, and the embedder space starts at 192.
+func TestTypeIDLayout(t *testing.T) {
+	require.Equal(t, uint8(0), value.Undefined)
+	require.Equal(t, uint8(15), value.LastPrimitiveType)
+	for _, id := range []uint8{value.Undefined, value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Date} {
+		require.True(t, core.Value{Type: id}.IsPrimitive(), "type %d", id)
+	}
+	for _, id := range []uint8{value.ValuePtr, value.String, value.Array, value.FinYearFraction} {
+		require.False(t, core.Value{Type: id}.IsPrimitive(), "type %d", id)
+	}
+
+	for container, iterator := range map[uint8]uint8{
+		value.Array: value.ArrayIterator, value.Dict: value.DictIterator, value.IntRange: value.IntRangeIterator,
+		value.Bytes: value.BytesIterator, value.Runes: value.RunesIterator,
+	} {
+		require.Equal(t, container+32, iterator, "iterator of type %d", container)
+	}
+
+	require.True(t, builtinTypeIDs[value.FinDatedCharges])
+	for id := range builtinTypeIDs {
+		require.True(t, id < value.FirstUserDefinedType, "builtin type registered in the embedder space: %d", id)
+	}
+
+	for _, id := range []uint8{
+		value.ModuleBase64, value.ModuleClock, value.ModuleExec, value.ModuleFin, value.ModuleFs, value.ModuleHex,
+		value.ModuleIo, value.ModuleJson, value.ModuleMath, value.ModuleOs, value.ModulePath, value.ModuleRand,
+		value.ModuleRe,
+	} {
+		require.True(t, id >= 112 && id <= 143, "module type %d", id)
+	}
+	for _, id := range []uint8{
+		value.ExecProcess, value.FinYearFraction, value.FinTieredRates, value.FinTieredCharges, value.FinDatedRates,
+		value.FinDatedCharges, value.FsFile, value.RandGenerator, value.RePattern, value.ExecCommand,
+	} {
+		require.True(t, id >= 144 && id <= 191, "module-owned type %d", id)
+	}
+
+	require.Equal(t, uint8(192), value.FirstUserDefinedType)
 }

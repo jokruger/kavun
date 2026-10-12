@@ -4,7 +4,7 @@ This is the implementor-facing contract behind every builtin and embedder `Value
 `core/*.go` — the counterpart to [Purity Contract](purity.md) for a different obligation:
 **how `BinaryOp`/`UnaryOp` hooks must behave so cross-type operator dispatch stays correct and
 predictable.** Read this before implementing `BinaryOp`, `UnaryOp`, or `Equal` for any new builtin
-type, or before registering an embedder type via `SetValueType` (type IDs 64+) that participates in
+type, or before registering an embedder type via `SetValueType` (type IDs 192–255) that participates in
 operators at all. For what a *script author* sees as the result of any expression, see
 [Type Reference](types.md)'s "Operators across types" section and each type's own page — this
 document is implementation vocabulary a script author never needs.
@@ -359,7 +359,7 @@ whatever `other.Type` happens to be — including a type with nothing "above" it
 hierarchy, and including the container and identity-semantics types (`array`, `dict`, `record`,
 `time`, `error`, `int_range`, the iterators, `compiled_function`, `format_spec`) whose only
 recognized pairing is their own type. "Nothing among the builtins could answer differently" is a
-closed-world argument, and `ValueTypes[256]` is open: embedder types register at IDs 64+, a
+closed-world argument, and `ValueTypes[256]` is open: embedder types register at IDs 192–255, a
 builtin's `switch other.Type` allowlist can never name a type ID that didn't exist when it was
 written, and therefore **every embedder/builtin pairing must be owned by the embedder's hook and
 reached through the builtin's `default` delegate** — it is the only place such a pairing can live.
@@ -466,7 +466,7 @@ guarantee it.
 
 ## Extensibility for embedder types
 
-An embedder using `SetValueType` (type IDs 64+) participates in this exact dispatch model with no
+An embedder using `SetValueType` (type IDs 192–255) participates in this exact dispatch model with no
 special casing — but **rule 3 is no longer automatic**. There used to be a central dispatcher that
 retried the other operand for you whenever your hook declined; that mechanism is gone. If your
 `BinaryOp` hook wants a pairing with some other type (built-in or another embedder type) to succeed

@@ -15,8 +15,9 @@ import (
 //
 // CHANGE THE VERSION EVERY TIME BYTECODE COMPATIBILITY BREAKS: an opcode added, removed or renumbered (core/bytecode),
 // an instruction's operand layout or meaning changed, a field of Bytecode/core.Static/core.CompiledFunction changed,
-// or any type's EncodeBinary/DecodeBinary format changed. Keep the length: Decode reads exactly len(BytecodeMagic).
-const BytecodeMagic = bytecodeMagicPrefix + "001"
+// any type's EncodeBinary/DecodeBinary format changed, or a type id or builtin-function slot moved (core/value; 002
+// regrouped the type ids and moved the slots to type id × core.ModuleSlotSize). Keep the length: Decode reads exactly len(BytecodeMagic).
+const BytecodeMagic = bytecodeMagicPrefix + "002"
 
 const bytecodeMagicPrefix = "KVN"
 

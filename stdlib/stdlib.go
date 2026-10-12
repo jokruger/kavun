@@ -16,7 +16,7 @@ type Module struct {
 }
 
 var (
-	id2Module   = make([]*Module, core.MaxModules)
+	id2Module   = make([]*Module, 256)
 	name2Module = make(map[string]*Module)
 )
 
@@ -74,7 +74,7 @@ func GetModuleDefinition(name string) (*Module, bool) {
 func GetModule(id int) (core.Value, error) {
 	// A bad module ID means the bytecode and the registered module table disagree — a host setup mistake, not
 	// something a script can cause or handle: fatal, kind "host".
-	if id >= core.MaxModules {
+	if id >= len(id2Module) {
 		return core.Undefined, errs.NewHostError(fmt.Sprintf("(import) invalid builtin module ID: %d", id))
 	}
 	m := id2Module[id]

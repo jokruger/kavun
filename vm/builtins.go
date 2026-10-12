@@ -12,7 +12,6 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/member/members"
-	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
@@ -87,13 +86,13 @@ func init() {
 	}
 
 	for i, fn := range fns {
-		id := uint64(module.Global) + i
+		id := uint64(core.GlobalSlotBase) + i
 		core.BuiltinFunctions[id] = fn
 		BuiltinFunctions[fn.Name] = core.BuiltinFunctionValue(id)
 	}
 
 	BuiltinFunctionNames = make([]string, 0, len(fns))
-	for id := module.Global; id < module.Global+core.ModuleSlotSize; id++ {
+	for id := core.GlobalSlotBase; id < core.GlobalSlotBase+core.ModuleSlotSize; id++ {
 		if fn := core.BuiltinFunctions[id]; fn != nil {
 			BuiltinFunctionNames = append(BuiltinFunctionNames, fn.Name)
 		}
