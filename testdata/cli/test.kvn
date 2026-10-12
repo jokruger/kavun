@@ -2,13 +2,12 @@
 
 os := import("os")
 one := import("one")
-fmt := import("fmt")
+io := import("io")
 expected := ["test", "one", "two", "three", "four", "five"]
 expected = expected.join(" ")
 if v := one.fn("test"); v != expected {
-    fmt.printf("relative import test error:\n\texpected: %v\n\tgot     : %v\n",
-                expected, v)
+    io.print(f"relative import test error:\n\texpected: {expected}\n\tgot     : {v}")
     os.exit(1)
 }
 args := os.args().join(" ")
-fmt.println("ok\t", args)
+io.print("ok\t", args)

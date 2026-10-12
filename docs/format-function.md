@@ -6,13 +6,13 @@ and produces a formatted string. The template uses the same `{...}` placeholder 
 runtime string, so it can be built, loaded, or chosen at run time.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
-fmt.println(format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"}))
-fmt.println(format("hello {0} from {1}!", ["Kavun", "Kherson"]))
+io.print(format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"}))
+io.print(format("hello {0} from {1}!", ["Kavun", "Kherson"]))
 
-fmt.println(format("pi = {x:.3f}",  {x: 3.14159}))        // pi = 3.142
-fmt.println(format("n = {x:{fmt}}", {x: 42, fmt: "05d"})) // n = 00042
+io.print(format("pi = {x:.3f}",  {x: 3.14159}))        // pi = 3.142
+io.print(format("n = {x:{fmt}}", {x: 42, fmt: "05d"})) // n = 00042
 ```
 
 ## Signature

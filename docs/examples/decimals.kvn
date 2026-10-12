@@ -3,7 +3,7 @@
 // Exact decimal arithmetic for money.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 cart = [
   {sku: "A", price: 19.99d, qty: 3},
@@ -20,6 +20,6 @@ rounding = "half_even"                           // the tax rule; in practice re
 tax      = subtotal.mul_round(tax_rate, 2, rounding)   // one rounding, at the boundary, to cents
 total    = subtotal + tax
 
-fmt.println(f"subtotal: {subtotal}")
-fmt.println(f"tax     : {tax}")
-fmt.println(f"total   : {total}")
+io.print(f"subtotal: {subtotal}")
+io.print(f"tax     : {tax}")
+io.print(f"total   : {total}")

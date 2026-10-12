@@ -779,3 +779,60 @@ func TestRetiredModuleFunctions(t *testing.T) {
 	}
 	expect(t, `re := import("regexp"); out = re.re_match("[0-9]", "a1")`, true)
 }
+
+// io prints to the VM's stdout and reads from its stdin, never the process streams.
+func TestIO(t *testing.T) {
+	run := func(src string, stdin string) (string, *kavun.Compiled, error) {
+		c, err := compileGranted(src, "out")
+		require.NoError(t, err)
+		var stdout strings.Builder
+		machine := newGrantedVM()
+		machine.SetStdout(&stdout)
+		machine.SetStdin(strings.NewReader(stdin))
+		err = c.Run(machine)
+		return stdout.String(), c, err
+	}
+	get := func(c *kavun.Compiled) string { // the render: internal/require compares no []any
+		v, err := c.Get("out")
+		require.NoError(t, err)
+		return v.String()
+	}
+	requireKind := func(err error, kind string) {
+		var re *kavun.RuntimeError
+		require.True(t, errors.As(err, &re), "got %T: %v", err, err)
+		require.Equal(t, kind, re.Kind)
+	}
+
+	// print is the line form, write the raw one
+	stdout, _, err := run(`io := import("io"); io.write("a", 1, [2]); io.print("b", 3.5, undefined); out = io.print()`, "")
+	require.NoError(t, err)
+	require.Equal(t, "a1[2]b 3.5 undefined\n\n", stdout)
+
+	// read_line: terminators stripped, a last line without one is still a line, end of input raises or defaults
+	_, c, err := run(`io := import("io"); out = [io.read_line(), io.read_line(), io.read_line(), io.read_line("eof")]`, "one\ntwo\r\nthree")
+	require.NoError(t, err)
+	require.Equal(t, `["one", "two", "three", "eof"]`, get(c))
+	_, _, err = run(`io := import("io"); out = io.read_line()`, "")
+	requireKind(err, "io")
+	require.True(t, strings.Contains(err.Error(), "(io.read_line) end of input"), err.Error())
+	_, c, err = run(`io := import("io"); d := [1]; out = io.read_line(d) == d`, "") // the default is answered as-is
+	require.NoError(t, err)
+	require.Equal(t, "true", get(c))
+
+	// read(n) counts symbols and waits for them; read() is the rest; both share the buffer read_line uses
+	_, c, err = run(`io := import("io"); out = [io.read_line(), io.read(2), io.read(0), io.read(), io.read(), io.read(3)]`, "head\nżółw\nmore")
+	require.NoError(t, err)
+	require.Equal(t, `["head", "żó", "", "łw\nmore", "", ""]`, get(c))
+	_, _, err = run(`import("io").read(2.0)`, "ab") // a count is an int
+	requireKind(err, "invalid_argument_type")
+	_, c, err = run(`io := import("io"); out = [io.read(2).bytes(), io.read(1).bytes(), io.read(1000000000000)]`, "a\xffb")
+	require.NoError(t, err) // an undecodable octet is one symbol and comes through as itself; a huge n is only a bound
+	require.Equal(t, `[bytes([97, 255]), bytes([98]), ""]`, get(c))
+
+	_, _, err = run(`import("io").read(-1)`, "")
+	requireKind(err, "invalid_value")
+	for _, src := range []string{`import("io").read_line(1, 2)`, `import("io").read(1, 2)`} {
+		_, _, err = run(src, "")
+		requireKind(err, "wrong_num_arguments")
+	}
+}

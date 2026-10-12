@@ -3,7 +3,7 @@
 // Init-scoped `if` and block-local `:=`. 
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 classify = func(s) {
   // `n` is local to this if/else chain.
@@ -20,8 +20,8 @@ classify = func(s) {
 }
 
 for s in ["7", "12", "0", "abc", "-3"] {
-  fmt.println(classify(s))
+  io.print(classify(s))
 }
 
 // `n` is not visible here — it lived only inside the if/else.
-fmt.println(is_undefined(type_name))   // false; outer scope intact
+io.print(is_undefined(type_name))   // false; outer scope intact

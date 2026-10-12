@@ -89,7 +89,7 @@ fmt.Println(sum)
 
 ### The module grant
 
-A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`os`, `fmt`,
+A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`os`, `io`,
 `rand`, `times`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
 else must be granted. The grant is checked twice — by the compiler, and again by the VM that runs the bytecode —
 so bytecode compiled elsewhere or decoded from a file cannot bypass it:

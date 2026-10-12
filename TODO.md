@@ -99,10 +99,10 @@
     checks below and the LSP; also lets `docs/types/function-matrix.md` be generated instead of hand-derived.
   - **Compile-time member checks, no type system needed.** Rule throughout: diagnose only when CERTAIN;
     "unknown" stays silent at compile time and the runtime still raises (never a false positive). Tiers:
-    - **A. Binding provenance** — a symbol bound by `:= import("fmt")` and never reassigned anywhere in the
+    - **A. Binding provenance** — a symbol bound by `:= import("io")` and never reassigned anywhere in the
       file (closures included — visible at compile time) has a known export set: builtin modules' exports
       already exist at compile time (`stdlib.InitModule` → `name2Module[...].Body`); user modules too when
-      `export` is a literal `{...}`. Catches `fmt.printf`, `math.pii` as compile errors.
+      `export` is a literal `{...}`. Catches `io.printf`, `math.pii` as compile errors.
     - **B. Flow-insensitive local inference** — a local is "known type T" iff every assignment to it is a
       literal or a constructor (`[...]`, `"..."`, `int(x)`, …), else "unknown". Catches
       `a := [1,2,3]; a.lenght()`. Needs the member rosters.
@@ -579,6 +579,11 @@
 - builtin cron support (expressions, next event, etc)
 - shell we rename fmt to io ?
 - input functions - console input, key, etc
+  - `io.read_line([default])` and `io.read([n])` exist (2026-10-12; `n` counts symbols). Also open: `io.read_bytes(n)`
+    → `bytes` for binary input. Still open: `io.read_key()` — one key press
+    without Enter needs raw terminal mode (`golang.org/x/term`, a new dependency, plus restoring the mode on every
+    exit path) and a key-name table for non-printing keys (arrows, F-keys, Esc sequences); it must read through
+    `VM.Stdin()` like the rest, so it cannot assume the reader is a terminal.
 - use caches for runtime parsing, etc (use cache package with controlled cache size)
 
 - optional static types - does not allow reassign to other types, fail function calls, etc

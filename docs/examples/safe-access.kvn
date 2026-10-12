@@ -3,7 +3,7 @@
 // Safe access through `undefined`.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 response = {
   user: {
@@ -13,12 +13,12 @@ response = {
 }
 
 // Direct chain — every step is defined.
-fmt.println(response.user.address.city)        // Kherson
+io.print(response.user.address.city)        // Kherson
 
 // Missing intermediate — chain returns `undefined`, no error.
-fmt.println(response.account.billing.zip)      // undefined
+io.print(response.account.billing.zip)      // undefined
 
 // Pick a default with a ternary.
 zip = response.account.billing.zip
 zip = is_undefined(zip) ? "00000" : zip
-fmt.println(f"zip: {zip}")
+io.print(f"zip: {zip}")

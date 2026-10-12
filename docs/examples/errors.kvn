@@ -3,7 +3,7 @@
 // Errors as values.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 parse_port = func(s) {
   // s.int() raises on a bad parse; the explicit member default is the maybe-missing spelling
@@ -19,8 +19,8 @@ for raw in inputs {
   r = parse_port(raw)
   if is_error(r) {
     info = r.value()
-    fmt.println(f"reject {raw}: {info.code}")
+    io.print(f"reject {raw}: {info.code}")
   } else {
-    fmt.println(f"accept {raw} -> {r}")
+    io.print(f"accept {raw} -> {r}")
   }
 }

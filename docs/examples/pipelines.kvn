@@ -3,7 +3,7 @@
 // Expression-oriented data pipelines.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 orders = [
   {customer: "Ada",   total: 120, paid: true},
@@ -22,5 +22,5 @@ vips = orders
   .map(o => o.customer)
   .sort()
 
-fmt.println(f"paid total: {paid_total}")
-fmt.println(f"vips: {vips}")
+io.print(f"paid total: {paid_total}")
+io.print(f"vips: {vips}")

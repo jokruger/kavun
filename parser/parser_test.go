@@ -2653,7 +2653,7 @@ func TestParseFloat(t *testing.T) {
 
 func TestMismatchBrace(t *testing.T) {
 	expectParseError(t, `
-fmt := import("fmt")
+io := import("io")
 out := 0
 if 3 == 1 {
 	out = 1
@@ -2661,7 +2661,7 @@ if 3 == 1 {
 } else {
 	out = 2
 }
-fmt.println(out)
+io.print(out)
 	`)
 }
 

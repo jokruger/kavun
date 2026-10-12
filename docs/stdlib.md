@@ -4,8 +4,8 @@ This document covers the main builtin modules in Kavun stdlib:
 
 - `base64`
 - `fin`
-- `fmt`
 - `hex`
+- `io`
 - `json`
 - `math`
 - `os`
@@ -18,7 +18,7 @@ Notes:
 - Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
   constants are read-only members, and a missing name raises.
 - **Grant.** `base64`, `fin`, `hex`, `json`, `math` and `regexp` are *pure* (they only compute) and importable by
-  default. `fmt`, `os`, `rand` and `times` touch the world and must be granted by the host (`docs/embedding.md`
+  default. `io`, `os`, `rand` and `times` touch the world and must be granted by the host (`docs/embedding.md`
   § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
 - A module function either answers the documented value or **raises** — nothing answers an error value, and
@@ -264,18 +264,6 @@ script-defined convention) — a stated fraction, `fin.year_fraction(n, d)`, cov
 `(fin.straight_line) the salvage value is above the cost`. A wrong argument type raises `invalid_argument_type`,
 a wrong count `wrong_num_arguments`, a division by zero `division_by_zero`.
 
-## fmt
-
-Example:
-
-```go
-fmt = import("fmt")
-fmt.println("sum:", 20 + 22)
-```
-
-- `fmt.print(values...) -> undefined`: Print values without newline.
-- `fmt.println(values...) -> undefined`: Print values with newline.
-
 ## hex
 
 Example:
@@ -289,6 +277,50 @@ hex.encode(bytes("ok"))
 - `hex.decode(s string) -> bytes`: Hex-decode string.
 
 **Failures.** A malformed input raises kind `conversion`: `(hex.decode) encoding/hex: invalid byte …`.
+
+## io
+
+The script's console. It writes to the VM's stdout and reads from its stdin — the process streams unless the host
+redirects them (`VM.SetStdout`, `VM.SetStdin`, see [embedding.md § Standard streams](embedding.md#standard-streams)).
+`io` touches the world, so a host must grant it; the `kavun` CLI does.
+
+| | line-oriented | raw stream |
+| --- | --- | --- |
+| output | `print(values...)` | `write(values...)` |
+| input | `read_line([default])` | `read([n])` |
+
+Example:
+
+```go
+io := import("io")
+io.print("sum:", 20 + 22)            // sum: 42
+io.write("a", "b"); io.write("c\n")  // abc
+name := io.read_line("anonymous")    // one line of input, or "anonymous" at end of input
+head := io.read(4)                   // the next 4 symbols ("" at end of input)
+rest := io.read()                    // everything after them ("" when nothing is left)
+```
+
+- `io.print(values...) -> undefined`: Print values separated by spaces, then a newline. Text prints as its content,
+  everything else as its render.
+- `io.write(values...) -> undefined`: Write values concatenated — no separator, no newline. The building block for
+  output assembled piece by piece.
+- `io.read_line([default]) -> string`: One line of input without its terminator (`\n` or `\r\n`); a last line
+  with no terminator is still a line. At end of input it raises `io` (`(io.read_line) end of input`), unless a
+  default is given — then the default is answered as-is. (`""` is a valid line, so end of input cannot answer it.)
+- `io.read([n]) -> string`: Without `n`, the rest of the input. With `n`, the next `n` symbols — the unit of a
+  string's `len()` and indexing — waiting for them unless the input ends first, so it answers fewer only at end of
+  input. `""` only at end of input (and for `n == 0`), so a loop `for s := io.read(64); s != ""; s = io.read(64)`
+  ends cleanly. A negative `n` raises `invalid_value`; `n` bounds the read, it is not an allocation.
+
+Both readers share one input buffer, so `read_line` followed by `read` loses nothing. Octets that are not valid
+UTF-8 come through unchanged; each counts as one symbol, as in every text conversion.
+
+Failures: `io` (an output or input stream the world refused, or end of input for `read_line` without a default);
+`invalid_value` (a negative count); `invalid_argument_type`; `wrong_num_arguments`.
+
+**Migration:** the module was `fmt`. `import("fmt")` → `import("io")`. `println(...)` → `print(...)`, and the old
+`print` (no newline, no separators) → `write(...)`. Output goes to the VM's stdout instead of the process's.
+`read_line` and `read` are new.
 
 ## json
 

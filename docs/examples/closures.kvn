@@ -3,7 +3,7 @@
 // Closures and first-class functions.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 make_counter = func(start) {
   n = start
@@ -17,10 +17,10 @@ make_counter = func(start) {
 c = make_counter(10)
 c.next()
 c.next()
-fmt.println(c.value())   // 12
+io.print(c.value())   // 12
 c.reset(0)
-fmt.println(c.next())    // 1
+io.print(c.next())    // 1
 
 // Functions are values — pass them around.
 apply = (fn, xs) => xs.map(fn)
-fmt.println(apply(x => x * x, [1, 2, 3, 4]))   // [1, 4, 9, 16]
+io.print(apply(x => x * x, [1, 2, 3, 4]))   // [1, 4, 9, 16]

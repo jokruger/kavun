@@ -378,7 +378,7 @@ var builtinNames = [...]string{
 	members.Encode:                   "encode",
 	members.Decode:                   "decode",
 	members.Print:                    "print",
-	members.Println:                  "println",
+	members.ReadLine:                 "read_line",
 	members.Indent:                   "indent",
 	members.HTMLEscape:               "html_escape",
 	members.ReMatch:                  "re_match",

@@ -48,14 +48,14 @@ Then you can run Kavun scripts with the `kavun` command or using hashbang:
 ```go
 #!/usr/bin/env kavun
 
-fmt = import("fmt")
+io = import("io")
 
 result = [1, 2, 3, 4, 5, 6]
   .filter(x => x % 2 == 0)
   .map(x => x * x)
   .reduce(0, (sum, x) => sum + x)
 
-fmt.println(f"sum of even squares: {result}")
+io.print(f"sum of even squares: {result}")
 ```
 
 See more [examples](docs/examples.md), or the [cheat sheet](docs/cheatsheet.md) for a one-page syntax reference.

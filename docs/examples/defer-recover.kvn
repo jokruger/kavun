@@ -7,7 +7,7 @@
 //   2. `defer` to schedule cleanup or error-handling code that runs on every exit path
 //   3. `raise` and `recover` to convert raised errors into error values
 
-fmt = import("fmt")
+io = import("io")
 
 // safe_div either returns the quotient or, on division-by-zero, returns an error value built from
 // the recovered VM error.
@@ -48,18 +48,18 @@ verbose := func() {
     defer func() { trace.append_in_place("3") }()
 }
 verbose()
-fmt.println("defer order:", trace)   // ["3", "2", "1"]
+io.print("defer order:", trace)   // ["3", "2", "1"]
 
-fmt.println("safe_div(10, 2) =", safe_div(10, 2))
+io.print("safe_div(10, 2) =", safe_div(10, 2))
 r := safe_div(10, 0)
 if is_error(r) {
-    fmt.println("safe_div(10, 0) failed:", r.value())
+    io.print("safe_div(10, 0) failed:", r.value())
 }
 
 ok := guarded(func() { return must_positive(7) })
-fmt.println("guarded ok:", ok)
+io.print("guarded ok:", ok)
 
 bad := guarded(func() { return must_positive(-3) })
 if is_error(bad) {
-    fmt.println("guarded bad:", bad.is_runtime(), bad.value())
+    io.print("guarded bad:", bad.is_runtime(), bad.value())
 }

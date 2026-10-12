@@ -40,8 +40,8 @@ Add a hashbang line as the first line of your script to make it directly executa
 ```go
 #!/usr/bin/env kavun
 
-fmt = import("fmt")
-fmt.println("Hello Kavun!")
+io = import("io")
+io.print("Hello Kavun!")
 ```
 
 Then make the file executable and run it:

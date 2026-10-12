@@ -80,13 +80,13 @@ over.
 and stops the unwinding; with nothing in flight it answers `undefined`.
 
 ```go
-fmt := import("fmt")
+io := import("io")
 
 safe_div := func(a, b) res {
     defer func() {
         e := recover()
         if e != undefined {
-            fmt.println("caught: ", e.kind())   // "division_by_zero"
+            io.print("caught: ", e.kind())   // "division_by_zero"
             res = 0
         }
     }()

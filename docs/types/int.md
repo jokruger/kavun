@@ -60,12 +60,12 @@ math.min_int / -1           // Error: int overflow — the one division that ove
 The error is an ordinary raise — `recover()` catches it:
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 checked_add = func(a, b) res {
     defer func() {
         e = recover()
-        if e != undefined { res = undefined; fmt.println("overflow: ", string(e)) }
+        if e != undefined { res = undefined; io.print("overflow: ", string(e)) }
     }()
     res = a + b
 }

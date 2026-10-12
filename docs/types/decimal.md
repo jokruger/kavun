@@ -643,7 +643,7 @@ divisor's (or 0); an inexact one still uses all 19. `sqrt()` of a perfect square
 
 ### Scale is preserved in every rendering
 
-`json.encode`, `string()`, `runes()`, `fmt.println`, f-strings and the default `format()` verb all render at the
+`json.encode`, `string()`, `runes()`, `io.print`, f-strings and the default `format()` verb all render at the
 value's own scale. Previously all of them trimmed trailing zeros:
 
 ```go

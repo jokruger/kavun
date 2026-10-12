@@ -383,7 +383,7 @@ Two regimes, deliberately different:
 "a-b".flat_map(func(c) { return c == '-' ? " / " : c })  // => "a / b"
 "a-b".flat_map(func(c) { return c == '-' ? undefined : c })  // => "ab" (undefined dropped)
 "abc".reduce(0, func(acc, c) { return acc + c.int() })   // => 294
-"abc".for_each(func(c) { fmt.println(c) })               // prints each symbol, returns "abc"
+"abc".for_each(func(c) { io.print(c) })               // prints each symbol, returns "abc"
 ```
 
 ### Case

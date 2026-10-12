@@ -6,8 +6,8 @@ A one-page, skimmable reference to the Kavun language. For full semantics see
 ## Hello world
 
 ```go
-fmt = import("fmt")
-fmt.println("hello, world")
+io = import("io")
+io.print("hello, world")
 ```
 
 ## What makes Kavun different
@@ -264,7 +264,7 @@ safe_div = func(a, b) result {
 }
 
 r = safe_div(10, 0)
-if is_error(r) { fmt.println("failed:", r.value()) }
+if is_error(r) { io.print("failed:", r.value()) }
 
 // e.kind()            -- "division_by_zero", ... / "user" for raise / "requirement" for require
 // e.is_runtime()      -- category: raised by a builtin, member or module
@@ -315,10 +315,10 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `fmt`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
+Builtin modules: `io`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
 
 ```go
-fmt = import("fmt");     fmt.println("sum:", 20 + 22)
+io = import("io");       io.print("sum:", 20 + 22); io.write("no newline"); line := io.read_line("")
 math = import("math");   math.sqrt(144)
 re = import("regexp");   re.re_match("[0-9]+", "abc123")
 json = import("json");   json.encode({a: 1})

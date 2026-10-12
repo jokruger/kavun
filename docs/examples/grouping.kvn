@@ -3,7 +3,7 @@
 // Records, dicts, and grouped aggregation.
 // See docs/examples.md for the explanatory write-up.
 
-fmt = import("fmt")
+io = import("io")
 
 events = [
   {user: "ada",   weight: 1},
@@ -32,5 +32,5 @@ sorted = ranked
 
 for rank, row in sorted {
   parts = row.split("|")
-  fmt.println(f"{rank + 1}. {parts[1]:<8} {int(parts[0]):>3d}")
+  io.print(f"{rank + 1}. {parts[1]:<8} {int(parts[0]):>3d}")
 }

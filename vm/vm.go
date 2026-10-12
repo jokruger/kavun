@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math"
@@ -83,7 +84,7 @@ type VM struct {
 	// Host configuration, kept across Reset (vm/host.go)
 	grant     [4]uint64 // granted module type ids, when grantMode is grantNamed
 	grantMode uint8
-	stdin     io.Reader
+	stdin     *bufio.Reader
 	stdout    io.Writer
 
 	// concurrent state
@@ -103,7 +104,7 @@ func NewVM(maxFrames int, maxStack int) *VM {
 	return &VM{
 		frames: make([]frame, maxFrames),
 		stack:  make([]core.Value, maxStack),
-		stdin:  os.Stdin,
+		stdin:  defaultStdin,
 		stdout: os.Stdout,
 	}
 }

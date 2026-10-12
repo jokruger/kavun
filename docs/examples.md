@@ -2,7 +2,7 @@
 
 A short tour of Kavun through small, realistic snippets focused on the language itself — its expression-oriented style,
 member chaining, lambdas, f-strings, decimals, records, closures, modules, and error values. Standard-library use is
-kept to a minimum (`fmt` for output) so the language features stand on their own. For full reference material see the
+kept to a minimum (`io` for output) so the language features stand on their own. For full reference material see the
 [Language Reference](language.md) and the [Type Reference](types.md).
 
 All snippets are self-contained and runnable with `kavun script.kvn`. Each example below also exists as a standalone
@@ -14,7 +14,7 @@ Transformation-heavy code reads as a single expression instead of a loop with mu
 collections chain naturally; a newline before `.` is treated as line continuation, so pipelines stay readable.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 orders = [
   {customer: "Ada",   total: 120, paid: true},
@@ -33,8 +33,8 @@ vips = orders
   .map(o => o.customer)
   .sort()
 
-fmt.println(f"paid total: {paid_total}")
-fmt.println(f"vips: {vips}")
+io.print(f"paid total: {paid_total}")
+io.print(f"vips: {vips}")
 ```
 
 ## F-strings and the format mini-language
@@ -43,17 +43,17 @@ F-strings interpolate any expression and accept a rich format spec parsed at com
 contain interpolated expressions (nested `{...}`), so widths and precisions can be computed.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 name  = "Kavun"
 qty   = 7
 price = 1234.5
 width = 12
 
-fmt.println(f"hello, {name.upper()}!")
-fmt.println(f"qty   = {qty:05d}")                  // qty   = 00007
-fmt.println(f"price = {price:>{width},.2f}")       // width comes from a variable
-fmt.println(f"row   = {name:<10}{qty:>5d}{price:>10,.2f}")
+io.print(f"hello, {name.upper()}!")
+io.print(f"qty   = {qty:05d}")                  // qty   = 00007
+io.print(f"price = {price:>{width},.2f}")       // width comes from a variable
+io.print(f"row   = {name:<10}{qty:>5d}{price:>10,.2f}")
 ```
 
 ## Exact decimal arithmetic for money
@@ -64,7 +64,7 @@ Intermediates stay exact; the one rounding happens where an amount is pinned to 
 plain string argument, so the business rule can come from configuration.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 cart = [
   {sku: "A", price: 19.99d, qty: 3},
@@ -81,9 +81,9 @@ rounding = "half_even"                           // the tax rule; in practice re
 tax      = subtotal.mul_round(tax_rate, 2, rounding)   // one rounding, at the boundary, to cents
 total    = subtotal + tax
 
-fmt.println(f"subtotal: {subtotal}")
-fmt.println(f"tax     : {tax}")
-fmt.println(f"total   : {total}")
+io.print(f"subtotal: {subtotal}")
+io.print(f"tax     : {tax}")
+io.print(f"total   : {total}")
 ```
 
 ## Records, dicts, and grouped aggregation
@@ -92,7 +92,7 @@ Records (`{key: value}`) are structures with identifier keys and dot access. Dic
 arbitrary keys and index access. Combining `reduce` with a dict turns group-by aggregation into a single expression.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 events = [
   {user: "ada",   weight: 1},
@@ -124,7 +124,7 @@ sorted = ranked
 
 for rank, row in sorted {
   parts = row.split("|")
-  fmt.println(f"{rank + 1}. {parts[1]:<8} {int(parts[0]):>3d}")
+  io.print(f"{rank + 1}. {parts[1]:<8} {int(parts[0]):>3d}")
 }
 ```
 
@@ -134,7 +134,7 @@ Field, index, and call chains short-circuit through `undefined` instead of raisi
 and `is_undefined`, defensive code against partial data stays compact.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 response = {
   user: {
@@ -144,15 +144,15 @@ response = {
 }
 
 // Direct chain — every step is defined.
-fmt.println(response.user.address.city)        // Kherson
+io.print(response.user.address.city)        // Kherson
 
 // Missing intermediate — chain returns `undefined`, no error.
-fmt.println(response.account.billing.zip)      // undefined
+io.print(response.account.billing.zip)      // undefined
 
 // Pick a default with a ternary.
 zip = response.account.billing.zip
 zip = is_undefined(zip) ? "00000" : zip
-fmt.println(f"zip: {zip}")
+io.print(f"zip: {zip}")
 ```
 
 ## Closures and first-class functions
@@ -161,7 +161,7 @@ Functions are values and capture surrounding variables by reference. Returning a
 to model a small object with private state.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 make_counter = func(start) {
   n = start
@@ -175,13 +175,13 @@ make_counter = func(start) {
 c = make_counter(10)
 c.next()
 c.next()
-fmt.println(c.value())   // 12
+io.print(c.value())   // 12
 c.reset(0)
-fmt.println(c.next())    // 1
+io.print(c.next())    // 1
 
 // Functions are values — pass them around.
 apply = (fn, xs) => xs.map(fn)
-fmt.println(apply(x => x * x, [1, 2, 3, 4]))   // [1, 4, 9, 16]
+io.print(apply(x => x * x, [1, 2, 3, 4]))   // [1, 4, 9, 16]
 ```
 
 ## Modules with explicit exports
@@ -202,14 +202,14 @@ export {
 
 ```go
 // main.kvn
-fmt = import("fmt")
+io = import("io")
 geo = import("geometry")
 
 radii = [1, 2, 5, 10]
 table = radii.map(r => ({r: r, area: geo.area(r), circ: geo.circ(r)}))
 
 for row in table {
-  fmt.println(f"r={row.r:>3d}  area={row.area:>10.3f}  circ={row.circ:>10.3f}")
+  io.print(f"r={row.r:>3d}  area={row.area:>10.3f}  circ={row.circ:>10.3f}")
 }
 ```
 
@@ -231,7 +231,7 @@ double(21)   // 42
 caller branches with `is_error`. The payload can be any value — including a record with structured details.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 parse_port = func(s) {
   // s.int() raises on a bad parse; the explicit member default is the maybe-missing spelling
@@ -247,9 +247,9 @@ for raw in inputs {
   r = parse_port(raw)
   if is_error(r) {
     info = r.value()
-    fmt.println(f"reject {raw}: {info.code}")
+    io.print(f"reject {raw}: {info.code}")
   } else {
-    fmt.println(f"accept {raw} -> {r}")
+    io.print(f"accept {raw} -> {r}")
   }
 }
 ```
@@ -312,7 +312,7 @@ Variadic parameters collect extra arguments into an array; the same `...` syntax
 Membership checks (`in`, `not in`) work uniformly on strings, arrays, records, dicts, and ranges.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 stats = func(label, ...xs) {
   return {
@@ -325,16 +325,16 @@ stats = func(label, ...xs) {
 }
 
 samples = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
-fmt.println(stats("primes", 2, 3, 5, 7, 11))
-fmt.println(stats("samples", samples...))
+io.print(stats("primes", 2, 3, 5, 7, 11))
+io.print(stats("samples", samples...))
 
 // Membership and slicing as expressions.
 allowed = ["GET", "POST", "PUT"]
 method  = "DELETE"
-fmt.println(method in allowed)              // false
-fmt.println("err" in "alert: error 42")     // true
-fmt.println(samples[::-1])                  // reversed copy
-fmt.println(samples[1:8:2])                 // strided slice
+io.print(method in allowed)              // false
+io.print("err" in "alert: error 42")     // true
+io.print(samples[::-1])                  // reversed copy
+io.print(samples[1:8:2])                 // strided slice
 ```
 
 ## Init-scoped `if` and block-local `:=`
@@ -344,7 +344,7 @@ plain `=` modifies the surrounding scope. This makes "compute, then test" patter
 namespace.
 
 ```go
-fmt = import("fmt")
+io = import("io")
 
 classify = func(s) {
   // `n` is local to this if/else chain.
@@ -361,11 +361,11 @@ classify = func(s) {
 }
 
 for s in ["7", "12", "0", "abc", "-3"] {
-  fmt.println(classify(s))
+  io.print(classify(s))
 }
 
 // `n` is not visible here — it lived only inside the if/else.
-fmt.println(is_undefined(type_name))   // false; outer scope intact
+io.print(is_undefined(type_name))   // false; outer scope intact
 ```
 
 ## A loan schedule with `fin`
@@ -376,7 +376,7 @@ reconcile to the cent. This one is in [`docs/examples/loan.kvn`](examples/loan.k
 
 ```go
 // A loan schedule with the fin module: every amount is an exact decimal at a stated rounding.
-fmt = import("fmt")
+io = import("io")
 fin = import("fin")
 
 principal = 25000
@@ -385,7 +385,7 @@ months    = 12
 round     = "half_even"
 
 payment = -fin.payment(rate, months, principal, 0, "arrears", 2, round)   // fin's sign: money paid back is negative
-fmt.println(f"monthly payment: {payment}")
+io.print(f"monthly payment: {payment}")
 
 // Each fin result is computed exactly and rounded once, so independently rounded columns can disagree by a cent.
 // A schedule therefore takes ONE rounded series — the balance — and derives the rest from it: the principal repaid
@@ -398,12 +398,12 @@ for period in 1..(months + 1) {
   interest = payment - repaid
   total_interest += interest
   if period <= 3 || period == months {
-    fmt.println(f"{period:>3}  interest {interest:>8}  principal {repaid:>8}  balance {balance:>9}")
+    io.print(f"{period:>3}  interest {interest:>8}  principal {repaid:>8}  balance {balance:>9}")
   }
   previous = balance
 }
-fmt.println(f"total interest: {total_interest}")   // = 12 × payment − principal, to the cent
+io.print(f"total interest: {total_interest}")   // = 12 × payment − principal, to the cent
 
 // the inverse question: what rate does this payment imply?
-fmt.println(f"implied rate: {fin.rate(months, -payment, principal, 0, \"arrears\", 6, round)}")
+io.print(f"implied rate: {fin.rate(months, -payment, principal, 0, \"arrears\", 6, round)}")
 ```

@@ -9,7 +9,7 @@
 //
 // Run this file twice, once with each `input` below, to see both outcomes.
 
-fmt = import("fmt")
+io = import("io")
 
 input := {amount: "120.50", currency: "EUR", customer: {age: 34}}
 // input := {amount: "-5", currency: "EUR", customer: {age: 34}}   // rejected: must be positive
@@ -27,7 +27,7 @@ stage := "inputs"
 // Reporting only — a real script leaves `decision` to the host, which reads it back
 // after the run. Registered first so that, LIFO, it runs LAST: after the handler below
 // has had its say.
-defer func() { fmt.println("decision:", decision) }()
+defer func() { io.print("decision:", decision) }()
 
 defer func() {
     e := recover()

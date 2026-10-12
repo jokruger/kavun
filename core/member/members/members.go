@@ -429,10 +429,11 @@ const (
 	Decode = 586
 	// 587…592 reserved
 
-	// module fmt
-	Print   = 593
-	Println = 594
-	// 595…600 reserved
+	// module io (formerly fmt)
+	Print = 593
+	// Println = 594 // retired: print ends the line; io.write is the no-newline form
+	ReadLine = 595
+	// 596…600 reserved
 
 	// module json
 	Indent     = 601

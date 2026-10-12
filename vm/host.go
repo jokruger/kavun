@@ -1,8 +1,10 @@
 package vm
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
@@ -51,9 +53,18 @@ func (v *VM) moduleAllowed(def *core.ModuleDef) bool {
 	}
 }
 
-// SetStdin sets the reader the io module reads from (default os.Stdin).
+// defaultStdin is os.Stdin behind one buffer shared by every VM that reads it, so no VM's buffer swallows input
+// another one should see.
+var defaultStdin = bufio.NewReader(os.Stdin)
+
+// SetStdin sets the reader the io module reads from (default os.Stdin). The VM reads it through one buffer, so a
+// line read followed by a read of the rest loses nothing.
 func (v *VM) SetStdin(r io.Reader) {
-	v.stdin = r
+	if br, ok := r.(*bufio.Reader); ok {
+		v.stdin = br
+		return
+	}
+	v.stdin = bufio.NewReader(r)
 }
 
 // SetStdout sets the writer the io module prints to (default os.Stdout).
@@ -61,7 +72,7 @@ func (v *VM) SetStdout(w io.Writer) {
 	v.stdout = w
 }
 
-// Stdin answers the reader the io module reads from.
+// Stdin answers the reader the io module reads from: a *bufio.Reader, so every reader of it shares one buffer.
 func (v *VM) Stdin() io.Reader {
 	return v.stdin
 }

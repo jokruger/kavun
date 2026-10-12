@@ -1,7 +1,7 @@
 #!/usr/bin/env kavun
 
 // A loan schedule with the fin module: every amount is an exact decimal at a stated rounding.
-fmt = import("fmt")
+io = import("io")
 fin = import("fin")
 
 principal = 25000
@@ -10,7 +10,7 @@ months    = 12
 round     = "half_even"
 
 payment = -fin.payment(rate, months, principal, 0, "arrears", 2, round)   // fin's sign: money paid back is negative
-fmt.println(f"monthly payment: {payment}")
+io.print(f"monthly payment: {payment}")
 
 // Each fin result is computed exactly and rounded once, so independently rounded columns can disagree by a cent.
 // A schedule therefore takes ONE rounded series — the balance — and derives the rest from it: the principal repaid
@@ -23,11 +23,11 @@ for period in 1..(months + 1) {
   interest = payment - repaid
   total_interest += interest
   if period <= 3 || period == months {
-    fmt.println(f"{period:>3}  interest {interest:>8}  principal {repaid:>8}  balance {balance:>9}")
+    io.print(f"{period:>3}  interest {interest:>8}  principal {repaid:>8}  balance {balance:>9}")
   }
   previous = balance
 }
-fmt.println(f"total interest: {total_interest}")   // = 12 × payment − principal, to the cent
+io.print(f"total interest: {total_interest}")   // = 12 × payment − principal, to the cent
 
 // the inverse question: what rate does this payment imply?
-fmt.println(f"implied rate: {fin.rate(months, -payment, principal, 0, \"arrears\", 6, round)}")
+io.print(f"implied rate: {fin.rate(months, -payment, principal, 0, \"arrears\", 6, round)}")
