@@ -315,12 +315,12 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `io`, `math`, `os`, `fs`, `exec`, `path`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
+Builtin modules: `io`, `math`, `os`, `fs`, `exec`, `path`, `re`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
 
 ```go
 io = import("io");       io.print("sum:", 20 + 22); io.write("no newline"); line := io.read_line("")
 math = import("math");   math.hypot(3, 4)   // sqrt, pow, ln, round(n, mode) are float members: 144.0.sqrt()
-re = import("regexp");   re.re_match("[0-9]+", "abc123")
+re = import("re");       re.pattern("[0-9]+").match("abc123")
 json = import("json");   json.encode({a: 1})
 times = import("times"); times.now()
 rand = import("rand");   rand.int_n(100)

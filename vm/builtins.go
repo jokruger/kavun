@@ -366,7 +366,7 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	case value.String, value.Runes, value.Bytes, value.Array, value.Dict, value.Record, value.IntRange:
 		return core.IntValue(args[0].Len()), nil
 	}
-	if args[0].Type >= value.FirstUserDefinedType || core.ModuleByType(args[0].Type) != nil { // a module: its member count
+	if core.IsExtensionType(args[0].Type) || core.ModuleByType(args[0].Type) != nil { // a module: its member count
 		return core.IntValue(args[0].Len()), nil
 	}
 	return core.Undefined, errs.NewInvalidArgumentTypeError("len", "first", "a value with a length", args[0].TypeName())
@@ -701,7 +701,7 @@ func builtinCopyShallow(vm core.VM, args []core.Value) (core.Value, error) {
 	case value.Array, value.Dict, value.Record:
 		return args[0].Copy(false)
 	}
-	if args[0].Type >= value.FirstUserDefinedType {
+	if core.IsExtensionType(args[0].Type) {
 		return args[0].Copy(false)
 	}
 	return core.Undefined, errs.NewInvalidArgumentTypeError("copy_shallow", "first", "array, dict, or record", args[0].TypeName())
@@ -726,7 +726,7 @@ func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
 	case value.Array, value.Dict, value.Record:
 		return args[0].ToImmutable()
 	}
-	if args[0].Type >= value.FirstUserDefinedType {
+	if core.IsExtensionType(args[0].Type) {
 		return args[0].ToImmutable()
 	}
 	return core.Undefined, errs.NewInvalidArgumentTypeError("freeze_shallow", "first", "array, dict, or record", args[0].TypeName())
@@ -900,7 +900,7 @@ func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
 			elems, ok := src.AsArray()
 			return core.NewArrayValue(elems, false), ok
 		}
-		if src.Type >= value.FirstUserDefinedType {
+		if core.IsExtensionType(src.Type) {
 			if elems, ok := src.AsArray(); ok {
 				return core.NewArrayValue(elems, false), true
 			}
@@ -1090,7 +1090,7 @@ func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge fun
 	if src.Type == value.Undefined {
 		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "value is missing")
 	}
-	if !hasEdge(src.Type) && src.Type < value.FirstUserDefinedType {
+	if !hasEdge(src.Type) && !core.IsExtensionType(src.Type) {
 		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "no conversion exists")
 	}
 	if r, ok := conv(src); ok {

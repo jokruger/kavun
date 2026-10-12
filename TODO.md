@@ -81,6 +81,10 @@
    against "one translation point per error family". Likely bug. Fix: the hook adds context only to raw errors, or
    `binaryCodecError` re-wraps a wrapped `*errs.Error` into one `*errs.Error`; check the other `DecodeBinary` hooks
    that call `Value.DecodeBinary` on nested values for the same shape. Pin with `err.(*errs.Error)` in a test.
+- **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
+  pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
+  pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
+  literal pattern once. Same shape would serve other pure, immutable owned values.
 
 ## AI-friendliness / authoring feedback
 

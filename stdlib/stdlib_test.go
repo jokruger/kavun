@@ -57,6 +57,10 @@ func (c callres) call(funcName string, args ...any) callres {
 	v := mock.Vm
 
 	if o, ok := c.o.(core.Value); ok {
+		if id := member.Lookup(funcName); id != member.Unknown && core.HasMember(o.Type, funcName) {
+			res, err := o.CallMember(v, id, funcName, oargs) // a typed value's member (re.pattern, …)
+			return callres{t: c.t, o: res, e: err}
+		}
 		if core.ModuleByType(o.Type) != nil {
 			m, err := o.AccessProperty(v, member.Lookup(funcName), funcName)
 			if err != nil {
@@ -260,8 +264,7 @@ func TestModuleFailuresRaise(t *testing.T) {
 		{"os.chdir", `os := import("os"); os.chdir("/nonexistent/definitely/not/here")`, "io", "(os.chdir)"},
 		{"base64.decode", `b := import("base64"); b.decode("!!!!")`, "conversion", "(base64.decode)"},
 		{"hex.decode", `h := import("hex"); h.decode("zz")`, "conversion", "(hex.decode)"},
-		{"regexp.re_compile", `r := import("regexp"); r.re_compile("(")`, "invalid_value", "(regexp.re_compile)"},
-		{"regexp.re_match", `r := import("regexp"); r.re_match("(", "x")`, "invalid_value", "(regexp.re_match)"},
+		{"re.pattern", `r := import("re"); r.pattern("(")`, "invalid_value", "(re.pattern)"},
 		{"times.parse_duration", `t := import("times"); t.parse_duration("not a duration")`, "conversion", "(times.parse_duration)"},
 		{"times.days_in_month", `t := import("times"); t.days_in_month(2026, 13)`, "invalid_value", "(times.days_in_month)"},
 		{"fin.payment", `f := import("fin"); f.payment(0.05d, 0, 1000, 0, "arrears", 2, "half_even")`, "invalid_value", "(fin.payment)"},
@@ -319,7 +322,7 @@ func TestJSONFailuresRaise(t *testing.T) {
 func TestRegexpExpansionLimitIsRecoverable(t *testing.T) {
 	machine := newGrantedVM()
 	// 200k matches x a 40k-reference template: far past the 4294967296-element ceiling, and cheap to reject.
-	src := `r := import("regexp"); r.re_replace("a", "a".repeat(200000), "$0".repeat(40000))`
+	src := `r := import("re"); r.pattern("a").replace("a".repeat(200000), "$0".repeat(40000))`
 	c, err := compileGranted(src)
 	require.NoError(t, err)
 	err = c.Run(machine)
@@ -329,7 +332,7 @@ func TestRegexpExpansionLimitIsRecoverable(t *testing.T) {
 	require.True(t, errors.As(err, &re), "got %T: %v", err, err)
 	require.Equal(t, "invalid_value", re.Kind)
 	require.False(t, re.Fatal)
-	require.True(t, strings.Contains(re.Message, "(regexp.re_replace)"), "got %q", re.Message)
+	require.True(t, strings.Contains(re.Message, "(re.pattern.replace)"), "got %q", re.Message)
 }
 
 // A statement-like module function answers undefined on success — "no result", not a `true` to branch on.
@@ -487,25 +490,25 @@ func TestOSExpandEnv(t *testing.T) {
 }
 
 func TestRegexpREAlternation(t *testing.T) {
-	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "a").expect(ARR{
+	module(t, "re").call("pattern", "([a-zA-Z])|([0-9])").call("find", "a").expect(ARR{
 		ARR{
 			IMAP{"text": "a", "begin": 0, "end": 1},
 			IMAP{"text": "a", "begin": 0, "end": 1},
 		},
 	}, "alternation with letter")
 
-	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "5").expect(ARR{
+	module(t, "re").call("pattern", "([a-zA-Z])|([0-9])").call("find", "5").expect(ARR{
 		ARR{
 			IMAP{"text": "5", "begin": 0, "end": 1},
 			IMAP{"text": "5", "begin": 0, "end": 1},
 		},
 	}, "alternation with number")
 
-	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "").expect(core.Undefined, "empty input")
+	module(t, "re").call("pattern", "([a-zA-Z])|([0-9])").call("find", "").expect(ARR{}, "empty input")
 
-	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "!").expect(core.Undefined, "non-matching input")
+	module(t, "re").call("pattern", "([a-zA-Z])|([0-9])").call("find", "!").expect(ARR{}, "non-matching input")
 
-	module(t, "regexp").call("re_find", "(?:([a-zA-Z])|([0-9]))+", "a5b").expect(ARR{
+	module(t, "re").call("pattern", "(?:([a-zA-Z])|([0-9]))+").call("find", "a5b").expect(ARR{
 		ARR{
 			IMAP{"text": "a5b", "begin": 0, "end": 3},
 			IMAP{"text": "b", "begin": 2, "end": 3},
@@ -513,14 +516,14 @@ func TestRegexpREAlternation(t *testing.T) {
 		},
 	}, "multiple alternations")
 
-	module(t, "regexp").call("re_find", "(foo)|(bar)|(baz)", "foo").expect(ARR{
+	module(t, "re").call("pattern", "(foo)|(bar)|(baz)").call("find", "foo").expect(ARR{
 		ARR{
 			IMAP{"text": "foo", "begin": 0, "end": 3},
 			IMAP{"text": "foo", "begin": 0, "end": 3},
 		},
 	}, "multiple groups with non-matches")
 
-	module(t, "regexp").call("re_find", "((cat)|(dog))((run)|(walk))", "catrun").expect(ARR{
+	module(t, "re").call("pattern", "((cat)|(dog))((run)|(walk))").call("find", "catrun").expect(ARR{
 		ARR{
 			IMAP{"text": "catrun", "begin": 0, "end": 6},
 			IMAP{"text": "cat", "begin": 0, "end": 3},
@@ -532,7 +535,7 @@ func TestRegexpREAlternation(t *testing.T) {
 }
 
 func TestRegexpRE(t *testing.T) {
-	// re_match(pattern, text)
+	// pattern(p).match(text)
 	for _, d := range []struct {
 		pattern string
 		text    string
@@ -545,17 +548,16 @@ func TestRegexpRE(t *testing.T) {
 		{"^b", "abc"},
 	} {
 		expected := regexp.MustCompile(d.pattern).MatchString(d.text)
-		module(t, "regexp").call("re_match", d.pattern, d.text).expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
-		module(t, "regexp").call("re_compile", d.pattern).call("match", d.text).expect(expected, "patter: %q, src: %q", d.pattern, d.text)
+		module(t, "re").call("pattern", d.pattern).call("match", d.text).expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
 	}
 
-	// re_find(pattern, text)
+	// pattern(p).find(text)
 	for _, d := range []struct {
 		pattern  string
 		text     string
 		expected any
 	}{
-		{"a(b)", "", core.Undefined},
+		{"a(b)", "", ARR{}},
 		{"a(b)", "ab", ARR{
 			ARR{
 				IMAP{"text": "ab", "begin": 0, "end": 2},
@@ -576,18 +578,17 @@ func TestRegexpRE(t *testing.T) {
 			},
 		}},
 	} {
-		module(t, "regexp").call("re_find", d.pattern, d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "regexp").call("re_compile", d.pattern).call("find", d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "re").call("pattern", d.pattern).call("find", d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
-	// re_find(pattern, text, count))
+	// pattern(p).find(text, count)
 	for _, d := range []struct {
 		pattern  string
 		text     string
 		count    int
 		expected any
 	}{
-		{"a(b)", "", -1, core.Undefined},
+		{"a(b)", "", -1, ARR{}},
 		{"a(b)", "ab", -1, ARR{
 			ARR{
 				IMAP{"text": "ab", "begin": 0, "end": 2},
@@ -616,7 +617,7 @@ func TestRegexpRE(t *testing.T) {
 				IMAP{"text": "c", "begin": 9, "end": 10},
 			},
 		}},
-		{"(a)b(c)d", "abcdefgabcd", 0, core.Undefined},
+		{"(a)b(c)d", "abcdefgabcd", 0, ARR{}},
 		{"(a)b(c)d", "abcdefgabcd", 1, ARR{
 			ARR{
 				IMAP{"text": "abcd", "begin": 0, "end": 4},
@@ -625,11 +626,10 @@ func TestRegexpRE(t *testing.T) {
 			},
 		}},
 	} {
-		module(t, "regexp").call("re_find", d.pattern, d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "regexp").call("re_compile", d.pattern).call("find", d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "re").call("pattern", d.pattern).call("find", d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
-	// re_replace(pattern, text, repl)
+	// pattern(p).replace(text, repl)
 	for _, d := range []struct {
 		pattern string
 		text    string
@@ -651,11 +651,10 @@ func TestRegexpRE(t *testing.T) {
 	} {
 		expected := regexp.MustCompile(d.pattern).
 			ReplaceAllString(d.text, d.repl)
-		module(t, "regexp").call("re_replace", d.pattern, d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
-		module(t, "regexp").call("re_compile", d.pattern).call("replace", d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
+		module(t, "re").call("pattern", d.pattern).call("replace", d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
 	}
 
-	// re_split(pattern, text)
+	// pattern(p).split(text)
 	for _, d := range []struct {
 		pattern string
 		text    string
@@ -669,11 +668,10 @@ func TestRegexpRE(t *testing.T) {
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, -1) {
 			expected = append(expected, ex)
 		}
-		module(t, "regexp").call("re_split", d.pattern, d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "regexp").call("re_compile", d.pattern).call("split", d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "re").call("pattern", d.pattern).call("split", d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
-	// re_split(pattern, text, count))
+	// pattern(p).split(text, count)
 	for _, d := range []struct {
 		pattern string
 		text    string
@@ -695,16 +693,15 @@ func TestRegexpRE(t *testing.T) {
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, d.count) {
 			expected = append(expected, ex)
 		}
-		module(t, "regexp").call("re_split", d.pattern, d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "regexp").call("re_compile", d.pattern).call("split", d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "re").call("pattern", d.pattern).call("split", d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 }
 
 func TestRegexpReplace(t *testing.T) {
-	module(t, "regexp").call("re_replace", "1", "123456789012", "x").expect("x234567890x2")
-	module(t, "regexp").call("re_replace", "12", "123456789012", "x").expect("x34567890x")
-	module(t, "regexp").call("re_replace", "1(2)", "123456789012", "x$1").expect("x234567890x2")
-	module(t, "regexp").call("re_replace", "(1)(2)", "123456789012", "$2$1").expect("213456789021")
+	module(t, "re").call("pattern", "1").call("replace", "123456789012", "x").expect("x234567890x2")
+	module(t, "re").call("pattern", "12").call("replace", "123456789012", "x").expect("x34567890x")
+	module(t, "re").call("pattern", "1(2)").call("replace", "123456789012", "x$1").expect("x234567890x2")
+	module(t, "re").call("pattern", "(1)(2)").call("replace", "123456789012", "$2$1").expect("213456789021")
 }
 
 func TestTimes(t *testing.T) {
@@ -773,6 +770,8 @@ func TestRetiredModuleFunctions(t *testing.T) {
 		"os": {"open", "open_file", "create", "read_file", "stat", "mkdir", "mkdir_all", "remove", "remove_all",
 			"rename", "truncate", "chmod", "chown", "lchown", "link", "symlink", "read_link", "temp_dir", "exec",
 			"exec_look_path", "start_process", "find_process", "o_rd", "o_create", "seek_set", "mode_dir", "mode_perm"},
+		// regexp became re: one constructor, the rest are re.pattern members
+		"re": {"re_match", "re_find", "re_replace", "re_split", "re_compile", "compile"},
 		"math": {"min", "max", "abs", "is_nan", "is_inf", "signbit", "sqrt", "pow", "exp", "log", "log2", "log10",
 			"floor", "ceil", "trunc", "copy_sign", "mod"},
 	}
@@ -786,7 +785,6 @@ func TestRetiredModuleFunctions(t *testing.T) {
 			require.True(t, strings.Contains(err.Error(), fmt.Sprintf("invalid_selector: module '%s' has no member '%s'", module, name)), err.Error())
 		}
 	}
-	expect(t, `re := import("regexp"); out = re.re_match("[0-9]", "a1")`, true)
 }
 
 // io prints to the VM's stdout and reads from its stdin, never the process streams.
@@ -915,4 +913,30 @@ out = [before, type_name(p), p == c.process(), st.exited, st.success, st.status,
 	err = c.Run(newGrantedVM())
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "(exec.command.process) the command has not been started"), err.Error())
+}
+
+// re.pattern is the compiled expression: its own type name, a render that rebuilds it, string() as its source,
+// equality by source, frozen match records, and [] (never undefined) when nothing matches. re is pure.
+func TestRePattern(t *testing.T) {
+	run := func(src string) (core.Value, error) {
+		c, err := kavun.NewScript([]byte(src), "out").Compile() // no grant: re is pure
+		require.NoError(t, err)
+		if err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)); err != nil {
+			return core.Undefined, err
+		}
+		return c.Get("out")
+	}
+	v, err := run(`re := import("re"); p := re.pattern("[0-9]+")
+out = [type_name(p), format(p), f"{p}", string(p), p.string(), p == re.pattern("[0-9]+"), p == re.pattern("[0-9]"), p.find("abc"), is_true(p)]`)
+	require.NoError(t, err)
+	require.Equal(t, `["re.pattern", "re.pattern(\"[0-9]+\")", "re.pattern(\"[0-9]+\")", "[0-9]+", "[0-9]+", true, false, [], true]`, v.String())
+
+	_, err = run(`g := import("re").pattern("a").find("a")[0][0]; g.text = "b"`)
+	require.Error(t, err) // a match record is a frozen fact
+	_, err = run(`import("re").pattern("a").match(dict())`)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "invalid_argument_type: (re.pattern.match) argument first"), err.Error())
+	_, err = run(`import("re").pattern("a").find("a", 1, 2)`)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "wrong_num_arguments"), err.Error())
 }

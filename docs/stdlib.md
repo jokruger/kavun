@@ -13,14 +13,14 @@ This document covers the main builtin modules in Kavun stdlib:
 - `os`
 - `path`
 - `rand`
-- `regexp`
+- `re`
 - `times`
 
 Notes:
 
 - Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
   constants are read-only members, and a missing name raises.
-- **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path` and `regexp` are *pure* (they only compute) and
+- **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path` and `re` are *pure* (they only compute) and
   importable by default. `exec`, `fs`, `io`, `os`, `rand` and `times` touch the world and must be granted by the
   host (`docs/embedding.md` § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
@@ -578,28 +578,44 @@ rand.int_n(100)
 
 - `int()`, `float()`, `int_n(n)`, `exp_float()`, `norm_float()`, `perm(n)`, `seed(seed)`, `read(buf)`.
 
-## regexp
+## re
 
-What remains of the former `text` module: everything string-shaped became member functions on
-`string`/`runes`/`bytes` (see the per-type pages), and only the five regex functions stay module-shaped.
-
-Example:
+Regular expressions. The module's one function is the constructor of the type it owns: `re.pattern(src)` compiles
+the expression once, and the [`re.pattern`](types/re-pattern.md) answers `match`, `find`, `replace` and `split`.
+Pure: importable by default.
 
 ```go
-re = import("regexp")
-re.re_match("[0-9]+", "abc123")   // true
+re := import("re")
+digits := re.pattern("[0-9]+")
+digits.match("abc123")              // true
+digits.find("a1b22")                // [[{begin: 1, end: 2, text: "1"}]] — the first match, group 0 first
+digits.find("a1b22", -1).len()      // 2 — every match
+digits.find("abc")                  // [] — no match is an empty array, never undefined
+digits.replace("a1b22", "#")        // "a#b#"
+re.pattern(",\\s*").split("a, b,c")  // ["a", "b", "c"]
 ```
 
-- `regexp.re_match(pattern string, s string) -> bool`: Regex full/partial match check.
-- `regexp.re_find(pattern string, s string, count? int) -> [match] | undefined`: Regex find with optional limit; each match is a list of `{text, begin, end}` group records.
-- `regexp.re_replace(pattern string, s string, repl string) -> string`: Regex replace all (`$1` group references).
-- `regexp.re_split(pattern string, s string, count? int) -> [string]`: Regex split with optional limit.
-- `regexp.re_compile(pattern string) -> regexp`: Compile once into a reusable object with `match(s)`, `find(s [,count])`, `replace(s, repl)`, `split(s [,count])` methods.
+- `re.pattern(src string) -> re.pattern`: Compile; a malformed expression raises `invalid_value`.
 
-**Failures.** An invalid pattern raises kind `invalid_value` — a bad pattern is a bad argument, not an
-exhausted resource: `(regexp.re_compile) error parsing regexp: missing closing ): `(``.
+The pattern's members (see [types/re-pattern.md](types/re-pattern.md)):
 
-Where the old `text` functions went:
+- `p.match(s) -> bool`: Whether the expression matches anywhere in `s`.
+- `p.find(s, count?) -> [match]`: The first match (or up to `count`; `-1` for all), each an array of frozen
+  `{text, begin, end}` group records, group 0 first; `[]` when nothing matches.
+- `p.replace(s, repl) -> string`: Every match replaced; `$1` / `${name}` expand groups. A replacement that would
+  grow past the sequence ceiling raises `invalid_value`.
+- `p.split(s, count?) -> [string]`: `s` cut at the matches.
+- `p.string() -> string`: The source text (the pattern IS text); `format(p)` renders `re.pattern("…")`.
+
+**Failures.** An invalid expression raises kind `invalid_value` — a bad pattern is a bad argument:
+`(re.pattern) error parsing regexp: missing closing ): `(``.
+
+**Migration:** the module was `regexp`. `re_compile(p)` → `re.pattern(p)`; the one-shot functions became the
+pattern's members: `re_match(p, s)` → `re.pattern(p).match(s)`, likewise `find`, `replace`, `split`. `find` answers
+`[]` on no match (was `undefined`), and every match record is frozen. Hoist a pattern used in a loop: it is compiled
+where `re.pattern(…)` runs.
+
+Where the old `text` module's functions went (the regex ones are above):
 
 | old | now |
 | --- | --- |

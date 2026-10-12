@@ -15,6 +15,6 @@ import (
 	_ "github.com/jokruger/kavun/stdlib/os"
 	_ "github.com/jokruger/kavun/stdlib/path"
 	_ "github.com/jokruger/kavun/stdlib/rand"
-	_ "github.com/jokruger/kavun/stdlib/regexp"
+	_ "github.com/jokruger/kavun/stdlib/re"
 	_ "github.com/jokruger/kavun/stdlib/times"
 )

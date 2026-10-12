@@ -441,13 +441,14 @@ const (
 	HTMLEscape = 602
 	// 603…608 reserved
 
-	// module regexp
-	ReMatch   = 609
-	ReFind    = 610
-	ReReplace = 611
-	ReSplit   = 612
-	ReCompile = 613
-	// 614…616 reserved
+	// module re (formerly regexp)
+	// ReMatch   = 609 // retired: re.pattern(p).match(s)
+	// ReFind    = 610 // retired: re.pattern(p).find(s)
+	// ReReplace = 611 // retired: re.pattern(p).replace(s, r)
+	// ReSplit   = 612 // retired: re.pattern(p).split(s)
+	// ReCompile = 613 // retired: re.pattern(p) — a constructor is named after its type
+	Pattern = 614
+	// 615…616 reserved
 
 	// module base64
 	URLEncode    = 617

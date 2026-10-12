@@ -178,5 +178,5 @@ The entries boundary works in both directions and round-trips up to ordering: `a
 ## Migration notes
 
 - `r.is_true()` no longer answers truthiness: it calls a field named `is_true` (and raises when there is none, or
-  when it is not callable), like every other `r.name()`. Write the free `is_true(r)`. Module values (`import("os")`,
-  a compiled `regexp`) are records too.
+  when it is not callable), like every other `r.name()`. Write the free `is_true(r)`. Builtin module values are not
+  records (they are `module` values) and a compiled expression is a `re.pattern`, so neither is affected.

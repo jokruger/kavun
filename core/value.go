@@ -162,6 +162,13 @@ func (v Value) Arity() int {
 }
 
 // PURE by contract
+// IsExtensionType reports whether type t is one the language core does not know by id — a module-owned type
+// (144–191) or an embedder type (192+). The free builtins (conversions, len, copy_shallow, …) answer such a value
+// through its own hooks instead of refusing it.
+func IsExtensionType(t uint8) bool {
+	return t >= value.FirstModuleOwnedType
+}
+
 func (v Value) IsPrimitive() bool {
 	return v.Type <= value.LastPrimitiveType
 }

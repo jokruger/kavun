@@ -31,6 +31,7 @@ carry the full contracts; [types/function-matrix.md](types/function-matrix.md) i
 | function / closure / builtin / bound member | callables; `type_name()` answers `"function"` for all four |
 | [module](types/module.md) | a builtin module as `import` answers it: read-only members, dot access only |
 | [fs.file](types/fs-file.md), [exec.command](types/exec-command.md), [exec.process](types/exec-process.md) | handles on the world owned by the `fs` and `exec` modules: identity equality, every member impure |
+| [re.pattern](types/re-pattern.md) | a compiled regular expression owned by the `re` module: immutable, pure members, equal by source |
 
 ## The type-shape families
 

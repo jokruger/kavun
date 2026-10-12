@@ -11716,6 +11716,14 @@ func TestModuleOwnedTypesRegistered(t *testing.T) {
 	}
 }
 
+// A module-owned type answers the free builtins through its own hooks, as an embedder type does
+// (core.IsExtensionType): string(x) is its AsString, so the free form and the member agree.
+func TestModuleOwnedTypesAnswerFreeBuiltins(t *testing.T) {
+	expectRun(t, `p := import("re").pattern("a+"); y := import("fin").year_fraction(31, 365)
+out = [string(p) == p.string(), string(y) == y.string(), string(y)]`, nil, ARR{true, true, "31/365"})
+	expectError(t, `out = int(import("re").pattern("a"))`, nil, "conversion: cannot convert re.pattern to int")
+}
+
 // Values whose type id or builtin slot moved in bytecode 002 survive an encode/decode round trip: a builtin module,
 // a module-owned type, a container, a static primitive, a global builtin.
 func TestTypeIDsBytecodeRoundTrip(t *testing.T) {
@@ -11830,7 +11838,8 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	"ab", runes("ab"), bytes("ab"), [1, 2], range(0, 3), dict({a: 1}),
 	fin.year_fraction(31, 365), fin.tiered_rates("0:0.005, 1000:0.007"),
 	fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0), fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02"),
-	fin.dated_charges("2024-01-01:25.00, 2025-01-01:30.00"), len, func(x) { return x }, "a".upper]
+	fin.dated_charges("2024-01-01:25.00, 2025-01-01:30.00"), len, func(x) { return x }, "a".upper,
+	import("re").pattern("a")]
 `
 	c, err := kavun.NewScript([]byte(src), "out").Compile()
 	require.NoError(t, err)
