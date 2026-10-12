@@ -1295,6 +1295,9 @@ ignored := "abc".for_each(func(i, r) {
 	return true
 })
 `, nil, 297)
+	// an undecodable octet reaches the callback as its escape, as `for c in s` and s[i] give it — never U+FFFD
+	expectRun(t, `out = []; b"a\xffb".string().for_each(func(r) { out.append_in_place(r.int()) })`, nil, ARR{97, 0xDCFF, 98})
+	expectRun(t, `out = []; b"a\xffb".string().for_each(func(i, r) { out.append_in_place(i) })`, nil, ARR{0, 1, 2})
 }
 
 func TestRunes(t *testing.T) {
@@ -11590,6 +11593,25 @@ norm = func(v) {
 	for _, c := range calls {
 		check(all, `out = norm(try(func() { return `+c+` }))`)
 	}
+
+	// an undecodable octet is one symbol, its escape, on every text type that holds symbols — the callbacks see
+	// the same value the elements of the array do (bytes is left out: its elements are the octets themselves)
+	escaped := []receiver{
+		{`b"a\xffb".string()`, `"b"`},
+		{`b"a\xffb".string().runes()`, `runes("b")`},
+		{`b"a\xffb".string().array()`, `['b']`},
+	}
+	escapedCalls := []string{
+		`X.reduce([], func(acc, e) { return acc + [e.int()] })`,
+		`X.index(func(e) { return e.int() == 0xDCFF })`,
+		`X.any(func(e) { return e.int() == 0xFFFD })`,
+		`X.count(func(e) { return e.int() == 0xDCFF })`,
+	}
+	for _, c := range escapedCalls {
+		check(escaped, `out = norm(try(func() { return `+c+` }))`)
+	}
+	check(escaped, `o := []; X.for_each(func(e) { o.append_in_place(e.int()) }); out = o`)
+	check(escaped, `o := []; for e in X { o.append_in_place(e.int()) }; out = o`)
 
 	// the _in_place twins exist on the mutable types only; the receiver after the call must match too
 	mutable := all[1:]

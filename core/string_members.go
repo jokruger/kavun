@@ -777,18 +777,15 @@ func stringPascalCase(_ VM, v Value, id member.ID, args []Value) (Value, error) 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
 //
 // stringForEach is for_each(f): a full pass whose callback result is ignored; returns the receiver, so it chains.
-// It walks the Go string directly rather than decoding it first.
 func stringForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	fn, err := readElemCallback("for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
-	i := 0
-	for _, r := range *(*string)(v.Ptr) {
+	for i, r := range DecodeText(*(*string)(v.Ptr)) {
 		if _, err := callElem(vm, fn, i, RuneValue(r)); err != nil {
 			return Undefined, err
 		}
-		i++
 	}
 	return v, nil
 }
