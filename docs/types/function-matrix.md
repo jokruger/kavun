@@ -178,6 +178,8 @@ renders it; `string.nanoseconds([default])` parses Go's duration grammar (`"1h30
 | `chunk` | — | — | — | — | — | — | — | — | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `chunk_view` | — | — | — | — | — | — | — | — | — | — | — | ✓ | ✓ | ✓ | — | — |
 | `repeat` | — | — | — | — | — | — | — | — | — | — | ✓ | ✓ | ✓ | ✓ | — | — |
+| `shuffle` | — | — | — | — | — | — | — | — | — | — | — | — | — | ✓ | — | — |
+| `shuffle_in_place` | — | — | — | — | — | — | — | — | — | — | — | — | — | ✓ | — | — |
 
 ## Transforms / iteration / aggregation
 

@@ -431,6 +431,20 @@ nested array, at any position.
 [range(0, 2), [1]].flatten()     // [range(0, 2), 1] — only arrays unwrap
 ```
 
+### shuffle(g) / shuffle_in_place(g)
+
+A random reordering, drawn from a [`rand.generator`](rand-generator.md) — required, because a member cannot read the
+world on its own. The same seeded generator gives the same order on every run; `os.rand_generator()` gives an
+unpredictable one. Fisher–Yates over `g.int(i + 1)`, so the generator's state moves:
+
+```go
+g := import("rand").generator(7)
+[1, 2, 3, 4, 5].shuffle(g)        // [3, 5, 4, 1, 2]
+a := [1, 2, 3]
+a.shuffle_in_place(import("rand").generator(3))   // a is [2, 3, 1]
+[1, 2].shuffle(5)                 // Error: (shuffle) argument first expects type rand.generator, got int
+```
+
 ## Aggregation
 
 `first`, `last`, `min`, `max`, `sum`, `avg` all take the uniform optional trailing default. An **empty receiver
@@ -604,3 +618,9 @@ b                            // [1, 2, 3] — no reassignment needed
 
 [1].freeze().append_in_place(2)   // Error: (append_in_place) type immutable-array is immutable
 ```
+
+## Migration notes
+
+- **New: `shuffle(g)` / `shuffle_in_place(g)`** with a required `rand.generator` (the old module-level `rand`
+  draws are gone — see [stdlib § rand](../stdlib.md#rand)).
+

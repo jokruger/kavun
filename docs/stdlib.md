@@ -20,8 +20,8 @@ Notes:
 
 - Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
   constants are read-only members, and a missing name raises.
-- **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path` and `re` are *pure* (they only compute) and
-  importable by default. `clock`, `exec`, `fs`, `io`, `os` and `rand` touch the world and must be granted by the
+- **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path`, `rand` and `re` are *pure* (they only compute) and
+  importable by default. `clock`, `exec`, `fs`, `io` and `os` touch the world and must be granted by the
   host (`docs/embedding.md` § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
 - A module function either answers the documented value or **raises** — nothing answers an error value, and
@@ -547,6 +547,8 @@ Constants: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separato
   user and group IDs.
 - `os.get_groups() -> [int]`: Supplementary group IDs.
 - `os.get_page_size() -> int`: Memory page size.
+- `os.rand_generator() -> rand.generator`: A [`rand.generator`](types/rand-generator.md) over `crypto/rand` — the
+  one entropy source (`os.rand_generator().int(1, 7)`).
 
 **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
 `(os.chdir) chdir /nope: no such file or directory`. A function whose success has no result answers `undefined`.
@@ -582,30 +584,35 @@ Failures: `invalid_value` (as above), `invalid_argument_type` (a non-string), `w
 
 ## rand
 
-Example:
+Pseudo-random numbers as a value. The module's one function is the constructor of the type it owns:
+`rand.generator(seed)` answers a [`rand.generator`](types/rand-generator.md) whose draws are its own state. Pure —
+it reads nothing from the world, so it is importable by default; entropy comes from `os.rand_generator()`, which
+answers the same type over `crypto/rand`.
 
 ```go
-rand = import("rand")
-rand.int_n(100)
+rand := import("rand")
+g := rand.generator(1)
+g.int(1, 7)                 // a die roll, [1, 7) — the same on every run with seed 1
+g.float()                   // [0, 1)
+[1, 2, 3, 4, 5].shuffle(g)  // a new array, shuffled with g's draws
+os := import("os")          // os needs a grant
+d := os.rand_generator()    // the same type, unpredictable
 ```
 
-- `rand.int() -> int`: Random 63-bit integer.
-- `rand.float() -> float`: Random float in `[0.0, 1.0)`.
-- `rand.int_n(n int) -> int`: Random integer in `[0, n)`.
-- `rand.exp_float() -> float`: Exponential distribution sample.
-- `rand.norm_float() -> float`: Normal distribution sample.
-- `rand.perm(n int) -> [int]`: Random permutation of `[0..n)`.
-- `rand.seed(seed int) -> undefined`: Seed global generator.
-- `rand.read(buf bytes) -> int`: Fill byte buffer with random data, return bytes written.
-- `rand.rand(seed int) -> rng`: Create independent RNG record.
+- `rand.generator(seed int) -> rand.generator`: A seeded generator. The same seed gives the same sequence on every
+  build: the source is PCG-DXSM (a specified algorithm) and every draw is derived from its raw output by Kavun's own
+  code. A reproducible run seeds from a literal; a seed from entropy is `rand.generator(os.rand_generator().int())`.
 
-**Failures.** A failure of the entropy source raises kind `io`: `(rand.read) …`.
+The generator's members (see [types/rand-generator.md](types/rand-generator.md)): `int([lo,] hi)`,
+`float([lo,] hi)`, `bytes(n)`, `perm(n)`, `norm_float()`, `exp_float()`, `copy()`. Ranges are half-open, like
+`range(lo, hi)`.
 
-### rand rng record
+**Failures.** A bound that leaves no value (`g.int(5, 5)`) or a bad count (`g.bytes(0)`) raises `invalid_value`.
 
-`rng` has the same callable methods as module-level random generator:
-
-- `int()`, `float()`, `int_n(n)`, `exp_float()`, `norm_float()`, `perm(n)`, `seed(seed)`, `read(buf)`.
+**Migration:** the module-level draws and the process-global generator are gone — they shared state between every
+script in the process. `rand.int_n(n)` → `g.int(n)`, `rand.int()` → `g.int()`, `rand.float()` → `g.float()`,
+`rand.perm(n)` → `g.perm(n)`, `rand.read(buf)` → `g.bytes(n)` (answers new bytes), `rand.seed(s)` / `rand.rand(s)` →
+`rand.generator(s)`; for unpredictable draws use `os.rand_generator()`. `rand` no longer needs a grant.
 
 ## re
 

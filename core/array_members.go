@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -1074,4 +1075,50 @@ func arrayFlatten(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	arr := make([]Value, len(out))
 	copy(arr, out)
 	return NewArrayValue(arr, false), nil
+}
+
+// --- shuffle: Fisher–Yates over a rand.generator's draws, g.int(i + 1). The generator is required — a member cannot
+// read the world on its own — and it is reached through its own int member, so core never names the rand module.
+
+// IMPURE by contract (the generator's state moves) — shuffle(g): a new array, the elements in a random order
+func arrayShuffle(vm VM, v Value, id member.ID, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "1", len(args))
+	}
+	out := slices.Clone((*Array)(v.Ptr).Elements)
+	if err := shuffleWith(vm, id, args[0], out); err != nil {
+		return Undefined, err
+	}
+	return NewArrayValue(out, false), nil
+}
+
+// IMPURE by contract (mutates the receiver; the generator's state moves) — shuffle_in_place(g)
+func arrayShuffleInPlace(vm VM, v Value, id member.ID, args []Value) (Value, error) {
+	name := id.String()
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	if v.Immutable {
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if err := shuffleWith(vm, id, args[0], (*Array)(v.Ptr).Elements); err != nil {
+		return Undefined, err
+	}
+	return v, nil
+}
+
+// shuffleWith permutes elems in place with the generator g.
+func shuffleWith(vm VM, id member.ID, g Value, elems []Value) error {
+	if g.Type != value.RandGenerator {
+		return errs.NewInvalidArgumentTypeError(id.String(), "first", "rand.generator", g.TypeName())
+	}
+	for i := len(elems) - 1; i > 0; i-- {
+		r, err := g.CallMember(vm, members.Int, "int", []Value{IntValue(int64(i + 1))})
+		if err != nil {
+			return err
+		}
+		j := int64(r.Data)
+		elems[i], elems[j] = elems[j], elems[i]
+	}
+	return nil
 }

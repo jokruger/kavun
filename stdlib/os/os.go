@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
+	"github.com/jokruger/kavun/stdlib/rand"
 )
 
 // The os module is the process and its environment: arguments, exit, environment variables, identity, the
@@ -41,7 +42,8 @@ func init() {
 	m.Fn(members.GetEgid, 17, osGetegid, 0, core.Fixed)
 	m.Fn(members.GetGroups, 18, osGetgroups, 0, core.Fixed)
 	m.Fn(members.GetPageSize, 19, osGetpagesize, 0, core.Fixed)
-	// 20..127 reserved
+	m.Fn(members.RandGenerator, 20, osRandGenerator, 0, core.Fixed)
+	// 21..127 reserved
 	if err := m.Register(); err != nil {
 		panic(err)
 	}
@@ -252,4 +254,13 @@ func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpagesize())), nil
+}
+
+// rand_generator(): a rand.generator over crypto/rand — the one entropy source. It is a world read, so it lives here
+// and not in the pure rand module; a reproducible run seeds rand.generator(…) instead.
+func osRandGenerator(_ core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.rand_generator", "0", len(args))
+	}
+	return rand.NewEntropyValue(), nil
 }

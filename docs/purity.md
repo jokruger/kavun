@@ -82,6 +82,7 @@ documented for future reference rather than acted on today.
 | Hook | Reason |
 | --- | --- |
 | `Next`, `Key`, `Value` (on iterator values only) | Advance and read the iterator's cursor. The iterator itself is expected to be held by a single consumer for the duration of the iteration; the optimizer never speculatively evaluates iterator advancement. |
+| `rand.generator` draws (`int`, `float`, `bytes`, `perm`, `norm_float`, `exp_float`) and `array.shuffle(g)` | Move the generator's state — the same localized write as an iterator's cursor, registered with `NewMethod` so the optimizer never folds a draw. The `rand` module itself is pure (it reads nothing from the world); only `os.rand_generator()` reads entropy. |
 
 ### 4. Mutate-dependent: takes an explicit `mutate bool`
 

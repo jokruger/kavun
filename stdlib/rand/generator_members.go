@@ -1,0 +1,176 @@
+package rand
+
+import (
+	"encoding/binary"
+	"fmt"
+	"math"
+	mrand "math/rand/v2"
+
+	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/errs"
+)
+
+// rand.generator's members: one function per entry of TypeGenerator.Methods that is not a shared member. The draws
+// move the generator's state, so they are IMPURE (localized state); ranges are half-open like range(lo, hi).
+
+func generatorContext(id member.ID) string {
+	return "rand.generator." + id.String()
+}
+
+// PURE by contract — copy(): a seeded generator clones its state (the clone and the original then draw the same
+// sequence independently); an entropy generator has no state to clone and answers itself
+func generatorCopy(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "0", len(args))
+	}
+	g := GeneratorOf(v)
+	if g.pcg == nil {
+		return v, nil
+	}
+	state, _ := g.pcg.MarshalBinary()
+	pcg := &mrand.PCG{}
+	if err := pcg.UnmarshalBinary(state); err != nil {
+		return core.Undefined, errs.NewInternalError(fmt.Sprintf("(%s) %v", generatorContext(id), err))
+	}
+	return newValue(&Generator{src: pcg, pcg: pcg}), nil
+}
+
+// intArg reads an int bound of a draw.
+func intArg(id member.ID, pos string, a core.Value) (int64, error) {
+	if a.Type != value.Int {
+		return 0, errs.NewInvalidArgumentTypeError(generatorContext(id), pos, "int", a.TypeName())
+	}
+	return int64(a.Data), nil
+}
+
+// IMPURE by contract (localized state) — int() in [0, 2^63), int(hi) in [0, hi), int(lo, hi) in [lo, hi)
+func generatorInt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	g := GeneratorOf(v)
+	switch len(args) {
+	case 0:
+		return core.IntValue(int64(g.src.Uint64() >> 1)), nil
+	case 1, 2:
+		lo, hi := int64(0), int64(0)
+		var err error
+		if len(args) == 1 {
+			hi, err = intArg(id, "first", args[0])
+		} else if lo, err = intArg(id, "first", args[0]); err == nil {
+			hi, err = intArg(id, "second", args[1])
+		}
+		if err != nil {
+			return core.Undefined, err
+		}
+		if lo >= hi {
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the range [%d, %d) is empty", generatorContext(id), lo, hi))
+		}
+		return core.IntValue(lo + int64(g.uint64n(uint64(hi)-uint64(lo)))), nil // the span fits uint64 even when hi-lo overflows int64
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "0 to 2", len(args))
+	}
+}
+
+// floatArg reads a finite float (or int) bound of a draw.
+func floatArg(id member.ID, pos string, a core.Value) (float64, error) {
+	var f float64
+	switch a.Type {
+	case value.Float:
+		f = math.Float64frombits(a.Data)
+	case value.Int:
+		f = float64(int64(a.Data))
+	default:
+		return 0, errs.NewInvalidArgumentTypeError(generatorContext(id), pos, "float or int", a.TypeName())
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) bound %v is not finite", generatorContext(id), f))
+	}
+	return f, nil
+}
+
+// IMPURE by contract (localized state) — float() in [0, 1), float(hi) in [0, hi), float(lo, hi) in [lo, hi)
+func generatorFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	g := GeneratorOf(v)
+	lo, hi := 0.0, 1.0
+	var err error
+	switch len(args) {
+	case 0:
+	case 1:
+		hi, err = floatArg(id, "first", args[0])
+	case 2:
+		if lo, err = floatArg(id, "first", args[0]); err == nil {
+			hi, err = floatArg(id, "second", args[1])
+		}
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "0 to 2", len(args))
+	}
+	if err != nil {
+		return core.Undefined, err
+	}
+	if !(lo < hi) || math.IsInf(hi-lo, 0) {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the range [%v, %v) is empty or too wide", generatorContext(id), lo, hi))
+	}
+	return core.FloatValue(lo + (hi-lo)*g.float64()), nil
+}
+
+// IMPURE by contract (localized state) — bytes(n): n random octets
+func generatorBytes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "1", len(args))
+	}
+	n, err := intArg(id, "first", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	if n <= 0 || n > core.MaxSequenceLen {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 1 and %d, got %d", generatorContext(id), core.MaxSequenceLen, n))
+	}
+	g := GeneratorOf(v)
+	b := make([]byte, n)
+	for i := 0; i < len(b); i += 8 {
+		var w [8]byte
+		binary.LittleEndian.PutUint64(w[:], g.src.Uint64())
+		copy(b[i:], w[:])
+	}
+	return core.NewBytesValue(b, false), nil
+}
+
+// IMPURE by contract (localized state) — exp_float(): exponentially distributed, rate 1
+func generatorExpFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "0", len(args))
+	}
+	return core.FloatValue(GeneratorOf(v).expFloat64()), nil
+}
+
+// IMPURE by contract (localized state) — norm_float(): standard normal (mean 0, deviation 1)
+func generatorNormFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "0", len(args))
+	}
+	return core.FloatValue(GeneratorOf(v).normFloat64()), nil
+}
+
+// IMPURE by contract (localized state) — perm(n): a random permutation of 0…n-1 (Fisher–Yates)
+func generatorPerm(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(generatorContext(id), "1", len(args))
+	}
+	n, err := intArg(id, "first", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	if n < 0 || n > core.MaxSequenceLen {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 0 and %d, got %d", generatorContext(id), core.MaxSequenceLen, n))
+	}
+	g := GeneratorOf(v)
+	out := make([]core.Value, n)
+	for i := range out {
+		out[i] = core.IntValue(int64(i))
+	}
+	for i := len(out) - 1; i > 0; i-- {
+		j := g.uint64n(uint64(i + 1))
+		out[i], out[j] = out[j], out[i]
+	}
+	return core.NewArrayValue(out, false), nil
+}

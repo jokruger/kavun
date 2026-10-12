@@ -151,7 +151,7 @@ const (
 	Intersperse = 197 // planned
 	Cycle       = 198 // planned
 	SortBy      = 199 // planned
-	Shuffle     = 200 // planned
+	Shuffle     = 200
 	Rotate      = 201 // planned
 	// 202…216 reserved
 
@@ -263,7 +263,7 @@ const (
 	DedupInPlace        = 356
 	PadCenterInPlace    = 357 // planned
 	SortByInPlace       = 358 // planned
-	ShuffleInPlace      = 359 // planned
+	ShuffleInPlace      = 359
 	RotateInPlace       = 360 // planned
 	SliceView           = 361
 	ChunkView           = 362
@@ -476,14 +476,15 @@ const (
 	// 623…624 reserved
 
 	// module rand
-	Seed      = 625
-	Rand      = 626
-	IntN      = 627
+	// Seed      = 625 // retired: rand.generator(seed) — a generator, not global state
+	// Rand      = 626 // retired: g.int(n)
+	// IntN      = 627 // retired: g.int(n)
 	ExpFloat  = 628
 	NormFloat = 629
 	Perm      = 630
 	Read      = 631
-	// 632…640 reserved
+	Generator = 632
+	// 633…640 reserved
 
 	// module times — functions
 	Now   = 641
@@ -690,13 +691,14 @@ const (
 	GetGroups    = 887
 	GetPageSize  = 888
 	// module path (os block reserve)
-	Base  = 889
-	Dir   = 890
-	Ext   = 891
-	Clean = 892
-	Rel   = 893
-	IsAbs = 894
-	// 895…904 reserved (895: RandGenerator, step 4f)
+	Base          = 889
+	Dir           = 890
+	Ext           = 891
+	Clean         = 892
+	Rel           = 893
+	IsAbs         = 894
+	RandGenerator = 895 // os.rand_generator(): a rand.generator over crypto/rand
+	// 896…904 reserved
 
 	// module os — constants
 	Platform          = 905

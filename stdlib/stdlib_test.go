@@ -751,6 +751,8 @@ func TestRetiredModuleFunctions(t *testing.T) {
 			"exec_look_path", "start_process", "find_process", "o_rd", "o_create", "seek_set", "mode_dir", "mode_perm"},
 		// regexp became re: one constructor, the rest are re.pattern members
 		"re": {"re_match", "re_find", "re_replace", "re_split", "re_compile", "compile"},
+		// rand is a pure constructor: draws are a generator's members, entropy is os.rand_generator()
+		"rand": {"int", "float", "int_n", "exp_float", "norm_float", "perm", "seed", "read", "rand"},
 		"math": {"min", "max", "abs", "is_nan", "is_inf", "signbit", "sqrt", "pow", "exp", "log", "log2", "log10",
 			"floor", "ceil", "trunc", "copy_sign", "mod"},
 	}
@@ -918,4 +920,47 @@ out = [type_name(p), format(p), f"{p}", string(p), p.string(), p == re.pattern("
 	_, err = run(`import("re").pattern("a").find("a", 1, 2)`)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "wrong_num_arguments"), err.Error())
+}
+
+// rand.generator: a seeded sequence is pinned (it depends only on PCG-DXSM, a specified algorithm, and Kavun's own
+// derivations — the same on every build); copy() clones the state; os.rand_generator() answers the same type over
+// crypto/rand; shuffle takes either. rand is pure (no grant), os is not.
+func TestRandGenerator(t *testing.T) {
+	expect(t, `g := import("rand").generator(1)
+out = [g.int(100), g.int(100), g.int(100), g.perm(6), g.float(), g.int(), g.bytes(4)]`,
+		[]any{59, 8, 71, []any{1, 4, 2, 5, 3, 0}, 0.306040530804189, 1212783255158419406, []byte{179, 144, 67, 229}})
+	expect(t, `r := import("rand"); g := r.generator(42); g.int(); c := g.copy()
+out = [c.int() == g.int(), c.int(1000) == g.int(1000), c == g, g == g, type_name(c), format(c), g.freeze() == g]`,
+		[]any{true, true, false, true, "rand.generator", "<rand.generator:seeded>", true})
+	expect(t, `e := import("os").rand_generator()
+x := e.int(1, 7)
+out = [type_name(e), format(e), x >= 1 && x < 7, e.copy() == e, [1, 2, 3].shuffle(e).sort(), e.float(-1, 1) < 1]`,
+		[]any{"rand.generator", "<rand.generator:entropy>", true, true, []any{1, 2, 3}, true})
+	expect(t, `r := import("rand"); a := [1, 2, 3, 4, 5]; b := a.shuffle(r.generator(7)); a.shuffle_in_place(r.generator(7))
+out = [b, a == b, a.sort() == [1, 2, 3, 4, 5]]`, []any{[]any{3, 5, 4, 1, 2}, true, true})
+	expect(t, `g := import("rand").generator(5); m := import("math"); out = is_int(g.int(m.min_int, m.max_int))`, true)
+
+	for _, c := range []struct{ src, msg string }{
+		{`import("rand").generator()`, "wrong_num_arguments"},
+		{`import("rand").generator(1.5)`, "argument first expects type int, got float"},
+		{`import("rand").generator(1).int(5, 5)`, "(rand.generator.int) the range [5, 5) is empty"},
+		{`import("rand").generator(1).int(0)`, "(rand.generator.int) the range [0, 0) is empty"},
+		{`import("rand").generator(1).float(1, 1)`, "(rand.generator.float) the range"},
+		{`import("rand").generator(1).bytes(0)`, "(rand.generator.bytes) count must be between 1"},
+		{`import("rand").generator(1).perm(-1)`, "(rand.generator.perm) count must be between 0"},
+		{`[1, 2].shuffle()`, "wrong_num_arguments"},
+		{`[1, 2].shuffle(5)`, "(shuffle) argument first expects type rand.generator, got int"},
+		{`[1].freeze().shuffle_in_place(import("rand").generator(1))`, "(shuffle_in_place) type immutable-array is immutable"},
+	} {
+		c2, err := compileGranted(c.src)
+		require.NoError(t, err)
+		err = c2.Run(newGrantedVM())
+		require.Error(t, err, c.src)
+		require.True(t, strings.Contains(err.Error(), c.msg), "%s: %s", c.src, err.Error())
+	}
+
+	_, err := kavun.NewScript([]byte(`g := import("rand").generator(1)`)).Compile() // rand is pure: no grant
+	require.NoError(t, err)
+	_, err = kavun.NewScript([]byte(`g := import("os").rand_generator()`)).Compile() // entropy is a world read
+	require.Error(t, err)
 }

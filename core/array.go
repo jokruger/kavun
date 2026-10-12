@@ -157,6 +157,8 @@ var TypeArray = ValueTypeDescr{
 		members.DedupInPlace:        NewMethod(arrayDedupInPlace, 0, Fixed),
 		members.SliceView:           NewPureMethod(arraySliceView, 0, Variadic),
 		members.ChunkView:           NewPureMethod(arrayChunkView, 1, Fixed),
+		members.Shuffle:             NewMethod(arrayShuffle, 1, Fixed),
+		members.ShuffleInPlace:      NewMethod(arrayShuffleInPlace, 1, Fixed),
 	},
 }
 

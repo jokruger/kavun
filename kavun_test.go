@@ -11861,7 +11861,7 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	fin.year_fraction(31, 365), fin.tiered_rates("0:0.005, 1000:0.007"),
 	fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0), fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02"),
 	fin.dated_charges("2024-01-01:25.00, 2025-01-01:30.00"), len, func(x) { return x }, "a".upper,
-	import("re").pattern("a")]
+	import("re").pattern("a"), import("rand").generator(1)]
 `
 	c, err := kavun.NewScript([]byte(src), "out").Compile()
 	require.NoError(t, err)

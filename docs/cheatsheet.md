@@ -323,7 +323,7 @@ math = import("math");   math.hypot(3, 4)   // sqrt, pow, ln, round(n, mode) are
 re = import("re");       re.pattern("[0-9]+").match("abc123")
 json = import("json");   json.encode({a: 1})
 clock = import("clock"); clock.now()   // durations are int members: 30.seconds(), d.in_hours(), "1h".nanoseconds()
-rand = import("rand");   rand.int_n(100)
+rand = import("rand");   g := rand.generator(1); g.int(1, 7); [1, 2, 3].shuffle(g)   // os.rand_generator(): entropy
 fs = import("fs");       fs.read_file("./data.txt")   // fs.open/create answer an fs.file
 exec = import("exec");   exec.exec("echo", "hi").output()
 path = import("path");   path.join("a", "b.txt")
