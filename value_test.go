@@ -19,6 +19,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/stdlib/fin"
 )
 
 func testBinaryOp(t *testing.T, lhs core.Value, op token.Token, rhs core.Value, expected core.Value) {
@@ -401,7 +402,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, dv.Equal(v))
 
 	// fin.year_fraction: 4 × int32, and decoding re-checks the invariant
-	v = core.NewFinYearFractionValue(daycount.Fraction{N1: 184, D1: 365, N2: 182, D2: 366})
+	v = fin.NewYearFractionValue(daycount.Fraction{N1: 184, D1: 365, N2: 182, D2: 366})
 	require.True(t, v.Type == value.FinYearFraction)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -418,12 +419,12 @@ func TestObject_Value(t *testing.T) {
 		build func(string) (core.Value, error)
 		text  string
 	}{
-		{func(s string) (core.Value, error) { return core.NewFinTieredRatesFrom("t", core.NewStringValue(s)) }, "0:0.005, 1000:0.007"},
+		{func(s string) (core.Value, error) { return fin.NewTieredRatesFrom("t", core.NewStringValue(s)) }, "0:0.005, 1000:0.007"},
 		{func(s string) (core.Value, error) {
-			return core.NewFinTieredChargesFrom("t", []core.Value{core.NewStringValue(s)})
+			return fin.NewTieredChargesFrom("t", []core.Value{core.NewStringValue(s)})
 		}, "0:0.015+2.00, 1000:0.01; min=25, max=500"},
-		{func(s string) (core.Value, error) { return core.NewFinDatedRatesFrom("t", core.NewStringValue(s)) }, "2026-01-01:0.04, 2026-07-01:0.02"},
-		{func(s string) (core.Value, error) { return core.NewFinDatedChargesFrom("t", core.NewStringValue(s)) }, "2024-01-01:25.00"},
+		{func(s string) (core.Value, error) { return fin.NewDatedRatesFrom("t", core.NewStringValue(s)) }, "2026-01-01:0.04, 2026-07-01:0.02"},
+		{func(s string) (core.Value, error) { return fin.NewDatedChargesFrom("t", core.NewStringValue(s)) }, "2024-01-01:25.00"},
 	} {
 		v, err = tc.build(tc.text)
 		require.NoError(t, err)

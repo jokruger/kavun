@@ -3,12 +3,15 @@
 This document covers the main builtin modules in Kavun stdlib:
 
 - `base64`
+- `exec`
 - `fin`
+- `fs`
 - `hex`
 - `io`
 - `json`
 - `math`
 - `os`
+- `path`
 - `rand`
 - `regexp`
 - `times`
@@ -17,9 +20,9 @@ Notes:
 
 - Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
   constants are read-only members, and a missing name raises.
-- **Grant.** `base64`, `fin`, `hex`, `json`, `math` and `regexp` are *pure* (they only compute) and importable by
-  default. `io`, `os`, `rand` and `times` touch the world and must be granted by the host (`docs/embedding.md`
-  § The module grant); the `kavun` CLI grants every module.
+- **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path` and `regexp` are *pure* (they only compute) and
+  importable by default. `exec`, `fs`, `io`, `os`, `rand` and `times` touch the world and must be granted by the
+  host (`docs/embedding.md` § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
 - A module function either answers the documented value or **raises** — nothing answers an error value, and
   nothing answers a `true` that means "it worked". A function whose success has no result answers `undefined`.
@@ -47,6 +50,34 @@ base64.encode(bytes("hello"))
 - `base64.raw_url_decode(s string) -> bytes`: Raw URL-safe Base64 decode.
 
 **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode) illegal base64 data at input byte 0`.
+
+## exec
+
+Run external programs. World access: a host must grant it.
+
+```go
+exec := import("exec")
+string(exec.exec("echo", "hi").output())   // "hi\n" — output() answers bytes
+p := exec.start_process("/bin/sleep", ["sleep", "1"], "", [])
+p.wait().success                        // true
+```
+
+- `exec.exec(name string, args...) -> exec.command`: Prepare a command; configure it, then run it once.
+- `exec.exec_look_path(file string) -> string`: Search an executable in `PATH`.
+- `exec.start_process(name string, argv [string], dir string, env [string]) -> exec.process`: Start a process.
+- `exec.find_process(pid int) -> exec.process`: The process with that pid.
+
+The two types are documented on their own pages: [`exec.command`](types/exec-command.md) (`run`, `start`, `wait`,
+`output`, `combined_output`, `set_path`, `set_dir`, `set_env`, `process`) and
+[`exec.process`](types/exec-process.md) (`pid`, `kill`, `signal`, `wait`, `release`). `process.wait()` answers a
+frozen record of facts: `{pid, exited, success, status}`.
+
+**Failures.** A program that cannot be found or run, or ends badly for `run`/`output`, raises `io` naming the call
+(`(exec.command.run) exit status 1`).
+
+**Migration:** these were `os.exec`, `os.exec_look_path`, `os.start_process` and `os.find_process`. The command and
+process are types instead of records of closures; the wait result is a record of VALUES — `st.success`, not
+`st.success()` — and its text field is `status` (was `string()`).
 
 ## fin
 
@@ -264,6 +295,53 @@ script-defined convention) — a stated fraction, `fin.year_fraction(n, d)`, cov
 `(fin.straight_line) the salvage value is above the cost`. A wrong argument type raises `invalid_argument_type`,
 a wrong count `wrong_num_arguments`, a division by zero `division_by_zero`.
 
+## fs
+
+The file system: files, directories, links, permissions. World access: a host must grant it.
+
+```go
+fs := import("fs")
+f := fs.create("./out.txt")
+f.write_string("hello")
+f.close()
+string(fs.read_file("./out.txt"))   // "hello" — read_file answers bytes
+fs.stat("./out.txt").size           // 5
+```
+
+Constants:
+
+- Open flags: `o_rd`, `o_wr`, `o_rdwr`, `o_append`, `o_create`, `o_excl`, `o_sync`, `o_trunc`.
+- Seek modes: `seek_set`, `seek_cur`, `seek_end`.
+- File mode bits: `mode_dir`, `mode_append`, `mode_exclusive`, `mode_temporary`, `mode_symlink`, `mode_device`,
+  `mode_named_pipe`, `mode_socket`, `mode_set_uid`, `mode_set_gui`, `mode_char_device`, `mode_sticky`,
+  `mode_type`, `mode_perm`.
+
+- `fs.open(path string) -> fs.file`: Open a file for reading.
+- `fs.open_file(path string, flag int, perm int) -> fs.file`: Open with flags and permission bits.
+- `fs.create(path string) -> fs.file`: Create (or truncate) a file.
+- `fs.read_file(path string) -> bytes`: Read a whole file.
+- `fs.stat(path string) -> record`: A frozen record `{name, mtime, size, mode, directory}`.
+- `fs.mkdir(path string, perm int) -> undefined`, `fs.mkdir_all(path string, perm int) -> undefined`: Create a
+  directory, or a whole tree.
+- `fs.remove(path string) -> undefined`, `fs.remove_all(path string) -> undefined`: Remove a file or empty
+  directory, or a tree.
+- `fs.rename(old_path string, new_path string) -> undefined`: Rename or move.
+- `fs.truncate(path string, size int) -> undefined`: Truncate a file.
+- `fs.chmod(path string, mode int) -> undefined`, `fs.chown(path string, uid int, gid int) -> undefined`,
+  `fs.lchown(path string, uid int, gid int) -> undefined`: Permission bits and ownership.
+- `fs.link(old_path string, new_path string) -> undefined`, `fs.symlink(old_path string, new_path string) ->
+  undefined`, `fs.read_link(path string) -> string`: Hard and symbolic links.
+- `fs.temp_dir() -> string`: The system temporary directory.
+
+An open file is an [`fs.file`](types/fs-file.md): `name`, `read(buffer)`, `write(bytes)`, `write_string(s)`,
+`seek(offset, whence)`, `stat`, `sync`, `chmod`, `chown`, `chdir`, `read_dir_names(n)`, `close`.
+
+**Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
+`(fs.remove) remove /nope: no such file or directory`. A function whose success has no result answers `undefined`.
+
+**Migration:** these were `os` functions and constants of the same names (`os.read_file` → `fs.read_file`). The
+file is a type instead of a record of closures.
+
 ## hex
 
 Example:
@@ -412,78 +490,66 @@ Constants:
 
 ## os
 
-Example:
+The process and its environment: arguments, exit, environment variables, identity, the working directory. Files are
+[`fs`](#fs)'s, other processes [`exec`](#exec)'s, path text [`path`](#path)'s. World access: a host must grant it.
 
 ```go
-os = import("os")
-os.read_file("./README.md")
+os := import("os")
+os.get_env("HOME")
+os.platform              // "linux", "darwin", …
 ```
 
-Constants:
-
-- Platform/path: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separator`.
-- Open flags: `o_rd`, `o_wr`, `o_rdwr`, `o_append`, `o_create`, `o_excl`, `o_sync`, `o_trunc`.
-- File mode bits: `mode_dir`, `mode_append`, `mode_exclusive`, `mode_temporary`, `mode_symlink`, `mode_device`, `mode_named_pipe`, `mode_socket`, `mode_set_uid`, `mode_set_gui`, `mode_char_device`, `mode_sticky`, `mode_type`, `mode_perm`.
-- Seek modes: `seek_set`, `seek_cur`, `seek_end`.
+Constants: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separator`.
 
 - `os.args() -> [string]`: Command-line arguments.
-- `os.chdir(dir string) -> undefined`: Change current working directory.
-- `os.chmod(path string, mode int) -> undefined`: Change file mode bits.
-- `os.chown(path string, uid int, gid int) -> undefined`: Change owner and group.
-- `os.clear_env() -> undefined`: Clear all environment variables.
-- `os.environ() -> [string]`: Environment as `KEY=VALUE` strings.
 - `os.exit(code int) -> undefined`: Exit process with code.
-- `os.expand_env(s string) -> string`: Expand `$VAR` references.
-- `os.get_egid() -> int`: Effective GID.
+- `os.environ() -> [string]`: Environment as `KEY=VALUE` strings.
 - `os.get_env(key string) -> string`: Environment value (empty if missing).
-- `os.get_euid() -> int`: Effective UID.
-- `os.get_gid() -> int`: Real GID.
+- `os.set_env(key string, value string) -> undefined`: Set environment variable.
+- `os.unset_env(key string) -> undefined`: Unset environment variable.
+- `os.lookup_env(key string) -> string | false`: Lookup env var with presence flag.
+- `os.expand_env(s string) -> string`: Expand `$VAR` references.
+- `os.clear_env() -> undefined`: Clear all environment variables.
+- `os.hostname() -> string`: Hostname.
+- `os.get_wd() -> string`: Current working directory.
+- `os.chdir(dir string) -> undefined`: Change current working directory.
+- `os.get_pid() -> int`, `os.get_ppid() -> int`: Current and parent process ID.
+- `os.get_uid() -> int`, `os.get_euid() -> int`, `os.get_gid() -> int`, `os.get_egid() -> int`: Real and effective
+  user and group IDs.
 - `os.get_groups() -> [int]`: Supplementary group IDs.
 - `os.get_page_size() -> int`: Memory page size.
-- `os.get_pid() -> int`: Current process ID.
-- `os.get_ppid() -> int`: Parent process ID.
-- `os.get_uid() -> int`: Real UID.
-- `os.get_wd() -> string`: Current working directory.
-- `os.hostname() -> string`: Hostname.
-- `os.lchown(path string, uid int, gid int) -> undefined`: Change owner/group of symlink target entry.
-- `os.link(old_path string, new_path string) -> undefined`: Create hard link.
-- `os.lookup_env(key string) -> string | false`: Lookup env var with presence flag.
-- `os.mkdir(path string, perm int) -> undefined`: Create directory.
-- `os.mkdir_all(path string, perm int) -> undefined`: Create directory tree.
-- `os.read_link(path string) -> string`: Read symlink target.
-- `os.remove(path string) -> undefined`: Remove file or empty directory.
-- `os.remove_all(path string) -> undefined`: Remove path recursively.
-- `os.rename(old_path string, new_path string) -> undefined`: Rename/move path.
-- `os.set_env(key string, value string) -> undefined`: Set environment variable.
-- `os.symlink(old_path string, new_path string) -> undefined`: Create symbolic link.
-- `os.temp_dir() -> string`: System temporary directory.
-- `os.truncate(path string, size int) -> undefined`: Truncate file.
-- `os.unset_env(key string) -> undefined`: Unset environment variable.
-- `os.create(path string) -> file`: Create file, returns file record.
-- `os.open(path string) -> file`: Open file (read-only), returns file record.
-- `os.open_file(path string, flag int, perm int) -> file`: Open file with flags/mode, returns file record.
-- `os.find_process(pid int) -> process`: Find process by PID.
-- `os.start_process(name string, argv [string], dir string, env [string]) -> process`: Start process.
-- `os.exec_look_path(file string) -> string`: Search executable in PATH.
-- `os.exec(name string, args...) -> command`: Build exec command record.
-- `os.stat(path string) -> fileinfo`: File metadata record.
-- `os.read_file(path string) -> bytes`: Read file contents.
 
-**Failures.** Everything the world can refuse — a missing path, a permission, a failed exec — raises kind
-`io`, with the operation named in the message: `(os.remove) remove /nope: no such file or directory`. There is
-nothing to check after a call; a function whose success has no result answers `undefined`. The same holds for the
-`file`, `process` and `exec` objects these functions answer.
+**Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
+`(os.chdir) chdir /nope: no such file or directory`. A function whose success has no result answers `undefined`.
 
-### os returned records
+**Migration:** `os` was also the file system and process module. Each function and constant kept its name and
+moved: files, directories, links, permissions and `temp_dir` to [`fs`](#fs) (`os.read_file` → `fs.read_file`,
+`os.o_create` → `fs.o_create`), `exec`, `exec_look_path`, `start_process` and `find_process` to [`exec`](#exec).
+The objects they answer are types now (`fs.file`, `exec.command`, `exec.process`), not records of closures.
 
-- `file` record methods:
-  - `chdir()`, `chown(uid, gid)`, `close()`, `name()`, `read_dir_names(n)`, `sync()`, `write(bytes)`, `write_string(string)`, `read(bytes)`, `chmod(mode)`, `seek(offset, whence)`, `stat()`.
-- `process` record methods:
-  - `kill()`, `release()`, `signal(sig)`, `wait() -> process_state`.
-- `process_state` record methods:
-  - `exited()`, `pid()`, `string()`, `success()`.
-- `command` record methods (`os.exec(...)`):
-  - `combined_output()`, `output()`, `run()`, `start()`, `wait()`, `set_path(path)`, `set_dir(dir)`, `set_env(env)`, `process()`.
+## path
+
+Path TEXT with the host's separator — joining, splitting, cleaning. It never touches the file system (that is
+[`fs`](#fs)), so it is pure and importable by default.
+
+```go
+path := import("path")
+path.join("a", "b", "../c")     // "a/c"
+path.split("/x/y.txt")          // ["/x/", "y.txt"]
+```
+
+- `path.join(parts...) -> string`: Join with the separator and clean; `""` for no parts.
+- `path.base(p) -> string`: The last element (`"."` for `""`).
+- `path.dir(p) -> string`: Everything but the last element, cleaned.
+- `path.ext(p) -> string`: The extension of the last element, dot included (`""` when none).
+- `path.clean(p) -> string`: The shortest equivalent path.
+- `path.split(p) -> [dir, file]`: `dir` keeps its trailing separator, so `dir + file == p`.
+- `path.rel(base, target) -> string`: `target` relative to `base`; raises `invalid_value` when there is none.
+- `path.is_abs(p) -> bool`: Whether `p` is absolute.
+- `path.match(pattern, name) -> bool`: Shell pattern match (`*`, `?`, `[...]`); a malformed pattern raises
+  `invalid_value`.
+
+Failures: `invalid_value` (as above), `invalid_argument_type` (a non-string), `wrong_num_arguments`.
 
 ## rand
 

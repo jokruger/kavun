@@ -8,36 +8,36 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// decimal's members: one function per entry of TypeDecimal.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// decimal's members: one function per entry of TypeDecimal.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func decimalDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), decimalTypeName, args, true, v)
+	return ConvMember(id.String(), decimalTypeName, args, true, v)
 }
 
 // PURE by contract
 func decimalFloat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	f, ok := v.AsFloat()
-	return convMember(id.String(), decimalTypeName, args, ok, FloatValue(f))
+	return ConvMember(id.String(), decimalTypeName, args, ok, FloatValue(f))
 }
 
 // PURE by contract
 func decimalInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	i, ok := v.AsInt()
-	return convMember(id.String(), decimalTypeName, args, ok, IntValue(i))
+	return ConvMember(id.String(), decimalTypeName, args, ok, IntValue(i))
 }
 
 // PURE by contract
 func decimalTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	t, ok := v.AsTime()
-	return convMember(id.String(), decimalTypeName, args, ok, NewTimeValue(t))
+	return ConvMember(id.String(), decimalTypeName, args, ok, NewTimeValue(t))
 }
 
 // PURE by contract
 func decimalBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	b, ok := v.AsBool()
-	return convMember(id.String(), decimalTypeName, args, ok, BoolValue(b))
+	return ConvMember(id.String(), decimalTypeName, args, ok, BoolValue(b))
 }
 
 // PURE by contract
@@ -53,7 +53,7 @@ func decimalString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func decimalRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), decimalTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), decimalTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 }
 
 // PURE by contract

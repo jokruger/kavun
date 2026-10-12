@@ -9,42 +9,42 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// date's members: one function per entry of TypeDate.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// date's members: one function per entry of TypeDate.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func dateDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), dateTypeName, args, true, v)
+	return ConvMember(id.String(), dateTypeName, args, true, v)
 }
 
 // PURE by contract
 func dateInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
-	return convMember(id.String(), dateTypeName, args, true, IntValue(int64(d.Days())))
+	d := DateOf(v)
+	return ConvMember(id.String(), dateTypeName, args, true, IntValue(int64(d.Days())))
 }
 
 // PURE by contract
 func dateString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
-	return convMember(id.String(), dateTypeName, args, true, NewStringValue(d.String()))
+	d := DateOf(v)
+	return ConvMember(id.String(), dateTypeName, args, true, NewStringValue(d.String()))
 }
 
 // PURE by contract
 func dateRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
-	return convMember(id.String(), dateTypeName, args, true, NewRunesValue(DecodeText(d.String()), false))
+	d := DateOf(v)
+	return ConvMember(id.String(), dateTypeName, args, true, NewRunesValue(DecodeText(d.String()), false))
 }
 
 // PURE by contract
 func dateTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	// midnight UTC — the date's own reading; time_in(zone) is the start of the day elsewhere
-	return convMember(id.String(), dateTypeName, args, true, NewTimeValue(dateMidnightUTC(d)))
+	return ConvMember(id.String(), dateTypeName, args, true, NewTimeValue(dateMidnightUTC(d)))
 }
 
 // PURE by contract
 func dateComponents(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -58,7 +58,7 @@ func dateComponents(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -67,7 +67,7 @@ func dateYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -76,7 +76,7 @@ func dateMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -85,7 +85,7 @@ func dateDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateWeekDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -94,7 +94,7 @@ func dateWeekDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateYearDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -103,7 +103,7 @@ func dateYearDay(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateMonthName(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -112,7 +112,7 @@ func dateMonthName(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateWeekDayName(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -123,7 +123,7 @@ func dateWeekDayName(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateStartOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -132,7 +132,7 @@ func dateStartOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) 
 
 // PURE by contract
 func dateEndOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -141,7 +141,7 @@ func dateEndOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateIsEndOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -150,7 +150,7 @@ func dateIsEndOfMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) 
 
 // PURE by contract
 func dateIsLeapYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -159,7 +159,7 @@ func dateIsLeapYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateDaysInYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -168,7 +168,7 @@ func dateDaysInYear(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dateDaysInMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -180,7 +180,7 @@ func dateDaysInMonth(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateAddDays(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
@@ -194,7 +194,7 @@ func dateAddDays(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateAddMonths(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 	}
@@ -219,7 +219,7 @@ func dateAddMonths(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateAddYears(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 	}
@@ -244,7 +244,7 @@ func dateAddYears(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateMonthsSince(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	d := dateOf(v)
+	d := DateOf(v)
 	// [months, days]: whole months from other to d, and the days left over, so that
 	// other.add_months(months, eom) + days == d
 	if len(args) != 2 {
@@ -257,7 +257,7 @@ func dateMonthsSince(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	months, days, ok := d.MonthsSince(dateOf(args[0]), rule)
+	months, days, ok := d.MonthsSince(DateOf(args[0]), rule)
 	if !ok {
 		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
 	}
@@ -269,7 +269,7 @@ func dateMonthsSince(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateTimeIn(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	d := dateOf(v)
+	d := DateOf(v)
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}

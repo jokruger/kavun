@@ -54,11 +54,11 @@ var TypeTime = ValueTypeDescr{
 	// Every member is pure: zone data is read by name and is the host's tzdata, which the purity contract treats as
 	// fixed for a process (docs/purity.md); no member reads the host's own zone.
 	Methods: []Method{
-		members.IsTrue:      NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:      NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:      NewPureMethod(timeString, 0, Variadic),
-		members.Format:      NewPureMethod(memberFormat, 0, Variadic),
-		members.Copy:        NewPureMethod(memberSelf, 0, Fixed),
-		members.Freeze:      NewPureMethod(memberSelf, 0, Fixed),
+		members.Format:      NewPureMethod(MemberFormat, 0, Variadic),
+		members.Copy:        NewPureMethod(MemberSelf, 0, Fixed),
+		members.Freeze:      NewPureMethod(MemberSelf, 0, Fixed),
 		members.Runes:       NewPureMethod(timeRunes, 0, Variadic),
 		members.Int:         NewPureMethod(timeInt, 0, Variadic),
 		members.Float:       NewPureMethod(timeFloat, 0, Variadic),

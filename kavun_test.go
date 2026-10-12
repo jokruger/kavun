@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	osexec "os/exec"
 	"runtime"
 	"slices"
 	"strconv"
@@ -30,6 +31,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/stdlib/exec"
+	"github.com/jokruger/kavun/stdlib/fs"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -11700,6 +11703,19 @@ out.append_in_place(xs...)
 	require.Equal(t, kavun.MustValueOf(ARR{"d", 5, 2, 7}), globals[sym.Index])
 }
 
+// Every module-owned type is registered by its module (core.ModuleBuilder.Type), so importing kavun — which imports
+// every builtin module — registers them all under their Kavun names.
+func TestModuleOwnedTypesRegistered(t *testing.T) {
+	for id, name := range map[uint8]string{
+		value.ExecProcess: "exec.process", value.ExecCommand: "exec.command", value.FsFile: "fs.file",
+		value.FinYearFraction: "fin.year_fraction", value.FinTieredRates: "fin.tiered_rates",
+		value.FinTieredCharges: "fin.tiered_charges", value.FinDatedRates: "fin.dated_rates",
+		value.FinDatedCharges: "fin.dated_charges",
+	} {
+		require.Equal(t, name, core.Value{Type: id}.TypeName())
+	}
+}
+
 // Values whose type id or builtin slot moved in bytecode 002 survive an encode/decode round trip: a builtin module,
 // a module-owned type, a container, a static primitive, a global builtin.
 func TestTypeIDsBytecodeRoundTrip(t *testing.T) {
@@ -11823,6 +11839,17 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	out, _ := c.Get("out")
 	samples, _ := out.AsArray()
 	samples = append(samples, core.NewBuiltinClosureValue("f", func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }, 0, false))
+	// the world-handle types, built so that calling any member with probe arguments is harmless: a regular temp file
+	// (chdir into it fails), a command for a program that does not exist (run fails), a RELEASED process (kill and
+	// signal answer "already released" instead of reaching a real pid)
+	file, err := os.CreateTemp(t.TempDir(), "arity")
+	require.NoError(t, err)
+	defer file.Close()
+	proc, err := os.FindProcess(1 << 30)
+	require.NoError(t, err)
+	require.NoError(t, proc.Release())
+	samples = append(samples, fs.NewFileValue(file), exec.NewCommandValue(osexec.Command("kavun-no-such-program")),
+		exec.NewProcessValue(proc))
 
 	isWrongNum := func(recv core.Value, e core.Method, id int, n int) bool {
 		recv, err := recv.Copy(true)

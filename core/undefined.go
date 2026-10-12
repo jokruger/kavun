@@ -34,9 +34,9 @@ var TypeUndefined = ValueTypeDescr{
 	AsBool:              func(Value) (bool, bool) { return false, true },                           // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:  NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:  NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:  NewPureMethod(undefinedConvert, 0, Variadic),
-		members.Format:  NewPureMethod(memberFormat, 0, Variadic),
+		members.Format:  NewPureMethod(MemberFormat, 0, Variadic),
 		members.Runes:   NewPureMethod(undefinedConvert, 0, Variadic),
 		members.Int:     NewPureMethod(undefinedConvert, 0, Variadic),
 		members.Bool:    NewPureMethod(undefinedConvert, 0, Variadic),

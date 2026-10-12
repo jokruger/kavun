@@ -1,0 +1,223 @@
+package rand
+
+import (
+	"math/rand"
+
+	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/stdlib/internal/modkit"
+)
+
+func init() {
+	m := core.NewModule(value.ModuleRand, "rand", false)
+	// 9..127 reserved
+	m.Fn(members.Int, 0, randInt63, 0, core.Fixed)
+	m.Fn(members.Float, 1, randFloat64, 0, core.Fixed)
+	m.Fn(members.IntN, 2, randInt63n, 1, core.Fixed)
+	m.Fn(members.ExpFloat, 3, randExpFloat64, 0, core.Fixed)
+	m.Fn(members.NormFloat, 4, randNormFloat64, 0, core.Fixed)
+	m.Fn(members.Perm, 5, randPerm, 1, core.Fixed)
+	m.Fn(members.Seed, 6, randSeed, 1, core.Fixed)
+	m.Fn(members.Read, 7, randRead, 1, core.Fixed)
+	m.Fn(members.Rand, 8, randFunc, 1, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
+}
+
+func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.perm", "1", len(args))
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName())
+	}
+	res := rand.Perm(int(i1))
+	arr := make([]core.Value, 0, len(res))
+	for _, v := range res {
+		arr = append(arr, core.IntValue(int64(v)))
+	}
+	return core.NewArrayValue(arr, false), nil
+}
+
+func randNormFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.norm_float", "0", len(args))
+	}
+	return core.FloatValue(rand.NormFloat64()), nil
+}
+
+func randExpFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.exp_float", "0", len(args))
+	}
+	return core.FloatValue(rand.ExpFloat64()), nil
+}
+
+func randFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.float", "0", len(args))
+	}
+	return core.FloatValue(rand.Float64()), nil
+}
+
+func randSeed(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.seed", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0].TypeName())
+	}
+	rand.Seed(i1)
+	return core.Undefined, nil
+}
+
+func randInt63n(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.int_n", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.int_n", "first", "int(compatible)", args[0].TypeName())
+	}
+	return core.IntValue(rand.Int63n(i1)), nil
+}
+
+func randRead(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.read", "1", len(args))
+	}
+	y1, ok := args[0].AsBytes()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName())
+	}
+	res, err := rand.Read(y1)
+	if err != nil {
+		return modkit.RaiseIO("rand.read", err)
+	}
+	return core.IntValue(int64(res)), nil
+}
+
+func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand", "1", len(args))
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
+	}
+	src := rand.NewSource(i1)
+	return randRand(vm, rand.New(src))
+}
+
+func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("rand.int", "0", len(args))
+	}
+	return core.IntValue(rand.Int63()), nil
+}
+
+func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
+	rInt63 := core.NewBuiltinClosureValue("int", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 0 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
+		}
+		return core.IntValue(r.Int63()), nil
+	}, 0, false)
+
+	rFloat64 := core.NewBuiltinClosureValue("float", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 0 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
+		}
+		return core.FloatValue(r.Float64()), nil
+	}, 0, false)
+
+	rInt63n := core.NewBuiltinClosureValue("int_n", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
+		}
+
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName())
+		}
+		return core.IntValue(r.Int63n(i1)), nil
+	}, 1, false)
+
+	rExpFloat64 := core.NewBuiltinClosureValue("exp_float", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 0 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
+		}
+		return core.FloatValue(r.ExpFloat64()), nil
+	}, 0, false)
+
+	rNormFloat64 := core.NewBuiltinClosureValue("norm_float", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 0 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
+		}
+		return core.FloatValue(r.NormFloat64()), nil
+	}, 0, false)
+
+	rPerm := core.NewBuiltinClosureValue("perm", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
+		}
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName())
+		}
+		res := r.Perm(int(i1))
+		arr := make([]core.Value, 0, len(res))
+		for _, v := range res {
+			arr = append(arr, core.IntValue(int64(v)))
+		}
+		return core.NewArrayValue(arr, false), nil
+	}, 1, false)
+
+	rSeed := core.NewBuiltinClosureValue("seed", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
+		}
+
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName())
+		}
+		r.Seed(i1)
+		return core.Undefined, nil
+	}, 1, false)
+
+	rRead := core.NewBuiltinClosureValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
+		}
+		y1, ok := args[0].AsBytes()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
+		}
+		res, err := r.Read(y1)
+		if err != nil {
+			return modkit.RaiseIO("rand.rand.read", err)
+		}
+		return core.IntValue(int64(res)), nil
+	}, 1, false)
+
+	m := core.NewRecordValue(map[string]core.Value{
+		"int":        rInt63,
+		"float":      rFloat64,
+		"int_n":      rInt63n,
+		"exp_float":  rExpFloat64,
+		"norm_float": rNormFloat64,
+		"perm":       rPerm,
+		"seed":       rSeed,
+		"read":       rRead,
+	}, true)
+
+	return m, nil
+}

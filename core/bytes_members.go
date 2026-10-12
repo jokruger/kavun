@@ -8,8 +8,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// bytes's members: one function per entry of TypeBytes.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf, memberSlice in tools.go).
+// bytes's members: one function per entry of TypeBytes.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf, memberSlice in tools.go).
 
 // PURE by contract
 func bytesCopy(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -36,7 +36,7 @@ func bytesBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), bytesTypeName, args, true, c)
+	return ConvMember(id.String(), bytesTypeName, args, true, c)
 }
 
 // PURE by contract

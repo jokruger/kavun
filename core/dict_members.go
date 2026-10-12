@@ -7,8 +7,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// dict's members: one function per entry of TypeDict.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// dict's members: one function per entry of TypeDict.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func dictCopy(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -51,7 +51,7 @@ func dictDict(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), dictTypeName, args, true, c)
+	return ConvMember(id.String(), dictTypeName, args, true, c)
 }
 
 // PURE by contract
@@ -75,7 +75,7 @@ func dictArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// a map's conversion elements are its ENTRIES, key-sorted, so
 	// d.array().dict() round-trips
 	o := (*Dict)(v.Ptr)
-	return convMember(id.String(), dictTypeName, args, true, NewArrayValue(MapToSortedEntries(o.Elements), false))
+	return ConvMember(id.String(), dictTypeName, args, true, NewArrayValue(MapToSortedEntries(o.Elements), false))
 }
 
 // PURE by contract
@@ -90,7 +90,7 @@ func dictTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 		}
 		return Undefined, err
 	}
-	return convMember(id.String(), dictTypeName, args, true, NewTimeValue(t))
+	return ConvMember(id.String(), dictTypeName, args, true, NewTimeValue(t))
 }
 
 // PURE by contract
@@ -103,7 +103,7 @@ func dictDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 		}
 		return Undefined, err
 	}
-	return convMember(id.String(), dictTypeName, args, true, DateValue(d))
+	return ConvMember(id.String(), dictTypeName, args, true, DateValue(d))
 }
 
 // PURE by contract
@@ -116,7 +116,7 @@ func dictRange(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 		}
 		return Undefined, err
 	}
-	return convMember(id.String(), dictTypeName, args, true, r)
+	return ConvMember(id.String(), dictTypeName, args, true, r)
 }
 
 // dictContains is contains(...): does some entry match?

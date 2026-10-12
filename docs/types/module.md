@@ -22,7 +22,7 @@ answers whatever it `export`s, frozen — a record keeps record rules. See
 [language.md § Modules](../language.md#modules).
 
 Which builtin modules a script may import is the host's decision. By default only the **pure** ones (they only
-compute) are importable; a world-touching module (`io`, `os`, `rand`, `times`) needs a grant, checked at compile
+compute) are importable; a world-touching module (`exec`, `fs`, `io`, `os`, `rand`, `times`) needs a grant, checked at compile
 time and again by the VM (`module_not_allowed`). See [embedding.md § The module grant](../embedding.md#the-module-grant).
 
 ## Operators
@@ -82,5 +82,5 @@ names                                   // ["decode", "encode"]
 - **Assignment names the module**: `math.pi = 1` raises `not_assignable` with
   `module 'math' is read-only: cannot assign member 'pi'`.
 - `len`, `in` and `for` over a module are unchanged; source modules are unchanged.
-- **The grant.** `io` (formerly `fmt`), `os`, `rand` and `times` are no longer importable by default from an embedding host —
-  grant them (`docs/embedding.md` § The module grant). The `kavun` CLI grants every module.
+- **The grant.** `io` (formerly `fmt`), `os` (and `fs`, `exec`, split from it), `rand` and `times` are no longer
+  importable by default from an embedding host — grant them (`docs/embedding.md` § The module grant). The `kavun` CLI grants every module.

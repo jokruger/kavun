@@ -5,8 +5,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// undefined's members: one function per entry of TypeUndefined.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// undefined's members: one function per entry of TypeUndefined.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func undefinedConvert(_ VM, v Value, id member.ID, args []Value) (Value, error) {

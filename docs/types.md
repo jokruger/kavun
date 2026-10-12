@@ -30,6 +30,7 @@ carry the full contracts; [types/function-matrix.md](types/function-matrix.md) i
 | [record](types/record.md) | field bag with `r.field` access; **no member surface by design** — free builtins only |
 | function / closure / builtin / bound member | callables; `type_name()` answers `"function"` for all four |
 | [module](types/module.md) | a builtin module as `import` answers it: read-only members, dot access only |
+| [fs.file](types/fs-file.md), [exec.command](types/exec-command.md), [exec.process](types/exec-process.md) | handles on the world owned by the `fs` and `exec` modules: identity equality, every member impure |
 
 ## The type-shape families
 

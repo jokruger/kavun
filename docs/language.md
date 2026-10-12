@@ -1013,7 +1013,7 @@ A **builtin module** answers a value of type [`module`](types/module.md): its fu
 members (`math.hypot(3, 4)`, `math.pi`, `arr.map(math.cbrt)`), it is read-only, and a name it does not have raises
 (`math.pii` → `module 'math' has no member 'pii'`). `len`, `in` and `for k, v in m` see its members, sorted by
 name. Which builtin modules a script may import is the host's decision: by default only the pure ones (no world
-access); `io`, `os`, `rand` and `times` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
+access); `exec`, `fs`, `io`, `os`, `rand` and `times` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
 grants everything.
 
 A Kavun module uses `export` to publish its result. The exported value is automatically made immutable. `export` inside

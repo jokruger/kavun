@@ -78,9 +78,9 @@ var TypeBytes = ValueTypeDescr{
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
 	Methods: []Method{
-		members.IsTrue:              NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:              NewPureMethod(bytesString, 0, Fixed),
-		members.Format:              NewPureMethod(memberFormat, 0, Variadic),
+		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
 		members.Copy:                NewPureMethod(bytesCopy, 0, Fixed),
 		members.Freeze:              NewPureMethod(bytesFreeze, 0, Fixed),
 		members.Runes:               NewPureMethod(bytesRunes, 0, Fixed),

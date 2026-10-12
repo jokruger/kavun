@@ -315,7 +315,7 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `io`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
+Builtin modules: `io`, `math`, `os`, `fs`, `exec`, `path`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
 
 ```go
 io = import("io");       io.print("sum:", 20 + 22); io.write("no newline"); line := io.read_line("")
@@ -324,6 +324,9 @@ re = import("regexp");   re.re_match("[0-9]+", "abc123")
 json = import("json");   json.encode({a: 1})
 times = import("times"); times.now()
 rand = import("rand");   rand.int_n(100)
+fs = import("fs");       fs.read_file("./data.txt")   // fs.open/create answer an fs.file
+exec = import("exec");   exec.exec("echo", "hi").output()
+path = import("path");   path.join("a", "b.txt")
 fin = import("fin");     fin.payment(0.005d, 60, 25000, 0, "arrears", 2, "half_even")   // -483.32
 ```
 

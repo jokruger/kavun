@@ -215,19 +215,19 @@ func expect(t *testing.T, input string, expected any) {
 }
 
 func TestModulesRun(t *testing.T) {
-	// os.File. Nothing is checked after a call: a failure raises, and the statement-like members
+	// fs.file. Nothing is checked after a call: a failure raises, and the statement-like members
 	// (write, close, remove) answer undefined.
 	expect(t, `
-os := import("os")
+fs := import("fs")
 
 write_file := func(filename, data) {
-	file := os.create(filename)
+	file := fs.create(filename)
 	defer file.close()
 	file.write(bytes(data))
 }
 
 read_file := func(filename) res {
-	file := os.open(filename)
+	file := fs.open(filename)
 	defer file.close()
 	data := bytes(b'\x00', 100)
 	cnt := file.read(data)
@@ -236,13 +236,13 @@ read_file := func(filename) res {
 
 write_file("./temp", "foobar")
 out = string(read_file("./temp"))
-os.remove("./temp")
+fs.remove("./temp")
 `, "foobar")
 
 	// exec.command
 	expect(t, `
-os := import("os")
-out = os.exec("echo", "foo", "bar").output()
+exec := import("exec")
+out = exec.exec("echo", "foo", "bar").output()
 `, []byte("foo bar\n"))
 }
 
@@ -255,8 +255,8 @@ func TestModuleFailuresRaise(t *testing.T) {
 		kind string
 		msg  string
 	}{
-		{"os.remove", `os := import("os"); os.remove("/nonexistent/definitely/not/here")`, "io", "(os.remove)"},
-		{"os.read_file", `os := import("os"); os.read_file("/nonexistent/definitely/not/here")`, "io", "(os.read_file)"},
+		{"fs.remove", `fs := import("fs"); fs.remove("/nonexistent/definitely/not/here")`, "io", "(fs.remove)"},
+		{"fs.read_file", `fs := import("fs"); fs.read_file("/nonexistent/definitely/not/here")`, "io", "(fs.read_file)"},
 		{"os.chdir", `os := import("os"); os.chdir("/nonexistent/definitely/not/here")`, "io", "(os.chdir)"},
 		{"base64.decode", `b := import("base64"); b.decode("!!!!")`, "conversion", "(base64.decode)"},
 		{"hex.decode", `h := import("hex"); h.decode("zz")`, "conversion", "(hex.decode)"},
@@ -335,13 +335,13 @@ func TestRegexpExpansionLimitIsRecoverable(t *testing.T) {
 // A statement-like module function answers undefined on success — "no result", not a `true` to branch on.
 func TestModuleStatementLikeAnswerUndefined(t *testing.T) {
 	expect(t, `
-os := import("os")
-d := os.temp_dir() + "/kavun_stdlib_test_dir"
-os.remove_all(d)
+fs := import("fs")
+d := fs.temp_dir() + "/kavun_stdlib_test_dir"
+fs.remove_all(d)
 out = [
-	is_undefined(os.mkdir(d, 0o755)),
-	is_undefined(os.chmod(d, 0o700)),
-	is_undefined(os.remove_all(d)),
+	is_undefined(fs.mkdir(d, 0o755)),
+	is_undefined(fs.chmod(d, 0o700)),
+	is_undefined(fs.remove_all(d)),
 ]
 `, []any{true, true, true})
 }
@@ -415,14 +415,14 @@ func TestReadFile(t *testing.T) {
 	require.NoError(t, err)
 	_ = tf.Close()
 
-	module(t, "os").call("read_file", tf.Name()).expect(core.NewBytesValue(content, false))
+	module(t, "fs").call("read_file", tf.Name()).expect(core.NewBytesValue(content, false))
 }
 
 func TestReadFileArgs(t *testing.T) {
-	module(t, "os").call("read_file").expectError()
+	module(t, "fs").call("read_file").expectError()
 }
 func TestFileStatArgs(t *testing.T) {
-	module(t, "os").call("stat").expectError()
+	module(t, "fs").call("stat").expectError()
 }
 
 func TestFileStatFile(t *testing.T) {
@@ -448,7 +448,7 @@ func TestFileStatFile(t *testing.T) {
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.False,
 	}, true)
-	module(t, "os").call("stat", tf.Name()).expect(rec)
+	module(t, "fs").call("stat", tf.Name()).expect(rec)
 }
 
 func TestFileStatDir(t *testing.T) {
@@ -466,7 +466,7 @@ func TestFileStatDir(t *testing.T) {
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.True,
 	}, true)
-	module(t, "os").call("stat", td).expect(rec)
+	module(t, "fs").call("stat", td).expect(rec)
 }
 
 func TestOSExpandEnv(t *testing.T) {
@@ -768,6 +768,11 @@ func TestRetiredModuleFunctions(t *testing.T) {
 		// min/max are the free builtins' and the members' job; the rest became float members by parity with decimal
 		// (sqrt, pow, exp, log → ln, log2, log10, floor/ceil/trunc → the round_* twins, copy_sign, mod → quo_rem) or
 		// were second spellings of one (abs, is_nan, is_inf, signbit)
+		// os kept the process and its environment; files moved to fs, processes to exec (each function and constant
+		// under its own name)
+		"os": {"open", "open_file", "create", "read_file", "stat", "mkdir", "mkdir_all", "remove", "remove_all",
+			"rename", "truncate", "chmod", "chown", "lchown", "link", "symlink", "read_link", "temp_dir", "exec",
+			"exec_look_path", "start_process", "find_process", "o_rd", "o_create", "seek_set", "mode_dir", "mode_perm"},
 		"math": {"min", "max", "abs", "is_nan", "is_inf", "signbit", "sqrt", "pow", "exp", "log", "log2", "log10",
 			"floor", "ceil", "trunc", "copy_sign", "mod"},
 	}
@@ -839,4 +844,75 @@ func TestIO(t *testing.T) {
 		_, _, err = run(src, "")
 		requireKind(err, "wrong_num_arguments")
 	}
+}
+
+// path is path TEXT over the host's separator; pure, so granted by default.
+func TestPathModule(t *testing.T) {
+	sep := string(os.PathSeparator)
+	j := func(parts ...string) string { return strings.Join(parts, sep) }
+	expect(t, `p := import("path"); out = [p.join("a", "b", "../c"), p.join(), p.base("/x/y.txt"), p.ext("/x/y.tar.gz"), p.ext("y")]`,
+		[]any{j("a", "c"), "", "y.txt", ".gz", ""})
+	expect(t, `p := import("path"); out = [p.dir("/x/y.txt"), p.clean("/a/./b/../c//d"), p.split("/x/y.txt"), p.is_abs("/x"), p.is_abs("x")]`,
+		[]any{"/x", "/a/c/d", []any{"/x/", "y.txt"}, true, false})
+	expect(t, `p := import("path"); out = [p.rel("/a", "/a/b/c"), p.match("*.kvn", "main.kvn"), p.match("*.kvn", "main.go")]`,
+		[]any{j("b", "c"), true, false})
+
+	for _, c := range []struct{ src, kind, msg string }{
+		{`import("path").rel("/a", "b")`, "invalid_value", "(path.rel)"},
+		{`import("path").match("[", "x")`, "invalid_value", "(path.match)"},
+		{`import("path").base(1)`, "invalid_argument_type", "path.base"},
+		{`import("path").join("a", 1)`, "invalid_argument_type", "parts[1]"},
+	} {
+		c2, err := kavun.NewScript([]byte(c.src)).Compile() // no grant: path is pure
+		require.NoError(t, err)
+		err = c2.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+		var re *kavun.RuntimeError
+		require.True(t, errors.As(err, &re), "%s: got %T: %v", c.src, err, err)
+		require.Equal(t, c.kind, re.Kind, c.src)
+		require.True(t, strings.Contains(re.Message, c.msg), "%s: %s", c.src, re.Message)
+	}
+}
+
+// fs.file is a typed handle: its own type name and render, identity equality, the members of the old file record.
+func TestFsFileType(t *testing.T) {
+	dir := t.TempDir()
+	name := dir + string(os.PathSeparator) + "f.txt"
+	expect(t, strings.ReplaceAll(`
+fs := import("fs")
+f := fs.create(NAME)
+w := f.write_string("hello")
+f.seek(0, fs.seek_set)
+buf := bytes(b"\x00", 5)
+r := f.read(buf)
+st := f.stat()
+g := fs.open(NAME)
+out = [type_name(f), format(f) == "<fs.file:" + NAME + ">", f == f, f == g, w, r, string(buf), st.size, st.directory, f.name() == NAME]
+f.close(); g.close()
+`, "NAME", fmt.Sprintf("%q", name)), []any{"fs.file", true, true, false, 5, 5, "hello", 5, false, true})
+	expect(t, strings.ReplaceAll(`fs := import("fs"); d := fs.open(DIR); out = d.read_dir_names(0); d.close()`, "DIR", fmt.Sprintf("%q", dir)), []any{"f.txt"})
+
+	c, err := compileGranted(fmt.Sprintf(`f := import("fs").open(%q); f.string()`, name))
+	require.NoError(t, err)
+	require.Error(t, c.Run(newGrantedVM())) // no text content: no string() member
+}
+
+// exec.command and exec.process are typed handles; process.wait() answers a frozen record of facts.
+func TestExecTypes(t *testing.T) {
+	expect(t, `
+exec := import("exec")
+c := exec.exec("sh", "-c", "exit 3")
+before := type_name(c) + " " + format(c)
+c.start()
+p := c.process()
+st := p.wait()
+out = [before, type_name(p), p == c.process(), st.exited, st.success, st.status, st.pid == p.pid(), type_name(st)]
+`, []any{"exec.command <exec.command:sh>", "exec.process", true, true, false, "exit status 3", true, "immutable-record"})
+	expect(t, `exec := import("exec"); c := exec.exec("sh", "-c", "exit 0"); out = [c.run(), format(exec.exec("echo"))]`,
+		[]any{core.Undefined, "<exec.command:echo>"})
+
+	c, err := compileGranted(`import("exec").exec("echo").process()`)
+	require.NoError(t, err)
+	err = c.Run(newGrantedVM())
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "(exec.command.process) the command has not been started"), err.Error())
 }

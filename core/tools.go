@@ -725,12 +725,12 @@ func IsBlankByte(b byte) bool {
 	return false
 }
 
-// convMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed
+// ConvMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed
 // conversion answers the default when one is supplied and raises otherwise. Every conversion member carries the
 // slot — including identities and total conversions, where it can never fire — so generic code never has to
 // special-case the receiver's type. The default is deliberately not type-checked: it is an explicit opt-out,
 // the caller's responsibility.
-func convMember(name string, from string, args []Value, ok bool, res Value) (Value, error) {
+func ConvMember(name string, from string, args []Value, ok bool, res Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
@@ -908,10 +908,10 @@ func CallMemberByLookup(vm VM, v Value, name string, args []Value) (Value, error
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
-// memberIsTrue is the universal is_true member: every builtin type's Methods table carries it under members.IsTrue,
+// MemberIsTrue is the universal is_true member: every builtin type's Methods table carries it under members.IsTrue,
 // answering the type's IsTrue hook (truthiness is always derived from the type, never declared per member).
 // PURE by contract
-func memberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+func MemberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -922,9 +922,9 @@ func memberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// memberFormat is the universal format([spec]) member: parses the spec and renders through the type's own Format hook.
+// MemberFormat is the universal format([spec]) member: parses the spec and renders through the type's own Format hook.
 // PURE by contract
-func memberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+func MemberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
@@ -954,10 +954,10 @@ func memberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return NewStringValue(s), nil
 }
 
-// memberSelf answers the receiver: copy and freeze of an always-immutable type (a copy of any depth is the value
+// MemberSelf answers the receiver: copy and freeze of an always-immutable type (a copy of any depth is the value
 // itself, and it is frozen already).
 // PURE by contract
-func memberSelf(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+func MemberSelf(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
@@ -1549,4 +1549,24 @@ func roundingModeArg(name, pos string, a Value) (roundingMode, error) {
 		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) unknown rounding mode %q, expected one of: %s", name, s, roundingModeNames))
 	}
 	return mode, nil
+}
+
+// RenderFormat is format() for a value whose render is its String hook: the generic spec over the render, and
+// {:T} the type name. PURE by contract.
+func RenderFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
+	}
+	return fspec.ApplyGenerics(ValueTypes[v.Type].String(v), sp, fspec.AlignLeft), nil
+}
+
+// SamePtrEqual is identity equality for a handle type: the same type and the same Ptr. PURE by contract.
+func SamePtrEqual(v Value, other Value, final bool) bool {
+	if other.Type == v.Type {
+		return other.Ptr == v.Ptr
+	}
+	if final {
+		return false
+	}
+	return ValueTypes[other.Type].Equal(other, v, true)
 }

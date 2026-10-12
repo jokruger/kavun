@@ -6,8 +6,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-// error's members: one function per entry of TypeError.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// error's members: one function per entry of TypeError.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func errorBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -91,7 +91,7 @@ func errorString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), errorTypeName, args, true, NewStringValue(s))
+	return ConvMember(id.String(), errorTypeName, args, true, NewStringValue(s))
 }
 
 // PURE by contract
@@ -101,5 +101,5 @@ func errorRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), errorTypeName, args, true, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), errorTypeName, args, true, NewRunesValue(DecodeText(s), false))
 }

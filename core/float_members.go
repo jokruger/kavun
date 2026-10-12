@@ -13,12 +13,12 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// float's members: one function per entry of TypeFloat.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// float's members: one function per entry of TypeFloat.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func floatFloat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), floatTypeName, args, true, v)
+	return ConvMember(id.String(), floatTypeName, args, true, v)
 }
 
 // PURE by contract
@@ -34,25 +34,25 @@ func floatDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 			d = NewDecimalValue(dd)
 		}
 	}
-	return convMember(id.String(), floatTypeName, args, ok, d)
+	return ConvMember(id.String(), floatTypeName, args, ok, d)
 }
 
 // PURE by contract
 func floatInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	i, ok := v.AsInt()
-	return convMember(id.String(), floatTypeName, args, ok, IntValue(i))
+	return ConvMember(id.String(), floatTypeName, args, ok, IntValue(i))
 }
 
 // PURE by contract
 func floatBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	b, ok := v.AsBool()
-	return convMember(id.String(), floatTypeName, args, ok, BoolValue(b))
+	return ConvMember(id.String(), floatTypeName, args, ok, BoolValue(b))
 }
 
 // PURE by contract
 func floatTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	t, ok := v.AsTime()
-	return convMember(id.String(), floatTypeName, args, ok, NewTimeValue(t))
+	return ConvMember(id.String(), floatTypeName, args, ok, NewTimeValue(t))
 }
 
 // PURE by contract
@@ -67,7 +67,7 @@ func floatString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func floatRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), floatTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), floatTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 }
 
 // PURE by contract

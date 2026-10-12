@@ -51,11 +51,11 @@ var TypeFloat = ValueTypeDescr{
 	AsTime:       floatTypeAsTime,                                           // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:           NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:           NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:           NewPureMethod(floatString, 0, Fixed),
-		members.Format:           NewPureMethod(memberFormat, 0, Variadic),
-		members.Copy:             NewPureMethod(memberSelf, 0, Fixed),
-		members.Freeze:           NewPureMethod(memberSelf, 0, Fixed),
+		members.Format:           NewPureMethod(MemberFormat, 0, Variadic),
+		members.Copy:             NewPureMethod(MemberSelf, 0, Fixed),
+		members.Freeze:           NewPureMethod(MemberSelf, 0, Fixed),
 		members.Runes:            NewPureMethod(floatRunes, 0, Variadic),
 		members.Int:              NewPureMethod(floatInt, 0, Variadic),
 		members.Bool:             NewPureMethod(floatBool, 0, Variadic),

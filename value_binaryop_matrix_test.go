@@ -24,6 +24,7 @@ import (
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/stdlib/fin"
 )
 
 func matrixOK(t *testing.T, name string, lhs core.Value, op token.Token, rhs core.Value, want core.Value) {
@@ -465,7 +466,7 @@ func TestMatrix_Date(t *testing.T) {
 // fraction only. A result outside the type's bounds raises rather than producing a fraction that could not be rebuilt.
 func TestMatrix_FinYearFraction(t *testing.T) {
 	yf := func(n1, d1, n2, d2 int32) core.Value {
-		return core.NewFinYearFractionValue(daycount.Fraction{N1: n1, D1: d1, N2: n2, D2: d2})
+		return fin.NewYearFractionValue(daycount.Fraction{N1: n1, D1: d1, N2: n2, D2: d2})
 	}
 	m31, m62 := yf(31, 365, 0, 0), yf(62, 365, 0, 0)
 

@@ -57,7 +57,7 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   names the member that was called), but an inner `switch`/`if` on the member is not allowed. `record` and
   embedder types without a table answer by name through `CallNamedMethod`, one `case` per name under the same rule.
   Nothing is answered centrally: even `is_true` is an entry each builtin type declares
-  (`members.IsTrue: NewPureMethod(memberIsTrue, 0, Fixed)`), and a host type has it only if it declares it too.
+  (`members.IsTrue: NewPureMethod(MemberIsTrue, 0, Fixed)`), and a host type has it only if it declares it too.
 - **Build every entry with a constructor, never a struct literal.** `NewPureMethod(fn, arity, args)` claims the
   member pure (the optimizer may fold it — docs/purity.md); `NewMethod(fn, arity, args)` is the safe default, so a
   forgotten claim costs speed, not correctness. `arity` is the fewest arguments the function accepts and `args` is
@@ -77,7 +77,7 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   a match) is fine; a generic that has to be configured with callbacks (`toElem`, `encode`, `alloc`, `resolve`,
   ...) is an engine, and is not.
 - **One shared member function only for a body that is identical on every type and reaches the type only
-  through its own hooks**: `memberIsTrue` (the `IsTrue` hook), `memberFormat` (the `Format` hook), `memberSelf`
+  through its own hooks**: `MemberIsTrue` (the `IsTrue` hook), `MemberFormat` (the `Format` hook), `MemberSelf`
   (`copy`/`freeze` of an always-immutable type answer the receiver), `memberSlice` (the `Slice` hook — `slice()` on
   the sequence types). It must stay as simple as the per-type copy
   it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would

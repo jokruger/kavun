@@ -33,8 +33,8 @@ func DateValue(d civil.Date) Value {
 	return Value{Type: value.Date, Immutable: true, Data: uint64(uint32(d.Days()))}
 }
 
-// dateOf unwraps a date value. Data always holds a valid day: every constructor checks the range.
-func dateOf(v Value) civil.Date {
+// DateOf unwraps a date value. Data always holds a valid day: every constructor checks the range.
+func DateOf(v Value) civil.Date {
 	d, _ := civil.FromDays(int32(uint32(v.Data)))
 	return d
 }
@@ -44,7 +44,7 @@ var TypeDate = ValueTypeDescr{
 	Name:         ConstHook(dateTypeName),                                                     // PURE by contract
 	String:       dateTypeString,                                                              // PURE by contract
 	Format:       dateTypeFormat,                                                              // PURE by contract
-	Interface:    func(v Value) any { return dateOf(v) },                                      // PURE by contract
+	Interface:    func(v Value) any { return DateOf(v) },                                      // PURE by contract
 	EncodeJSON:   dateTypeEncodeJSON,                                                          // PURE by contract
 	EncodeBinary: dateTypeEncodeBinary,                                                        // PURE by contract
 	DecodeBinary: dateTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
@@ -52,17 +52,17 @@ var TypeDate = ValueTypeDescr{
 	Len:          ConstHook(int64(1)),                                                         // PURE by contract
 	Equal:        dateTypeEqual,                                                               // PURE by contract
 	BinaryOp:     dateTypeBinaryOp,                                                            // PURE by contract
-	AsString:     func(v Value) (string, bool) { return dateOf(v).String(), true },            // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(dateOf(v).Days()), true },        // PURE by contract
-	AsTime:       func(v Value) (time.Time, bool) { return dateMidnightUTC(dateOf(v)), true }, // PURE by contract
-	AsDate:       func(v Value) (civil.Date, bool) { return dateOf(v), true },                 // PURE by contract
+	AsString:     func(v Value) (string, bool) { return DateOf(v).String(), true },            // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(DateOf(v).Days()), true },        // PURE by contract
+	AsTime:       func(v Value) (time.Time, bool) { return dateMidnightUTC(DateOf(v)), true }, // PURE by contract
+	AsDate:       func(v Value) (civil.Date, bool) { return DateOf(v), true },                 // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:       NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:       NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:       NewPureMethod(dateString, 0, Variadic),
-		members.Format:       NewPureMethod(memberFormat, 0, Variadic),
-		members.Copy:         NewPureMethod(memberSelf, 0, Fixed),
-		members.Freeze:       NewPureMethod(memberSelf, 0, Fixed),
+		members.Format:       NewPureMethod(MemberFormat, 0, Variadic),
+		members.Copy:         NewPureMethod(MemberSelf, 0, Fixed),
+		members.Freeze:       NewPureMethod(MemberSelf, 0, Fixed),
 		members.Runes:        NewPureMethod(dateRunes, 0, Variadic),
 		members.Int:          NewPureMethod(dateInt, 0, Variadic),
 		members.Time:         NewPureMethod(dateTime, 0, Variadic),
@@ -96,12 +96,12 @@ func dateMidnightUTC(d civil.Date) time.Time {
 
 // PURE by contract
 func dateTypeString(v Value) string {
-	return fmt.Sprintf("date(%q)", dateOf(v).String())
+	return fmt.Sprintf("date(%q)", DateOf(v).String())
 }
 
 // PURE by contract
 func dateTypeEncodeJSON(v Value) ([]byte, error) {
-	return []byte(`"` + dateOf(v).String() + `"`), nil
+	return []byte(`"` + DateOf(v).String() + `"`), nil
 }
 
 // PURE by contract
@@ -138,7 +138,7 @@ func dateTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero || sp.Bare {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
-	d := dateOf(v)
+	d := DateOf(v)
 	var body string
 	switch sp.Verb {
 	case 0:
@@ -194,7 +194,7 @@ func dateShiftDays(d civil.Date, n int64) (Value, error) {
 
 // PURE by contract
 func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
-	d := dateOf(v)
+	d := DateOf(v)
 	if reflected {
 		// n + d: days, as d + n
 		if other.Type == value.Int && op == tokens.Add {
@@ -215,7 +215,7 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			return dateShiftDays(d, -n)
 		}
 	case value.Date:
-		o := dateOf(other)
+		o := DateOf(other)
 		switch op {
 		case tokens.Sub:
 			return IntValue(int64(d.Sub(o))), nil

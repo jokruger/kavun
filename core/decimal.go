@@ -50,11 +50,11 @@ var TypeDecimal = ValueTypeDescr{
 	AsBool:       decimalTypeAsBool,                                                                   // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:            NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:            NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:            NewPureMethod(decimalString, 0, Fixed),
-		members.Format:            NewPureMethod(memberFormat, 0, Variadic),
-		members.Copy:              NewPureMethod(memberSelf, 0, Fixed),
-		members.Freeze:            NewPureMethod(memberSelf, 0, Fixed),
+		members.Format:            NewPureMethod(MemberFormat, 0, Variadic),
+		members.Copy:              NewPureMethod(MemberSelf, 0, Fixed),
+		members.Freeze:            NewPureMethod(MemberSelf, 0, Fixed),
 		members.Runes:             NewPureMethod(decimalRunes, 0, Variadic),
 		members.Int:               NewPureMethod(decimalInt, 0, Variadic),
 		members.Bool:              NewPureMethod(decimalBool, 0, Variadic),
@@ -807,8 +807,8 @@ func decimalShares(name string, d dec128.Dec128, scale uint8, shares []dec128.De
 }
 
 // The decimal argument rules, exported for the modules that compute in decimal (fin): one vocabulary, one set of
-// messages. DecimalOperandArg accepts decimal or int (float raises); ScaleModeArgs reads the trailing
-// (scale, mode) pair at args[i]; DecimalResult turns a NaN result into its raise (division_by_zero or
+// messages. decimalOperandArg accepts decimal or int (float raises); ScaleModeArgs reads the trailing
+// (scale, mode) pair at args[i]; decimalResult turns a NaN result into its raise (division_by_zero or
 // invalid_value).
 
 // PURE by contract.

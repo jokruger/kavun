@@ -47,11 +47,11 @@ var TypeByte = ValueTypeDescr{
 	AsByte:   func(v Value) (byte, bool) { return byte(v.Data), true },               // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:  NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:  NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:  NewPureMethod(byteString, 0, Variadic),
-		members.Format:  NewPureMethod(memberFormat, 0, Variadic),
-		members.Copy:    NewPureMethod(memberSelf, 0, Fixed),
-		members.Freeze:  NewPureMethod(memberSelf, 0, Fixed),
+		members.Format:  NewPureMethod(MemberFormat, 0, Variadic),
+		members.Copy:    NewPureMethod(MemberSelf, 0, Fixed),
+		members.Freeze:  NewPureMethod(MemberSelf, 0, Fixed),
 		members.Runes:   NewPureMethod(byteRunes, 0, Variadic),
 		members.Int:     NewPureMethod(byteInt, 0, Variadic),
 		members.Byte:    NewPureMethod(byteByte, 0, Variadic),

@@ -82,8 +82,8 @@ var TypeDict = ValueTypeDescr{
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
 	Methods: []Method{
-		members.IsTrue:        NewPureMethod(memberIsTrue, 0, Fixed),
-		members.Format:        NewPureMethod(memberFormat, 0, Variadic),
+		members.IsTrue:        NewPureMethod(MemberIsTrue, 0, Fixed),
+		members.Format:        NewPureMethod(MemberFormat, 0, Variadic),
 		members.Copy:          NewPureMethod(dictCopy, 0, Fixed),
 		members.Freeze:        NewPureMethod(dictFreeze, 0, Fixed),
 		members.Time:          NewPureMethod(dictTime, 0, Variadic),

@@ -11,15 +11,15 @@ import (
 	"github.com/jokruger/kavun/internal/conv"
 )
 
-// string's members: one function per entry of TypeString.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf, memberSlice in tools.go).
+// string's members: one function per entry of TypeString.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf, memberSlice in tools.go).
 
 // PURE by contract
 func stringString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// immutable and identity-less, so there is nothing to construct: the receiver IS the
 	// independent value. It still takes the trailing default like every other conversion
 	// cell, so generic x.string(fallback) code works on a string receiver too.
-	return convMember(id.String(), stringTypeName, args, true, v)
+	return ConvMember(id.String(), stringTypeName, args, true, v)
 }
 
 // PURE by contract
@@ -52,25 +52,25 @@ func stringArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	b, ok := conv.ParseBool(*(*string)(v.Ptr))
-	return convMember(id.String(), stringTypeName, args, ok, BoolValue(b))
+	return ConvMember(id.String(), stringTypeName, args, ok, BoolValue(b))
 }
 
 // PURE by contract
 func stringFloat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	f, ok := stringTypeAsFloat(v)
-	return convMember(id.String(), stringTypeName, args, ok, FloatValue(f))
+	return ConvMember(id.String(), stringTypeName, args, ok, FloatValue(f))
 }
 
 // PURE by contract
 func stringInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	i, ok := stringTypeAsInt(v)
-	return convMember(id.String(), stringTypeName, args, ok, IntValue(i))
+	return ConvMember(id.String(), stringTypeName, args, ok, IntValue(i))
 }
 
 // PURE by contract
 func stringDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	d, ok := stringTypeAsDecimal(v)
-	return convMember(id.String(), stringTypeName, args, ok, NewDecimalValue(d))
+	return ConvMember(id.String(), stringTypeName, args, ok, NewDecimalValue(d))
 }
 
 // PURE by contract

@@ -9,8 +9,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// runes's members: one function per entry of TypeRunes.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf, memberSlice in tools.go).
+// runes's members: one function per entry of TypeRunes.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf, memberSlice in tools.go).
 
 // PURE by contract
 func runesCopy(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -36,7 +36,7 @@ func runesRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), runesTypeName, args, true, c)
+	return ConvMember(id.String(), runesTypeName, args, true, c)
 }
 
 // PURE by contract
@@ -60,7 +60,7 @@ func runesArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func runesBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	b, ok := runesTypeAsBool(v)
-	return convMember(id.String(), runesTypeName, args, ok, BoolValue(b))
+	return ConvMember(id.String(), runesTypeName, args, ok, BoolValue(b))
 }
 
 // PURE by contract
@@ -75,19 +75,19 @@ func runesBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func runesFloat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	f, ok := runesTypeAsFloat(v)
-	return convMember(id.String(), runesTypeName, args, ok, FloatValue(f))
+	return ConvMember(id.String(), runesTypeName, args, ok, FloatValue(f))
 }
 
 // PURE by contract
 func runesInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	i, ok := runesTypeAsInt(v)
-	return convMember(id.String(), runesTypeName, args, ok, IntValue(i))
+	return ConvMember(id.String(), runesTypeName, args, ok, IntValue(i))
 }
 
 // PURE by contract
 func runesDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	d, ok := runesTypeAsDecimal(v)
-	return convMember(id.String(), runesTypeName, args, ok, NewDecimalValue(d))
+	return ConvMember(id.String(), runesTypeName, args, ok, NewDecimalValue(d))
 }
 
 // PURE by contract

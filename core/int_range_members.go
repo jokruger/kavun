@@ -7,8 +7,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// int_range's members: one function per entry of TypeIntRange.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// int_range's members: one function per entry of TypeIntRange.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func intRangeArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -40,12 +40,12 @@ func intRangeBytes(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 		}
 		bs[i] = byte(t)
 	}
-	return convMember("bytes", intRangeTypeName, args, ok, NewBytesValue(bs, false))
+	return ConvMember("bytes", intRangeTypeName, args, ok, NewBytesValue(bs, false))
 }
 
 // PURE by contract
 func intRangeRange(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), intRangeTypeName, args, true, v)
+	return ConvMember(id.String(), intRangeTypeName, args, true, v)
 }
 
 // PURE by contract
@@ -69,7 +69,7 @@ func intRangeString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(name, intRangeTypeName, args, ok, NewStringValue(EncodeText(rs)))
+	return ConvMember(name, intRangeTypeName, args, ok, NewStringValue(EncodeText(rs)))
 }
 
 // PURE by contract
@@ -79,7 +79,7 @@ func intRangeRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(name, intRangeTypeName, args, ok, NewRunesValue(rs, false))
+	return ConvMember(name, intRangeTypeName, args, ok, NewRunesValue(rs, false))
 }
 
 // PURE by contract

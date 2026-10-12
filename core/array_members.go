@@ -9,8 +9,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// array's members: one function per entry of TypeArray.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf, memberSlice in tools.go).
+// array's members: one function per entry of TypeArray.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf, memberSlice in tools.go).
 
 // PURE by contract
 func arrayCopy(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -54,7 +54,7 @@ func arrayArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return convMember(id.String(), arrayTypeName, args, true, c)
+	return ConvMember(id.String(), arrayTypeName, args, true, c)
 }
 
 // PURE by contract
@@ -63,7 +63,7 @@ func arrayBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// element-wise, all-or-nothing: a failing element fails the conversion —
 	// the silent NUL/mod-256 corruption is gone
 	bs, ok := ElementsToBytes(o.Elements)
-	return convMember(id.String(), arrayTypeName, args, ok, NewBytesValue(bs, false))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewBytesValue(bs, false))
 }
 
 // PURE by contract
@@ -72,14 +72,14 @@ func arrayString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// the element step is the rune conversion (string and runes are one text),
 	// so ["a","b"].string() raises — join() is the concatenative spelling
 	rs, ok := ElementsToRunes(o.Elements)
-	return convMember(id.String(), arrayTypeName, args, ok, NewStringValue(string(rs)))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewStringValue(string(rs)))
 }
 
 // PURE by contract
 func arrayRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	rs, ok := ElementsToRunes(o.Elements)
-	return convMember(id.String(), arrayTypeName, args, ok, NewRunesValue(rs, false))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewRunesValue(rs, false))
 }
 
 // PURE by contract
@@ -88,14 +88,14 @@ func arrayRecord(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// the ENTRIES reading: each element is exactly a 2-element array [key, value];
 	// the index->element decomposition (invented keys, scrambled order) is gone
 	m, ok := ElementsToEntries(o.Elements)
-	return convMember(id.String(), arrayTypeName, args, ok, NewRecordValue(m, false))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewRecordValue(m, false))
 }
 
 // PURE by contract
 func arrayDict(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	m, ok := ElementsToEntries(o.Elements)
-	return convMember(id.String(), arrayTypeName, args, ok, NewDictValue(m, false))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewDictValue(m, false))
 }
 
 // PURE by contract

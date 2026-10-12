@@ -78,9 +78,9 @@ var TypeArray = ValueTypeDescr{
 	// function-valued argument.
 
 	Methods: []Method{
-		members.IsTrue:              NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:              NewPureMethod(arrayString, 0, Variadic),
-		members.Format:              NewPureMethod(memberFormat, 0, Variadic),
+		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
 		members.Copy:                NewPureMethod(arrayCopy, 0, Fixed),
 		members.Freeze:              NewPureMethod(arrayFreeze, 0, Fixed),
 		members.Runes:               NewPureMethod(arrayRunes, 0, Variadic),

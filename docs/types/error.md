@@ -305,7 +305,7 @@ Each kind has one severity and one [category](#categories), always. **Recoverabl
 | `json_encoding` | a value with no JSON representation | `json.encode(func(){})` |
 | `json_decoding` | malformed JSON input | `json.decode("{")` |
 | `binary_encoding` | a value that cannot be binary-encoded, or corrupt input | — |
-| `io` | the world refused: a file, a directory, an environment variable, a process | `os.remove("/nope")` |
+| `io` | the world refused: a file, a directory, an environment variable, a process | `fs.remove("/nope")` |
 
 ### Script-authored kinds — recoverable
 

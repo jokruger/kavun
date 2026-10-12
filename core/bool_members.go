@@ -5,8 +5,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// bool's members: one function per entry of TypeBool.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// bool's members: one function per entry of TypeBool.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func boolString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -20,16 +20,16 @@ func boolString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func boolRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), boolTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), boolTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 }
 
 // PURE by contract
 func boolInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	i, _ := boolTypeAsInt(v)
-	return convMember(id.String(), boolTypeName, args, true, IntValue(i))
+	return ConvMember(id.String(), boolTypeName, args, true, IntValue(i))
 }
 
 // PURE by contract
 func boolBool(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), boolTypeName, args, true, v)
+	return ConvMember(id.String(), boolTypeName, args, true, v)
 }

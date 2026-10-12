@@ -90,9 +90,9 @@ var TypeRunes = ValueTypeDescr{
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
 	Methods: []Method{
-		members.IsTrue:              NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:              NewPureMethod(runesString, 0, Fixed),
-		members.Format:              NewPureMethod(memberFormat, 0, Variadic),
+		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
 		members.Copy:                NewPureMethod(runesCopy, 0, Fixed),
 		members.Freeze:              NewPureMethod(runesFreeze, 0, Fixed),
 		members.Runes:               NewPureMethod(runesRunes, 0, Variadic),

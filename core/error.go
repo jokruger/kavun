@@ -64,9 +64,9 @@ var TypeError = ValueTypeDescr{
 	AsBool:       Const2Hook(true, true),                              // PURE by contract
 
 	Methods: []Method{
-		members.IsTrue:        NewPureMethod(memberIsTrue, 0, Fixed),
+		members.IsTrue:        NewPureMethod(MemberIsTrue, 0, Fixed),
 		members.String:        NewPureMethod(errorString, 0, Variadic),
-		members.Format:        NewPureMethod(memberFormat, 0, Variadic),
+		members.Format:        NewPureMethod(MemberFormat, 0, Variadic),
 		members.Copy:          NewPureMethod(errorCopy, 0, Fixed),
 		members.Freeze:        NewPureMethod(errorFreeze, 0, Fixed),
 		members.Runes:         NewPureMethod(errorRunes, 0, Variadic),

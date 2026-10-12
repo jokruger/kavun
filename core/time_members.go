@@ -9,24 +9,24 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// time's members: one function per entry of TypeTime.Methods that is not a shared member (memberIsTrue,
-// memberFormat, memberSelf in tools.go).
+// time's members: one function per entry of TypeTime.Methods that is not a shared member (MemberIsTrue,
+// MemberFormat, MemberSelf in tools.go).
 
 // PURE by contract
 func timeTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return convMember(id.String(), timeTypeName, args, true, v)
+	return ConvMember(id.String(), timeTypeName, args, true, v)
 }
 
 // PURE by contract
 func timeInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	o := (*time.Time)(v.Ptr)
-	return convMember(id.String(), timeTypeName, args, true, IntValue(o.Unix()))
+	return ConvMember(id.String(), timeTypeName, args, true, IntValue(o.Unix()))
 }
 
 // PURE by contract
 func timeFloat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	f, ok := timeTypeAsFloat(v)
-	return convMember(id.String(), timeTypeName, args, ok, FloatValue(f))
+	return ConvMember(id.String(), timeTypeName, args, ok, FloatValue(f))
 }
 
 // PURE by contract
@@ -59,20 +59,20 @@ func timeComponents(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func timeDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	d, ok := timeTypeAsDecimal(v)
-	return convMember(id.String(), timeTypeName, args, ok, NewDecimalValue(d))
+	return ConvMember(id.String(), timeTypeName, args, ok, NewDecimalValue(d))
 }
 
 // PURE by contract
 func timeString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// the ONE text form: RFC3339 with the fraction the instant carries
 	s, ok := v.AsString()
-	return convMember(id.String(), timeTypeName, args, ok, NewStringValue(s))
+	return ConvMember(id.String(), timeTypeName, args, ok, NewStringValue(s))
 }
 
 // PURE by contract
 func timeRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return convMember(id.String(), timeTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), timeTypeName, args, ok, NewRunesValue(DecodeText(s), false))
 }
 
 // PURE by contract
@@ -223,7 +223,7 @@ func timeUTC(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func timeDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// the civil day the time reads in its own zone
 	d, ok := timeTypeAsDate(v)
-	return convMember(id.String(), timeTypeName, args, ok, DateValue(d))
+	return ConvMember(id.String(), timeTypeName, args, ok, DateValue(d))
 }
 
 // PURE by contract

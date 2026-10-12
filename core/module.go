@@ -19,12 +19,14 @@ type ModuleDef struct {
 	Pure bool         // the default grant is every module with Pure (compiler and VM)
 	New  func() Value // the value import answers; builtin modules answer one singleton
 
-	roster Value // frozen record name → value, functions and constants: len, in, for-in
+	roster Value   // frozen record name → value, functions and constants: len, in, for-in
+	types  []uint8 // the types the module owns (registered with it, ModuleBuilder.Type)
 }
 
 var (
 	moduleDefs   [256]*ModuleDef
 	moduleByName = map[string]*ModuleDef{}
+	typeOwners   [256]*ModuleDef // the module that registered a module-owned type
 )
 
 // LookupModule answers the module registered under name.
@@ -73,6 +75,7 @@ type ModuleBuilder struct {
 	descr  ValueTypeDescr
 	roster map[string]Value
 	slots  map[uint64]bool
+	types  map[uint8]ValueTypeDescr
 	err    error
 }
 
@@ -81,11 +84,11 @@ type ModuleBuilder struct {
 func NewModule(typeID uint8, name string, pure bool) *ModuleBuilder {
 	def := &ModuleDef{Name: name, Type: typeID, Pure: pure}
 	def.New = func() Value { return Value{Type: typeID, Immutable: true, Ptr: unsafe.Pointer(def)} }
-	b := &ModuleBuilder{def: def, descr: moduleDescr(), roster: map[string]Value{}, slots: map[uint64]bool{}}
-	b.method(members.IsTrue, NewPureMethod(memberIsTrue, 0, Fixed))
-	b.method(members.Format, NewPureMethod(memberFormat, 0, Variadic))
-	b.method(members.Copy, NewPureMethod(memberSelf, 0, Fixed))
-	b.method(members.Freeze, NewPureMethod(memberSelf, 0, Fixed))
+	b := &ModuleBuilder{def: def, descr: moduleDescr(), roster: map[string]Value{}, slots: map[uint64]bool{}, types: map[uint8]ValueTypeDescr{}}
+	b.method(members.IsTrue, NewPureMethod(MemberIsTrue, 0, Fixed))
+	b.method(members.Format, NewPureMethod(MemberFormat, 0, Variadic))
+	b.method(members.Copy, NewPureMethod(MemberSelf, 0, Fixed))
+	b.method(members.Freeze, NewPureMethod(MemberSelf, 0, Fixed))
 	return b
 }
 
@@ -136,6 +139,17 @@ func (b *ModuleBuilder) Const(id member.ID, val Value) *ModuleBuilder {
 	return b
 }
 
+// Type declares a type the module owns (fs.file, re.pattern, …), registered together with the module: a builtin
+// module's in 144–191, an embedder module's in the embedder range. This is the only way a module-owned type enters
+// the type table.
+func (b *ModuleBuilder) Type(typeID uint8, descr ValueTypeDescr) *ModuleBuilder {
+	if _, ok := b.types[typeID]; ok {
+		return b.fail(fmt.Errorf("type id %d declared twice", typeID))
+	}
+	b.types[typeID] = descr
+	return b
+}
+
 // Descr answers the module type's descriptor so an embedder can amend hooks before Register.
 func (b *ModuleBuilder) Descr() *ValueTypeDescr {
 	return &b.descr
@@ -163,6 +177,30 @@ func (b *ModuleBuilder) Register() error {
 	if _, ok := moduleByName[name]; ok {
 		return errs.NewHostError(fmt.Sprintf("(module %s) name already registered", name))
 	}
+	for id := range b.types {
+		switch {
+		case t < value.FirstUserDefinedType && (id < value.ExecProcess || id > value.Reserved191):
+			return errs.NewHostError(fmt.Sprintf("(module %s) owned type id %d is outside 144–191", name, id))
+		case t >= value.FirstUserDefinedType && (id < value.FirstUserDefinedType || id == t):
+			return errs.NewHostError(fmt.Sprintf("(module %s) owned type id %d is not a free embedder type id", name, id))
+		case typeOwners[id] != nil:
+			return errs.NewHostError(fmt.Sprintf("(module %s) type id %d is already owned by module '%s'", name, id, typeOwners[id].Name))
+		}
+	}
+	for id, d := range b.types {
+		if id >= value.FirstUserDefinedType {
+			if err := SetValueType(id, d); err != nil {
+				return err
+			}
+		} else {
+			if err := validateTables(&d); err != nil {
+				return errs.NewHostError(fmt.Sprintf("(module %s) type %d: %v", name, id, err))
+			}
+			setValueType(id, d)
+		}
+		typeOwners[id] = b.def
+		b.def.types = append(b.def.types, id)
+	}
 	b.def.roster = NewRecordValue(b.roster, true)
 	if t >= value.FirstUserDefinedType {
 		if err := SetValueType(t, b.descr); err != nil {
@@ -179,8 +217,8 @@ func (b *ModuleBuilder) Register() error {
 	return nil
 }
 
-// UnregisterModule removes an embedder module (type id 192–255): its registration, its builtin-function slots and
-// its type descriptor. For host teardown and test harnesses.
+// UnregisterModule removes an embedder module (type id 192–255): its registration, its builtin-function slots, its
+// type descriptor and the types it owns. For host teardown and test harnesses.
 func UnregisterModule(typeID uint8) error {
 	if typeID < value.FirstUserDefinedType {
 		return errs.NewHostError(fmt.Sprintf("(UnregisterModule) cannot unregister builtin module type %d", typeID))
@@ -192,6 +230,10 @@ func UnregisterModule(typeID uint8) error {
 	base := uint64(typeID) * ModuleSlotSize
 	clear(BuiltinFunctions[base : base+ModuleSlotSize])
 	ValueTypes[typeID] = DefaultValueType
+	for _, id := range def.types {
+		ValueTypes[id] = DefaultValueType
+		typeOwners[id] = nil
+	}
 	moduleDefs[typeID] = nil
 	delete(moduleByName, def.Name)
 	return nil

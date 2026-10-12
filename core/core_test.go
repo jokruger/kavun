@@ -258,7 +258,8 @@ func TestTypeIDLayout(t *testing.T) {
 		require.Equal(t, container+32, iterator, "iterator of type %d", container)
 	}
 
-	require.True(t, builtinTypeIDs[value.FinDatedCharges])
+	require.True(t, builtinTypeIDs[value.Array])
+	require.False(t, builtinTypeIDs[value.FinDatedCharges]) // module-owned: registered by its module, not by core
 	for id := range builtinTypeIDs {
 		require.True(t, id < value.FirstUserDefinedType, "builtin type registered in the embedder space: %d", id)
 	}

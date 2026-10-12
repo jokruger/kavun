@@ -89,8 +89,8 @@ fmt.Println(sum)
 
 ### The module grant
 
-A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`os`, `io`,
-`rand`, `times`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
+A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`exec`,
+`fs`, `io`, `os`, `rand`, `times`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
 else must be granted. The grant is checked twice — by the compiler, and again by the VM that runs the bytecode —
 so bytecode compiled elsewhere or decoded from a file cannot bypass it:
 
@@ -144,9 +144,11 @@ func init() {
 ```
 
 `PureFn` claims a function pure (the optimizer may fold its calls), `Fn` does not. `New(f)` makes `import` answer a
-fresh value per import instead of one singleton, and `Descr()` lets you amend the module type's hooks before
-`Register`. `core.UnregisterModule(typeID)` removes an embedder module again (teardown, tests);
-`kavun.ModuleNames()` lists every registered module.
+fresh value per import instead of one singleton, `Type(typeID, descr)` registers a type the module owns (a handle or
+record type its functions answer, in the embedder range like the module), and `Descr()` lets you amend the module
+type's hooks before `Register`. `core.UnregisterModule(typeID)` removes an embedder module and its types again
+(teardown, tests); `kavun.ModuleNames()` lists every registered module. The standard modules are built the same
+way, one package each under `stdlib/` — `stdlib/fs` is a compact example of a module with an owned type.
 
 ### Imports from source
 

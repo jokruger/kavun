@@ -672,7 +672,14 @@ const (
 	GetEgid      = 886
 	GetGroups    = 887
 	GetPageSize  = 888
-	// 889…904 reserved
+	// module path (os block reserve)
+	Base  = 889
+	Dir   = 890
+	Ext   = 891
+	Clean = 892
+	Rel   = 893
+	IsAbs = 894
+	// 895…904 reserved (895: RandGenerator, step 4f)
 
 	// module os — constants
 	Platform          = 905
