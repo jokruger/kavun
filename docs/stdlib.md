@@ -3,6 +3,7 @@
 This document covers the main builtin modules in Kavun stdlib:
 
 - `base64`
+- `clock`
 - `exec`
 - `fin`
 - `fs`
@@ -14,14 +15,13 @@ This document covers the main builtin modules in Kavun stdlib:
 - `path`
 - `rand`
 - `re`
-- `times`
 
 Notes:
 
 - Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
   constants are read-only members, and a missing name raises.
 - **Grant.** `base64`, `fin`, `hex`, `json`, `math`, `path` and `re` are *pure* (they only compute) and
-  importable by default. `exec`, `fs`, `io`, `os`, `rand` and `times` touch the world and must be granted by the
+  importable by default. `clock`, `exec`, `fs`, `io`, `os` and `rand` touch the world and must be granted by the
   host (`docs/embedding.md` § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
 - A module function either answers the documented value or **raises** — nothing answers an error value, and
@@ -29,7 +29,7 @@ Notes:
   Each module's **Failures** line below names the kind it raises; catch one with `defer`/`recover()` (see
   [language.md § Errors and recovery](language.md#errors-and-recovery)) or let it reach the host. Every kind is
   listed in [types/error.md § Every error kind](types/error.md#every-error-kind).
-- Some modules also export constants (for example `math`, `times`, `os`).
+- Some modules also export constants (for example `math`, `fs`, `os`).
 
 ## base64
 
@@ -50,6 +50,35 @@ base64.encode(bytes("hello"))
 - `base64.raw_url_decode(s string) -> bytes`: Raw URL-safe Base64 decode.
 
 **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode) illegal base64 data at input byte 0`.
+
+## clock
+
+The world's time: the current instant, the distance to one, and waiting. It is the only place a script reads the
+wall clock, so it needs a grant.
+
+```go
+clock := import("clock")
+clock.now().in_zone("Europe/Kyiv").format("#datetime")
+start := clock.now()
+clock.sleep(250.milliseconds())
+clock.since(start).in_seconds()     // ≈ 0.25
+```
+
+- `clock.now() -> time`: The current instant, in UTC.
+- `clock.since(t) -> int`: The duration from `t` to now, in nanoseconds.
+- `clock.until(t) -> int`: The duration from now to `t`, in nanoseconds.
+- `clock.sleep(d) -> undefined`: Wait `d` nanoseconds (`clock.sleep(2.seconds())`).
+
+Durations are **int members**, not module functions: `30.seconds()`, `1.5.hours()`, `d.in_minutes()`,
+`d.duration_string()`, `"1h30m".nanoseconds()` (see [types/int.md § Durations](types/int.md#durations)).
+Construction, parsing, zones, calendar arithmetic and calendar facts are on the `time` and `date` types —
+`time(…)`, `t.in_zone(z)`, `t.add_months(n, eom)`, `t.is_leap_year()`.
+
+**Migration:** the module was `times`, and kept only these four functions. `30 * times.second` → `30.seconds()`;
+`times.parse_duration(s)` → `s.nanoseconds()`; `times.duration_hours(d)` (and the other units) → `d.in_hours()`;
+`times.duration_string(d)` → `d.duration_string()`; `times.unix(sec, nsec)` → `sec.time() + nsec`;
+`times.from_unix_ms(n)` → `n.time_ms()` (likewise `_micro`, `_nano`); `times.is_leap_year(y)`, `days_in_year`,
+`days_in_month` → the `date` members; the month constants → integer literals.
 
 ## exec
 
@@ -630,69 +659,3 @@ Where the old `text` module's functions went (the regex ones are above):
 | `text.split_n/split_after/split_after_n` | `partition(...seps)` covers the split-once use; keep-separator and n-way splits have no member form |
 | `text.quote/unquote` | removed with no successor — `format()` is the render surface, `json.encode` the interop one |
 
-## times
-
-Example:
-
-```go
-times = import("times")
-times.now().in_zone("Europe/Kyiv").format("#datetime")
-```
-
-The module holds what needs **no time value**: the clock, durations, the unit-named epoch constructors,
-constants, and calendar facts about plain numbers. Construction, parsing, zones and calendar arithmetic are on
-the type itself — `time(…)`, `t.in_zone(z)`, `t.add_months(n, eom)`; see [time](types/time.md).
-
-Constants:
-
-- Duration units (nanoseconds): `nanosecond`, `microsecond`, `millisecond`, `second`, `minute`, `hour`.
-- Months: `january`, `february`, `march`, `april`, `may`, `june`, `july`, `august`, `september`, `october`, `november`, `december`.
-
-Every `int` in this module is one of three things, and the function name says which: a **duration in
-nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`), a **unix timestamp** in the
-encoding the name states (`unix`, `from_unix_*`), or a **calendar number** — a year, a month
-(`is_leap_year`, `days_in_year`, `days_in_month`). This mirrors the operator/conversion split on the `time` type
-itself — see [time](types/time.md#overview).
-
-- `times.sleep(duration int) -> undefined`: Sleep for duration (nanoseconds).
-- `times.parse_duration(s string) -> int`: Parse duration string to nanoseconds.
-- `times.since(t time) -> int`: Elapsed duration since time (nanoseconds).
-- `times.until(t time) -> int`: Duration until time (nanoseconds).
-- `times.duration_hours(d int) -> float`: Duration to hours.
-- `times.duration_minutes(d int) -> float`: Duration to minutes.
-- `times.duration_nanoseconds(d int) -> int`: Duration to nanoseconds.
-- `times.duration_seconds(d int) -> float`: Duration to seconds.
-- `times.duration_string(d int) -> string`: Duration text format.
-- `times.now() -> time`: The current instant, in **UTC** — the host's zone is never visible; name a zone with
-  `times.now().in_zone(z)`.
-- `times.unix(sec int, nsec int) -> time`: Unix seconds + nanoseconds to time (UTC).
-- `times.from_unix_ms(msec int) -> time`: Unix milliseconds to time (UTC).
-- `times.from_unix_micro(usec int) -> time`: Unix microseconds to time (UTC).
-- `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC). Seconds are the conversion `(n).time()`.
-- `times.is_leap_year(year int) -> bool`: Whether the year is a leap year.
-- `times.days_in_year(year int) -> int`: 365 or 366.
-- `times.days_in_month(year int, month int) -> int`: 28…31 — a month has no length without its year.
-
-The calendar facts take **ints only**; a `date`/`time` answers the same questions as members
-(`t.is_leap_year()`, `t.days_in_year()`, `t.days_in_month()`), and passing one here raises:
-
-```go
-times.days_in_month(2027, 2)               // 28
-times.is_leap_year(2000)                   // true
-times.is_leap_year(t"2028-01-01T00:00:00Z")  // raises: argument first expects type int, got time
-```
-
-**Failures.** An unparsable duration raises kind `conversion`
-(`(times.parse_duration) time: invalid duration "x"`); a year outside 1…9999 or a month outside 1…12 raises
-`invalid_value`.
-
-Where the removed functions went:
-
-| removed | now |
-| --- | --- |
-| `times.date(y, mo, d, h, mi, s, ns[, zone])` | `time({year, month, day, hour, minute, second, nanosecond, zone})` — no normalization; a DST-gap or overlap wall clock raises |
-| `times.parse(layout, s)` | `time(s, layout)` / `s.time(layout[, default])` with `%` directives |
-| `times.format_*` (Go reference layouts) | the format aliases (`#iso`, `#datetime`, …) and `%` templates |
-| `times.add_date(t, y, m, d)` | `t.add_years(y, eom)`, `t.add_months(m, eom)`, `t.add_days(d)` |
-| `times.in_location(t, z)` | `t.in_zone(z)` |
-| `times.from_unix(n)` | `(n).time()` |

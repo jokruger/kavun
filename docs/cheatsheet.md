@@ -315,14 +315,14 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `io`, `math`, `os`, `fs`, `exec`, `path`, `re`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
+Builtin modules: `io`, `math`, `os`, `fs`, `exec`, `path`, `re`, `clock`, `json`, `base64`, `hex`, `rand`, `fin`.
 
 ```go
 io = import("io");       io.print("sum:", 20 + 22); io.write("no newline"); line := io.read_line("")
 math = import("math");   math.hypot(3, 4)   // sqrt, pow, ln, round(n, mode) are float members: 144.0.sqrt()
 re = import("re");       re.pattern("[0-9]+").match("abc123")
 json = import("json");   json.encode({a: 1})
-times = import("times"); times.now()
+clock = import("clock"); clock.now()   // durations are int members: 30.seconds(), d.in_hours(), "1h".nanoseconds()
 rand = import("rand");   rand.int_n(100)
 fs = import("fs");       fs.read_file("./data.txt")   // fs.open/create answer an fs.file
 exec = import("exec");   exec.exec("echo", "hi").output()
@@ -458,7 +458,7 @@ time("1700000000", "unix")                   // a digit string names its unit
 time({year: 2026, month: 3, day: 29, hour: 15, zone: "Europe/Kyiv"})   // wall clock in a zone; day: 32 raises
 t.in_zone("Asia/Tokyo")                      // same instant, other view ("Local" is not a zone)
 t.add_days(1)  t.add_months(1, "clamp")  t.add_years(1, "last_day")   // eom rule required
-t.is_leap_year()  t.days_in_month()  times.days_in_month(2027, 2)    // facts: members, or ints in times
+t.is_leap_year()  t.days_in_month()  d"2027-02-01".days_in_month()   // facts: members
 time()                                       // 1970-01-01T00:00:00Z -- the zero value, falsy
 ```
 

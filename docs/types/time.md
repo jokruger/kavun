@@ -12,14 +12,15 @@ arithmetic work on the instant.
 Key rules, each expanded below:
 
 - Next to a `time`, a bare `int` **operand** is a duration in **nanoseconds**; a bare `int` in a
-  **conversion** is a unix timestamp. Operator = duration, conversion = timestamp.
+  **conversion** is a unix timestamp. Operator = duration, conversion = timestamp — and an int is a duration
+  wherever its member says so (`30.seconds()`, `d.in_hours()`).
 - `time` and `int` deliberately do **not** compare: an instant and a bare number have no common order.
 - **One strict text grammar** (below) for `t"…"`, `time(s)` and the canonical layouts — nothing is guessed.
   Any other text shape names its **layout**: `time(s, layout)`, `s.time(layout[, default])`.
 - **A wall clock that does not name exactly one instant raises** — a time a daylight-saving gap skips, or one
   an overlap repeats — whether it is constructed or computed. Nothing normalizes.
 - A zone is an IANA name (`"Europe/Kyiv"`) or `"UTC"`. The host's own zone is never visible: `"Local"` and
-  `""` are not zone names, and `times.now()` answers in UTC.
+  `""` are not zone names, and `clock.now()` answers in UTC.
 - One render surface: `format(spec)` with the format mini-language. One canonical text form: RFC3339 with
   the fraction the instant carries (RFC3339Nano), used by `.string()`, f-strings, and the default
   `format()`.
@@ -141,7 +142,7 @@ decimal("1700000000.25").time()     // time("2023-11-14T22:13:20.25Z")
 Every numeric conversion answers in **UTC** — an integer timestamp is host-independent, so its wall-clock
 reading must be too.
 
-### The free constructor and the `times` module
+### The free constructor and the clock
 
 ```go
 time()                     // time("1970-01-01T00:00:00Z") — the zero time, unix 0
@@ -150,18 +151,14 @@ time("2026-08-29")         // the canonical grammar
 time(s, layout)            // a layout (the free form has no default slot; the member does)
 undefined.time(time())     // time("1970-01-01T00:00:00Z") — the maybe-missing form
 
-times := import("times")
-times.now()                                     // the current instant, in UTC
-times.unix(1700000000, 500)                     // time("2023-11-14T22:13:20.0000005Z") — (sec, nsec)
-times.from_unix_ms(1700000000123)               // time("2023-11-14T22:13:20.123Z")
-times.from_unix_micro(1700000000123456)         // …
-times.from_unix_nano(1700000000123456789)       // …
+clock := import("clock")
+clock.now()                                     // the current instant, in UTC (the clock module needs a grant)
+1700000000.time() + 500                         // time("2023-11-14T22:13:20.0000005Z") — seconds, then ns
 ```
 
-On bad input every constructor **raises** a catchable error — none answers an `error` value. The module also
-carries duration constants for readable operator arithmetic (`times.nanosecond` / `microsecond` /
-`millisecond` / `second` / `minute` / `hour`), `times.since`/`until`, and the calendar facts about plain
-numbers (`times.is_leap_year(y)`, …); see [stdlib](../stdlib.md).
+On bad input every constructor **raises** a catchable error — none answers an `error` value. The current instant
+is the only world read: it comes from the [`clock`](../stdlib.md#clock) module (`now`, `since`, `until`,
+`sleep`). Calendar facts are members (`t.is_leap_year()`, `t.days_in_month()`).
 
 ## Operators
 
@@ -177,13 +174,12 @@ numbers (`times.is_leap_year(y)`, …); see [stdlib](../stdlib.md).
 | `t + t2`, `t * n`, … | raises | no instant+instant, no scaling |
 
 ```go
-times := import("times")
 t := t"2026-08-29T15:04:05.123456789Z"
 t2 := t"2026-08-29T16:04:05.123456789Z"
 
 t + 1000000000            // time("2026-08-29T15:04:06.123456789Z") — one second later
 t - 1000000000            // time("2026-08-29T15:04:04.123456789Z")
-t + 30 * times.second     // readable duration spelling
+t + 30.seconds()          // readable duration spelling — the int's duration member
 t2 - t                    // 3600000000000 — one hour, in nanoseconds
 t < t2                    // true
 t == t                    // true
@@ -193,16 +189,17 @@ A duration is exact elapsed time; to move by **calendar** days or months, use th
 
 ### Reading a duration
 
-A duration is nothing special — a plain `int` of nanoseconds. Divide by the module constants, or use the
-`times.duration_*` helpers:
+A duration is nothing special — a plain `int` of nanoseconds. Its members read it in a unit, render it, and
+build one (see [int § Durations](int.md#durations)):
 
 ```go
 elapsed := t2 - t                  // 3600000000000
-elapsed / times.minute             // 60 — int division
-times.duration_seconds(elapsed)    // 3600 — seconds, as a float
-times.duration_minutes(elapsed)    // 60
-times.duration_hours(elapsed)      // 1
-times.duration_string(elapsed)     // "1h0m0s"
+elapsed / 1.minutes()              // 60 — int division
+elapsed.in_seconds()               // 3600.0 — seconds, as a float
+elapsed.in_minutes()               // 60.0
+elapsed.in_hours()                 // 1.0
+elapsed.duration_string()          // "1h0m0s"
+"1h".nanoseconds() == elapsed      // true — the text form of the same reading
 ```
 
 ### The missing comparisons
@@ -286,9 +283,9 @@ Every integral reading **floors** — the containing interval is the meaning, no
 half a second *before* the epoch is second `-1`, not `0`:
 
 ```go
-tn := times.unix(0, 0) - 500000000   // 0.5s before the epoch
-tn.unix()                            // -1
-tn.unix_ms()                         // -500
+tn := 0.time() - 500.milliseconds()   // 0.5s before the epoch
+tn.unix()                              // -1
+tn.unix_ms()                           // -500
 ```
 
 ### Zone accessors and moves
@@ -431,3 +428,11 @@ See [embedding](../embedding.md#time-zone-data) for pinning tzdata and replaying
 - **`times.from_unix(n)` is removed** → `(n).time()`.
 - **The zero value is unix 0.** `time()` was `0001-01-01T00:00:00Z`; it is now `1970-01-01T00:00:00Z`, the same
   instant `(0).time()` and `date()` name. Truthiness moves with it: the epoch is falsy, `0001-01-01` truthy.
+- **`times` is now `clock`, and durations are int members.** `times.now/since/until/sleep` → `clock.now()` etc.
+  The duration constants and helpers are gone: `30 * times.second` → `30.seconds()`, `times.parse_duration(s)` →
+  `s.nanoseconds()`, `times.duration_hours(d)` → `d.in_hours()` (and the other units), `times.duration_string(d)`
+  → `d.duration_string()`. `times.unix(sec, nsec)` → `sec.time() + nsec`, `times.from_unix_ms(n)` →
+  `n.time_ms()` (likewise `_micro`, `_nano`). The calendar facts about plain numbers
+  (`times.is_leap_year(y)`, `days_in_year`, `days_in_month`) are `date` members (`d"2027-02-01".days_in_month()`);
+  the month constants are integer literals.
+

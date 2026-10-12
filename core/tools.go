@@ -1570,3 +1570,47 @@ func SamePtrEqual(v Value, other Value, final bool) bool {
 	}
 	return ValueTypes[other.Type].Equal(other, v, true)
 }
+
+// --- durations. An int counts nanoseconds when its member says so: int and float build one (30.seconds()), an int
+// reads one in a unit (d.in_hours()), a string parses one ("1h30m".nanoseconds()). Each member is its own function
+// handing its unit to these helpers.
+
+const (
+	day  = 24 * time.Hour
+	week = 7 * day
+)
+
+// durationFromInt is n units in nanoseconds; int is checked, so a duration past its range raises.
+func durationFromInt(id member.ID, args []Value, n int64, unit time.Duration) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	ns, ok := IntMulChecked(n, int64(unit))
+	if !ok {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the duration overflows int", id.String()))
+	}
+	return IntValue(ns), nil
+}
+
+// durationFromFloat is f units rounded to the nearest nanosecond; NaN, ±Inf and a result past int's range raise.
+func durationFromFloat(id member.ID, args []Value, f float64, unit time.Duration) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	ns := math.Round(f * float64(unit))
+	if math.IsNaN(ns) {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the duration is not a number", id.String()))
+	}
+	if ns < math.MinInt64 || ns >= math.MaxInt64 {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the duration overflows int", id.String()))
+	}
+	return IntValue(int64(ns)), nil
+}
+
+// durationIn reads a duration of ns nanoseconds in a unit, as a float.
+func durationIn(id member.ID, args []Value, ns int64, unit time.Duration) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	return FloatValue(float64(ns) / float64(unit)), nil
+}

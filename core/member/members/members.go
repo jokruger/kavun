@@ -382,7 +382,23 @@ const (
 	TimeMs          = 503
 	TimeMicro       = 504
 	TimeNano        = 505
-	// 506…536 reserved
+	// durations: an int counts nanoseconds when its member says so (int, float build; int reads; string parses)
+	Nanoseconds    = 506
+	Microseconds   = 507
+	Milliseconds   = 508
+	Seconds        = 509
+	Minutes        = 510
+	Hours          = 511
+	Days           = 512
+	Weeks          = 513
+	InMicroseconds = 514
+	InMilliseconds = 515
+	InSeconds      = 516
+	InMinutes      = 517
+	InHours        = 518
+	InDays         = 519
+	InWeeks        = 520
+	// 521…536 reserved
 
 	// numbers — decimal
 	RoundHalfEven     = 537
@@ -470,36 +486,36 @@ const (
 	// 632…640 reserved
 
 	// module times — functions
-	Now                 = 641
-	Since               = 642
-	Until               = 643
-	Sleep               = 644
-	ParseDuration       = 645
-	DurationString      = 646
-	DurationHours       = 647
-	DurationMinutes     = 648
-	DurationSeconds     = 649
-	DurationNanoseconds = 650
-	FromUnixMs          = 651
-	FromUnixMicro       = 652
-	FromUnixNano        = 653
+	Now   = 641
+	Since = 642
+	Until = 643
+	Sleep = 644
+	// ParseDuration       = 645 // retired: "1h30m".nanoseconds()
+	DurationString = 646
+	// DurationHours       = 647 // retired: d.in_hours()
+	// DurationMinutes     = 648 // retired: d.in_minutes()
+	// DurationSeconds     = 649 // retired: d.in_seconds()
+	// DurationNanoseconds = 650 // retired: the int itself
+	// FromUnixMs          = 651 // retired: n.time_ms()
+	// FromUnixMicro       = 652 // retired: n.time_micro()
+	// FromUnixNano        = 653 // retired: n.time_nano()
 	// 654…664 reserved
 
 	// module times — constants
-	Millisecond = 665
-	Microsecond = 666
-	January     = 667
-	February    = 668
-	March       = 669
-	April       = 670
-	May         = 671
-	June        = 672
-	July        = 673
-	August      = 674
-	September   = 675
-	October     = 676
-	November    = 677
-	December    = 678
+	// Millisecond = 665 // retired: 1.milliseconds()
+	// Microsecond = 666 // retired: 1.microseconds()
+	// January     = 667 // retired: an integer literal (1–12)
+	// February    = 668 // retired: an integer literal (1–12)
+	// March       = 669 // retired: an integer literal (1–12)
+	// April       = 670 // retired: an integer literal (1–12)
+	// May         = 671 // retired: an integer literal (1–12)
+	// June        = 672 // retired: an integer literal (1–12)
+	// July        = 673 // retired: an integer literal (1–12)
+	// August      = 674 // retired: an integer literal (1–12)
+	// September   = 675 // retired: an integer literal (1–12)
+	// October     = 676 // retired: an integer literal (1–12)
+	// November    = 677 // retired: an integer literal (1–12)
+	// December    = 678 // retired: an integer literal (1–12)
 	// 679…688 reserved
 
 	// module math — functions

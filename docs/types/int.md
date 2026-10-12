@@ -28,7 +28,8 @@ big = 1_000_000   // underscores group digits in any base
 ```
 
 A literal with a decimal point, an exponent, or an `f` suffix is a [`float`](float.md); a `d` suffix makes a
-[`decimal`](decimal.md).
+[`decimal`](decimal.md). A `.` followed by a letter is NOT a decimal point but a member call on the int —
+`30.seconds()`, `7.string()` need no parentheses (so `1.e5` is not a float: write `1e5` or `1.0e5`).
 
 ## Arithmetic and operators
 
@@ -253,8 +254,8 @@ spelling.
 
 ### The time family
 
-In conversion context an int is a **unix timestamp**, never a duration (the duration reading belongs to operator
-context — `t + n` adds nanoseconds; see [time](time.md)). Each member names the encoding it reads and inverts the
+In conversion context an int is a **unix timestamp** (the duration reading belongs to operator context — `t + n`
+adds nanoseconds; see [time](time.md) — and to the duration members below). Each member names the encoding it reads and inverts the
 `time` accessor with the matching suffix (`time_ms` ↔ `unix_ms`, and the unsuffixed `time()` ↔ `unix()` /
 `int()`). All produce UTC:
 
@@ -265,6 +266,31 @@ context — `t + n` adds nanoseconds; see [time](time.md)). Each member names th
 (1704067200123456).time_micro()         // time("2024-01-01T00:00:00.123456Z")
 (1704067200123456789).time_nano()       // time("2024-01-01T00:00:00.123456789Z")
 ```
+
+### Durations
+
+An int counts **nanoseconds** when its member says so. The build members turn a count of units into a duration,
+the `in_*` members read a duration in a unit, and `duration_string()` renders it:
+
+```go
+30.seconds()                  // 30000000000
+2.weeks() == 14.days()        // true
+t + 90.minutes()              // an instant 90 minutes after t
+d := 90.minutes()
+d.in_hours()                  // 1.5 — a float
+d.in_seconds()                // 5400.0
+d.duration_string()           // "1h30m0s"
+9223372037.seconds()          // Error: (seconds) the duration overflows int — int is checked
+```
+
+| build (`int`, `float`) | read (`int` → `float`) |
+| --- | --- |
+| `nanoseconds()` `microseconds()` `milliseconds()` `seconds()` `minutes()` `hours()` `days()` `weeks()` | `in_microseconds()` `in_milliseconds()` `in_seconds()` `in_minutes()` `in_hours()` `in_days()` `in_weeks()` |
+
+A day is 24 hours and a week 7 days — fixed durations, not calendar units (to move by calendar days or months, use
+the [time](time.md) arithmetic members). The text form of the same reading is
+[`"1h30m".nanoseconds()`](string.md#conversions); a float builds one too, rounded to the nearest nanosecond
+(`1.5.hours()`). Full words name durations; the abbreviations (`time_ms`) stay on the timestamp family.
 
 ### Parsing text into int
 
@@ -281,3 +307,12 @@ int(undefined)        // Error: cannot convert undefined to int: value is missin
 ```
 
 The default rescues *data*, never a program error — a wrong argument type raises even with a default present.
+
+## Migration notes
+
+- **Durations are int members** (the `times` module became `clock`): `30 * times.second` → `30.seconds()`,
+  `times.duration_hours(d)` → `d.in_hours()` (and the other units), `times.duration_string(d)` →
+  `d.duration_string()`, `times.from_unix_ms(n)` → `n.time_ms()`.
+- **A member call on an int literal needs no parentheses**: `30.seconds()`, `5.string()` (was `(5).string()`, which
+  still works). Consequently `1.e5` is no longer a float literal — write `1e5` or `1.0e5`.
+

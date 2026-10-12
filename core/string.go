@@ -151,6 +151,7 @@ var TypeString = ValueTypeDescr{
 		members.PascalCase:   NewPureMethod(stringPascalCase, 0, Fixed),
 		members.SnakeCase:    NewPureMethod(stringSnakeCase, 0, Fixed),
 		members.KebabCase:    NewPureMethod(stringKebabCase, 0, Fixed),
+		members.Nanoseconds:  NewPureMethod(stringNanoseconds, 0, Variadic),
 	},
 }
 

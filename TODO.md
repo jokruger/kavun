@@ -358,7 +358,8 @@
       the *opposite* problem (unpredictability) from what a reproducible finance/decisioning script usually
       wants (a fixed seed) — these are two different needs likely served by two different APIs, not one module.
 
-- Allow the host to inject a deterministic clock for `times.now()` during replay/testing, so a script that
+- Allow the host to inject a deterministic clock for `clock.now()` (now the only non-injectable world read — the
+      `clock` module's `now`/`since`/`until`) during replay/testing, so a script that
       reads wall-clock time can still be re-run byte-for-byte identically in an audit/test context. New.
 
 - New stdlib modules — recommendations, none decided; each gets its own design row under the module-map rules

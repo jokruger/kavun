@@ -225,6 +225,12 @@ exactly the same answer), so no magnitude is out of range: `1e-30.round(2, "half
 `1e300.round(2, "half_up")` is `1e300` unchanged. Only a result past float's own range raises
 (`1.7976931348623157e308.round(-308, "up")` would be `2e308`); NaN and ±Inf have no digits to round and raise too.
 
+### Durations
+
+A float builds an int **duration in nanoseconds**, rounded to the nearest one — the same members as
+[int](int.md#durations): `1.5.hours()` is `5400000000000`, `0.25.seconds()` is `250000000`. NaN, ±Inf and a
+result past int's range raise.
+
 ### Sentinel predicates
 
 `is_nan()` / `is_inf()` are the safe way to interrogate a value that arithmetic would refuse; every numeric type
@@ -337,6 +343,10 @@ There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gat
 the ordinal scalars (`x.int().byte()`).
 
 ## Migration notes
+
+- **Durations:** a float builds an int duration in nanoseconds, rounded to the nearest one: `1.5.hours()` →
+  `5400000000000` (`nanoseconds()` … `weeks()`; NaN and a result past int's range raise). Was
+  `int(1.5 * times.hour)`.
 
 - **`math` functions became float members**, by parity with `decimal`: `math.sqrt(x)` → `x.sqrt()`,
   `math.pow(x, y)` → `x.pow(y)`, `math.exp(x)` → `x.exp()`, `math.log(x)` → `x.ln()`, `math.log2(x)` →

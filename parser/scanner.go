@@ -493,9 +493,10 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	// Scan whole number
 	s.scanDigits(base)
 
-	// Scan fractional part. A '.' followed by another '.' starts a range operator ('..'/'...'), not a decimal
-	// point, so leave both dots unconsumed for the next Scan() call.
-	if s.ch == '.' && s.peek() != '.' && (base == 10 || base == 16) {
+	// Scan fractional part. A '.' followed by another '.' starts a range operator ('..'/'...'), and a '.' followed by
+	// a letter or '_' starts a member access on the integer (30.seconds(), 5.len()) — neither is a decimal point, so
+	// leave the '.' unconsumed for the next Scan() call. (So 1.e5 is not a float: write 1e5 or 1.0e5.)
+	if s.ch == '.' && s.peek() != '.' && !isLetter(rune(s.peek())) && (base == 10 || base == 16) {
 		tok = tokens.Float
 		s.next()
 		s.scanDigits(base)

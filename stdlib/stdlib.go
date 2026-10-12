@@ -5,6 +5,7 @@ package stdlib
 
 import (
 	_ "github.com/jokruger/kavun/stdlib/base64"
+	_ "github.com/jokruger/kavun/stdlib/clock"
 	_ "github.com/jokruger/kavun/stdlib/exec"
 	_ "github.com/jokruger/kavun/stdlib/fin"
 	_ "github.com/jokruger/kavun/stdlib/fs"
@@ -16,5 +17,4 @@ import (
 	_ "github.com/jokruger/kavun/stdlib/path"
 	_ "github.com/jokruger/kavun/stdlib/rand"
 	_ "github.com/jokruger/kavun/stdlib/re"
-	_ "github.com/jokruger/kavun/stdlib/times"
 )

@@ -61,6 +61,30 @@ the entry.
 | `components` | — | — | — | — | — | — | ✓ | ✓ | — | — | — | — | — | — | ✓ | — |
 | `canonical` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — |
 
+## Durations (an int counts nanoseconds when its member says so)
+
+`int`/`float` build a duration in a unit (exact on int, nearest nanosecond on float); `int` reads one in a unit and
+renders it; `string.nanoseconds([default])` parses Go's duration grammar (`"1h30m"`).
+
+| member | int | float | decimal | bool | byte | rune | time | date | error | undefined | string | runes | bytes | array | range | dict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `nanoseconds` | ✓ | ✓ | — | — | — | — | — | — | — | — | ✓ | — | — | — | — | — |
+| `microseconds` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `milliseconds` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `seconds` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `minutes` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `hours` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `days` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `weeks` | ✓ | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_microseconds` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_milliseconds` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_seconds` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_minutes` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_hours` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_days` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `in_weeks` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `duration_string` | ✓ | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+
 ## Size / membership / search
 
 | member | int | float | decimal | bool | byte | rune | time | date | error | undefined | string | runes | bytes | array | range | dict |

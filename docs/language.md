@@ -139,6 +139,9 @@ Kavun supports several ways to write numeric values:
 Rules:
 
 - A number without a suffix is an `int` unless it has a fractional part or exponent, in which case it is a `float`.
+- After an integer's digits, a `.` followed by a letter starts a **member call**, not a fraction: `30.seconds()`,
+  `7.string()` (so `1.e5` is not a float — write `1e5` or `1.0e5`). A `.` followed by a digit, or by nothing, is
+  the decimal point (`1.5`, `30.`), and `..` is the range operator (`1..5`).
 - The `f` suffix forces a base-10 number to be parsed as `float`.
 - The `d` suffix forces a base-10 number to be parsed as `decimal`.
 - Prefix forms like `0b`, `0o`, and `0x` are integer literals.
@@ -1013,7 +1016,7 @@ A **builtin module** answers a value of type [`module`](types/module.md): its fu
 members (`math.hypot(3, 4)`, `math.pi`, `arr.map(math.cbrt)`), it is read-only, and a name it does not have raises
 (`math.pii` → `module 'math' has no member 'pii'`). `len`, `in` and `for k, v in m` see its members, sorted by
 name. Which builtin modules a script may import is the host's decision: by default only the pure ones (no world
-access); `exec`, `fs`, `io`, `os`, `rand` and `times` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
+access); `clock`, `exec`, `fs`, `io`, `os` and `rand` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
 grants everything.
 
 A Kavun module uses `export` to publish its result. The exported value is automatically made immutable. `export` inside

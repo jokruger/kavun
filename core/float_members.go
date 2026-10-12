@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/member"
@@ -409,6 +410,48 @@ func floatUnaryMath(v Value, id member.ID, args []Value, f func(float64) float64
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	return floatResult(name, f(math.Float64frombits(v.Data)))
+}
+
+// --- durations (helpers in tools.go): build in a unit, rounded to the nearest nanosecond
+
+// PURE by contract — nanoseconds(): this many nanoseconds, as an int duration in nanoseconds
+func floatNanoseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Nanosecond)
+}
+
+// PURE by contract — microseconds(): this many microseconds, as an int duration in nanoseconds
+func floatMicroseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Microsecond)
+}
+
+// PURE by contract — milliseconds(): this many milliseconds, as an int duration in nanoseconds
+func floatMilliseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Millisecond)
+}
+
+// PURE by contract — seconds(): this many seconds, as an int duration in nanoseconds
+func floatSeconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Second)
+}
+
+// PURE by contract — minutes(): this many minutes, as an int duration in nanoseconds
+func floatMinutes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Minute)
+}
+
+// PURE by contract — hours(): this many hours, as an int duration in nanoseconds
+func floatHours(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), time.Hour)
+}
+
+// PURE by contract — days(): this many days, as an int duration in nanoseconds
+func floatDays(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), day)
+}
+
+// PURE by contract — weeks(): this many weeks, as an int duration in nanoseconds
+func floatWeeks(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromFloat(id, args, math.Float64frombits(v.Data), week)
 }
 
 // --- shared leaves

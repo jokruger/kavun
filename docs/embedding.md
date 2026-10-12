@@ -90,7 +90,7 @@ fmt.Println(sum)
 ### The module grant
 
 A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`exec`,
-`fs`, `io`, `os`, `rand`, `times`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
+`fs`, `io`, `os`, `rand`, `clock`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
 else must be granted. The grant is checked twice — by the compiler, and again by the VM that runs the bytecode —
 so bytecode compiled elsewhere or decoded from a file cannot bypass it:
 
@@ -331,7 +331,7 @@ That is the host's decision to make. The members that take an explicit `(scale, 
 
 A script names zones by their IANA name (`t.in_zone("Europe/Kyiv")`, `time({…, zone: "Europe/Kyiv"})`); `"UTC"`
 is always available. The host's own zone is never visible to a script: `"Local"` and `""` are not zone names,
-and `times.now()` answers in UTC. A host that wants scripts to work in "its" zone passes the zone **name** in
+and `clock.now()` answers in UTC. A host that wants scripts to work in "its" zone passes the zone **name** in
 as a value, which keeps the dependency visible.
 
 Zone rules come from the host's IANA tzdata, which Kavun does not bundle. Go reads it in this order: the

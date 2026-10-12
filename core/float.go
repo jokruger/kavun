@@ -92,6 +92,14 @@ var TypeFloat = ValueTypeDescr{
 		members.Exp:              NewPureMethod(floatExp, 0, Fixed),
 		members.Log10:            NewPureMethod(floatLog10, 0, Fixed),
 		members.Log2:             NewPureMethod(floatLog2, 0, Fixed),
+		members.Nanoseconds:      NewPureMethod(floatNanoseconds, 0, Fixed),
+		members.Microseconds:     NewPureMethod(floatMicroseconds, 0, Fixed),
+		members.Milliseconds:     NewPureMethod(floatMilliseconds, 0, Fixed),
+		members.Seconds:          NewPureMethod(floatSeconds, 0, Fixed),
+		members.Minutes:          NewPureMethod(floatMinutes, 0, Fixed),
+		members.Hours:            NewPureMethod(floatHours, 0, Fixed),
+		members.Days:             NewPureMethod(floatDays, 0, Fixed),
+		members.Weeks:            NewPureMethod(floatWeeks, 0, Fixed),
 	},
 }
 

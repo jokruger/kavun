@@ -112,7 +112,7 @@ f.days_in_year()     // 366
 f.days_in_month()    // 29
 ```
 
-For plain numbers — "how long is February 2027?" — use `times.days_in_month(2027, 2)`; see [stdlib](../stdlib.md#times).
+For plain numbers — "how long is February 2027?" — ask a date in it: `d"2027-02-01".days_in_month()`.
 
 ### Arithmetic
 

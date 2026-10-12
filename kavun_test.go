@@ -11827,6 +11827,28 @@ func TestModuleValue(t *testing.T) {
 	require.Equal(t, value.ModuleMath, decoded.Type)
 }
 
+// An int counts nanoseconds when its member says so: int and float build a duration in a unit, an int reads one in a
+// unit, a string parses one, an int renders one. Builds are exact on int, round to the nearest ns on float; overflow
+// and NaN raise.
+func TestDurationMembers(t *testing.T) {
+	expectRun(t, `out = [1.nanoseconds(), 1.microseconds(), 1.milliseconds(), 1.seconds(), 1.minutes(), 1.hours(), 1.days(), 1.weeks()]`, nil,
+		ARR{1, 1000, 1000000, 1000000000, 60000000000, 3600000000000, 86400000000000, 604800000000000})
+	expectRun(t, `out = [1.5.hours(), 0.5.nanoseconds(), (-1.5).milliseconds(), 2.weeks() == 14.days()]`, nil, ARR{5400000000000, 1, -1500000, true})
+	expectRun(t, `d := 90.minutes(); out = [d.in_hours(), d.in_minutes(), d.in_seconds(), 1800000000000.in_hours(), 1000000.in_seconds(), 1.days().in_weeks() < 0.15]`, nil,
+		ARR{1.5, 90.0, 5400.0, 0.5, 0.001, true})
+	expectRun(t, `out = [1.microseconds().in_microseconds(), 1.milliseconds().in_milliseconds(), 1.days().in_days()]`, nil, ARR{1.0, 1.0, 1.0})
+	expectRun(t, `out = [1800000000000.duration_string(), 90.minutes().duration_string(), 0.duration_string()]`, nil, ARR{"30m0s", "1h30m0s", "0s"})
+	expectRun(t, `out = ["1ns".nanoseconds(), "1ms".nanoseconds(), "1h30m".nanoseconds() == 90.minutes(), "-1.5h".nanoseconds(), "bad".nanoseconds(7)]`, nil,
+		ARR{1, 1000000, true, -5400000000000, 7})
+	expectRun(t, `t := time("2026-01-02T03:04:05Z"); out = [(t + 30.seconds()).string(), (t + 1.days()) - t == 1.days()]`, nil, ARR{"2026-01-02T03:04:35Z", true})
+
+	expectError(t, `out = "bad".nanoseconds()`, nil, "conversion: cannot convert string to nanoseconds")
+	expectError(t, `out = 9223372037.seconds()`, nil, "invalid_value: (seconds) the duration overflows int")
+	expectError(t, `out = 1e300.hours()`, nil, "invalid_value: (hours) the duration overflows int")
+	expectError(t, `out = float("nan").seconds()`, nil, "invalid_value: (seconds) the duration is not a number")
+	expectError(t, `out = 1.seconds(1)`, nil, "wrong_num_arguments")
+}
+
 // Every Methods entry's Arity/Variadic against the member function's own argument-count check: Arity-1 arguments
 // raise wrong_num_arguments, Arity do not, and Arity+1 raise exactly when the entry is not Variadic. Callback-taking
 // members dispatch on a bound member's Arity, so a declaration that drifts from the check is a wrong call. Every

@@ -140,3 +140,88 @@ func intAbs(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	return v, nil
 }
+
+// --- durations (helpers in tools.go): build in a unit, read in a unit, render
+
+// PURE by contract — nanoseconds(): this many nanoseconds, as an int duration in nanoseconds
+func intNanoseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Nanosecond)
+}
+
+// PURE by contract — microseconds(): this many microseconds, as an int duration in nanoseconds
+func intMicroseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Microsecond)
+}
+
+// PURE by contract — milliseconds(): this many milliseconds, as an int duration in nanoseconds
+func intMilliseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Millisecond)
+}
+
+// PURE by contract — seconds(): this many seconds, as an int duration in nanoseconds
+func intSeconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Second)
+}
+
+// PURE by contract — minutes(): this many minutes, as an int duration in nanoseconds
+func intMinutes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Minute)
+}
+
+// PURE by contract — hours(): this many hours, as an int duration in nanoseconds
+func intHours(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), time.Hour)
+}
+
+// PURE by contract — days(): this many days, as an int duration in nanoseconds
+func intDays(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), day)
+}
+
+// PURE by contract — weeks(): this many weeks, as an int duration in nanoseconds
+func intWeeks(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationFromInt(id, args, int64(v.Data), week)
+}
+
+// PURE by contract — in_microseconds(): this duration in microseconds
+func intInMicroseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), time.Microsecond)
+}
+
+// PURE by contract — in_milliseconds(): this duration in milliseconds
+func intInMilliseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), time.Millisecond)
+}
+
+// PURE by contract — in_seconds(): this duration in seconds
+func intInSeconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), time.Second)
+}
+
+// PURE by contract — in_minutes(): this duration in minutes
+func intInMinutes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), time.Minute)
+}
+
+// PURE by contract — in_hours(): this duration in hours
+func intInHours(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), time.Hour)
+}
+
+// PURE by contract — in_days(): this duration in days
+func intInDays(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), day)
+}
+
+// PURE by contract — in_weeks(): this duration in weeks
+func intInWeeks(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return durationIn(id, args, int64(v.Data), week)
+}
+
+// PURE by contract — duration_string(): this duration as Go writes it ("1h30m0s")
+func intDurationString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	return NewStringValue(time.Duration(int64(v.Data)).String()), nil
+}

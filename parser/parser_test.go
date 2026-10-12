@@ -2615,7 +2615,6 @@ func TestParseFloat(t *testing.T) {
 		"72.40",
 		"072.40", // == 72.40
 		"2.71828",
-		"1.e+0",
 		"6.67428e-11",
 		"1E6",
 		".25",
@@ -2623,15 +2622,12 @@ func TestParseFloat(t *testing.T) {
 		"1_5.",        // == 15.0
 		"0.15e+0_2",   // == 15.0
 		"0x1p-2",      // == 0.25
-		"0x2.p10",     // == 2048.0
-		"0x1.Fp+0",    // == 1.9375
 		"0X.8p-0",     // == 0.5
 		"0X_1FFFP-16", // == 0.1249847412109375
 		"0x.p1",       // invalid: mantissa has no digits
 		"1p-2",        // invalid: p exponent requires hexadecimal mantissa
 		"0x1.5e-2",    // invalid: hexadecimal mantissa requires p exponent
 		"1_.5",        // invalid: _ must separate successive digits
-		"1._5",        // invalid: _ must separate successive digits
 		"1.5_e1",      // invalid: _ must separate successive digits
 		"1.5e_1",      // invalid: _ must separate successive digits
 		"1.5e1_",      // invalid: _ must separate successive digits
@@ -2649,6 +2645,30 @@ func TestParseFloat(t *testing.T) {
 			}
 		})
 	}
+}
+
+// After an integer's digits, a '.' followed by a letter or '_' is a member access, not a decimal point:
+// 30.seconds() calls a member of the int 30. So Go's 1.e+0, 0x2.p10 and 0x1.Fp+0 are not float literals here (write
+// 1e+0, 0x2p10, 0x1.Fp+0 with a digit after the point), and 1._5 reads the member _5.
+func TestParseMemberOnIntLiteral(t *testing.T) {
+	expectParse(t, "30.seconds()", func(p pfn) []ast.Statement {
+		return stmts(exprStmt(methodCallExpr(intLit(30, p(1, 1)), "seconds", p(1, 4), p(1, 11), p(1, 12), core.NoPos)))
+	})
+	for _, src := range []string{"1.e5", "0x2.p10", "1._5"} {
+		expectParse(t, src, func(p pfn) []ast.Statement {
+			dot := 0
+			for i, c := range src {
+				if c == '.' {
+					dot = i
+					break
+				}
+			}
+			n, _ := strconv.ParseInt(src[:dot], 0, 64)
+			return stmts(exprStmt(selectorExpr(intLit(n, p(1, 1)), stringLit(src[dot+1:], p(1, dot+2)))))
+		})
+	}
+	expectParse(t, "1.5", func(p pfn) []ast.Statement { return stmts(exprStmt(floatLit(1.5, p(1, 1)))) })
+	expectParse(t, "30.", func(p pfn) []ast.Statement { return stmts(exprStmt(floatLit(30, p(1, 1)))) })
 }
 
 func TestMismatchBrace(t *testing.T) {

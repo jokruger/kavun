@@ -3,6 +3,7 @@ package core
 import (
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jokruger/kavun/core/member"
@@ -965,4 +966,11 @@ func stringSplitLines(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 		arr[i] = NewStringValue(p)
 	}
 	return NewArrayValue(arr, false), nil
+}
+
+// PURE by contract — nanoseconds([default]): the text as a duration in nanoseconds, in Go's duration grammar
+// ("1h30m", "-1.5h", "300ms"); bad text raises conversion unless a default is given
+func stringNanoseconds(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	d, err := time.ParseDuration(*(*string)(v.Ptr))
+	return ConvMember(id.String(), stringTypeName, args, err == nil, IntValue(int64(d)))
 }

@@ -293,13 +293,13 @@ func TestModuleGrant(t *testing.T) {
 	require.NoError(t, machine.SetAllowedModules("os"))
 	require.NoError(t, runIn(c, machine))
 	require.NoError(t, runIn(c, machine)) // the grant survives Reset
-	c, err = compileWith(`out = type_name(import("times"))`, func(s *kavun.Script) { s.AllowAllModules() })
+	c, err = compileWith(`out = type_name(import("clock"))`, func(s *kavun.Script) { s.AllowAllModules() })
 	require.NoError(t, err)
 	machine = newVM()
 	machine.AllowAllModules()
 	require.NoError(t, runIn(c, machine))
 	machine = newVM()
-	require.NoError(t, machine.SetAllowedModules("os")) // a named grant is exact: times is not in it
+	require.NoError(t, machine.SetAllowedModules("os")) // a named grant is exact: clock is not in it
 	requireKind(runIn(c, machine), "module_not_allowed")
 
 	// an unknown module name is a host mistake

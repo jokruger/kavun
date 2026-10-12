@@ -443,6 +443,8 @@ a valid result or a catchable raise, and with the optional trailing default, the
 "123".int()          // => 123
 "12a".int()          // raises: cannot convert string to int
 "12a".int(0)         // => 0
+"1h30m".nanoseconds()    // => 5400000000000 — a duration, in Go's duration grammar ("300ms", "-1.5h")
+"later".nanoseconds(0)   // => 0
 "1.5".float()        // => 1.5
 "Yes".bool()         // => true (true/false, 1/0, t/f, yes/no — case-insensitive)
 "maybe".bool()       // raises
@@ -512,3 +514,9 @@ whitespace:
 
 `bytes` projects the same notion into its element domain (the ASCII subset — all the whitespace an octet can
 express); the sets agree wherever the domains overlap.
+
+## Migration notes
+
+- **`times.parse_duration(s)` → `s.nanoseconds([default])`** — the text form of the int duration members
+  (`30.seconds()`); bad text raises `conversion` unless a default is given.
+
