@@ -171,7 +171,9 @@ contract as its pure sibling, mutates the receiver's shared body (visible throug
 reassignment), and **returns the receiver**, so twins correspond: `y = x.m(args)` and `x.m_in_place(args)`
 leave the same content in `x`. On a frozen receiver every mutating member raises the one error kind
 `not_mutable` — `(member) type immutable-array is immutable` — so a script catches "I mutated a frozen value"
-with a single kind test.
+with a single kind test. The mutability check comes **first**, before anything about the arguments: a frozen
+receiver raises `not_mutable` however the member was called. Every error a twin raises names the twin itself
+(`sort_in_place`, never `sort`), with the same argument wording as its sibling.
 
 A twin exists only where three conditions hold: the receiver has a mutable heap body (not `string`, immutable
 by construction; not `range`, which has no storage); the result is the receiver's own type (so `map`, `split`,

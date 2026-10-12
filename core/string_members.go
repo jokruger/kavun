@@ -619,7 +619,7 @@ func stringInsert(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	elems := DecodeText(*(*string)(v.Ptr))
-	start, end, err := readSpliceRange(args, len(elems))
+	start, end, err := readSpliceRange("splice", args, len(elems))
 	if err != nil {
 		return Undefined, err
 	}

@@ -260,32 +260,55 @@ func readEditPos(name string, args []Value, length int) (int, error) {
 	return int(i), nil
 }
 
+// argOrdinal names the argument at zero-based position i the way every argument error does ("first",
+// "second", …); past the tenth, where a variadic member can still be, it falls back to "11th", "22nd", ….
+// PURE by contract.
+func argOrdinal(i int) string {
+	words := [...]string{"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"}
+	if i >= 0 && i < len(words) {
+		return words[i]
+	}
+	n := i + 1
+	suffix := "th"
+	if n%100 < 11 || n%100 > 13 {
+		switch n % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return fmt.Sprintf("%d%s", n, suffix)
+}
+
 // readSpliceRange reads splice's (start[, count]) against the length and answers the edited span [start, end).
 // start counts from the end when negative and must land in [0, length]; count must be non-negative and is clamped
-// to what remains; both default to "the rest". The errors say "splice" for the _in_place twin too.
-func readSpliceRange(args []Value, length int) (int, int, error) {
+// to what remains; both default to "the rest". name is the calling member, so each twin reports itself.
+func readSpliceRange(name string, args []Value, length int) (int, int, error) {
 	start := 0
 	if len(args) > 0 {
 		arg, ok := args[0].AsInt()
 		if !ok {
-			return 0, 0, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[0].TypeName())
+			return 0, 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 		}
 		start = int(arg)
 		if start < 0 {
 			start += length
 		}
 		if start < 0 || start > length {
-			return 0, 0, errs.NewIndexOutOfBoundsError("splice, start index", int(arg), length)
+			return 0, 0, errs.NewIndexOutOfBoundsError(name+", start index", int(arg), length)
 		}
 	}
 	count := length - start
 	if len(args) > 1 {
 		arg, ok := args[1].AsInt()
 		if !ok {
-			return 0, 0, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[1].TypeName())
+			return 0, 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[1].TypeName())
 		}
 		if arg < 0 {
-			return 0, 0, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
+			return 0, 0, errs.NewInvalidValueError("(" + name + ") delete count must be non-negative")
 		}
 		if arg < int64(count) {
 			count = int(arg)

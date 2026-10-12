@@ -270,15 +270,15 @@ func runesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	if mutate {
 		name = "append_in_place"
 	}
+	if mutate && v.Immutable {
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
 	items, err := runesAddItems(name, args)
 	if err != nil {
 		return Undefined, err
 	}
 
 	if mutate {
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
 		o.Set(append(o.Elements, items...))
 		return v, nil
 	}

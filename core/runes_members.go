@@ -393,11 +393,11 @@ func runesSort(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func runesSortInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*Runes)(v.Ptr)
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	slices.Sort(o.Elements)
 	return v, nil
@@ -415,11 +415,11 @@ func runesDedup(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // IMPURE: mutates the receiver. runesDedupInPlace is dedup_in_place(): dedup applied to the receiver itself.
 func runesDedupInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "dedup_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Runes)(v.Ptr)
 	o.Set(runesDeduped(o.Elements))
@@ -438,11 +438,11 @@ func runesUnique(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // IMPURE: mutates the receiver. runesUniqueInPlace is unique_in_place(): unique applied to the receiver itself.
 func runesUniqueInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "unique_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Runes)(v.Ptr)
 	o.Set(runesUniqueElements(o.Elements))
@@ -467,11 +467,11 @@ func runesReverse(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func runesReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*Runes)(v.Ptr)
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	slices.Reverse(o.Elements)
 	return v, nil
@@ -707,7 +707,7 @@ func runesInsertInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // PURE by contract
 func runesSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	elems := (*Runes)(v.Ptr).Elements
-	start, end, err := readSpliceRange(args, len(elems))
+	start, end, err := readSpliceRange("splice", args, len(elems))
 	if err != nil {
 		return Undefined, err
 	}
@@ -728,17 +728,18 @@ func runesSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // A side-effecting member returns the RECEIVER, so mutators chain; the removed span is x.slice(i, j) taken
 // beforehand.
 func runesSpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	const name = "splice_in_place"
 	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("splice_in_place", v.TypeName())
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
 	}
 	o := (*Runes)(v.Ptr)
-	start, end, err := readSpliceRange(args, len(o.Elements))
+	start, end, err := readSpliceRange(name, args, len(o.Elements))
 	if err != nil {
 		return Undefined, err
 	}
 	var items []rune
 	if len(args) > 2 {
-		if items, err = runesAddItems("splice", args[2:]); err != nil {
+		if items, err = runesAddItems(name, args[2:]); err != nil {
 			return Undefined, err
 		}
 	}

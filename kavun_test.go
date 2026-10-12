@@ -5145,24 +5145,24 @@ func TestSameTypeConversionConstructs(t *testing.T) {
 // error family from the old free-function form is gone: a member receiver is already guaranteed to be an array
 // by dispatch, so that failure mode isn't reachable this way anymore.
 func TestMemberFunctionSpliceInPlace(t *testing.T) {
-	expectError(t, `[].splice_in_place("str")`, nil, `invalid_argument_type: (splice) argument second expects type int, got string`)
-	expectError(t, `[].splice_in_place(bytes("str"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got bytes`)
-	expectError(t, `[].splice_in_place(error("error"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got error`)
-	expectError(t, `[].splice_in_place(undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
-	expectError(t, `[].splice_in_place([])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
-	expectError(t, `[].splice_in_place({})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
-	expectError(t, `[].splice_in_place(freeze_shallow([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
-	expectError(t, `[].splice_in_place(freeze_shallow({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
-	expectError(t, `[].splice_in_place(0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
-	expectError(t, `[].splice_in_place(0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
-	expectError(t, `[].splice_in_place(0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
-	expectError(t, `[].splice_in_place(0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
-	expectError(t, `[].splice_in_place(0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
-	expectError(t, `[].splice_in_place(0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
-	expectError(t, `[].splice_in_place(0, freeze_shallow([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
-	expectError(t, `[].splice_in_place(0, freeze_shallow({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place("str")`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got string`)
+	expectError(t, `[].splice_in_place(bytes("str"))`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got bytes`)
+	expectError(t, `[].splice_in_place(error("error"))`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got error`)
+	expectError(t, `[].splice_in_place(undefined)`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got undefined`)
+	expectError(t, `[].splice_in_place([])`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got array`)
+	expectError(t, `[].splice_in_place({})`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got record`)
+	expectError(t, `[].splice_in_place(freeze_shallow([]))`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(freeze_shallow({}))`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place(0, "string")`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got string`)
+	expectError(t, `[].splice_in_place(0, bytes("string"))`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got bytes`)
+	expectError(t, `[].splice_in_place(0, error("string"))`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got error`)
+	expectError(t, `[].splice_in_place(0, undefined)`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got undefined`)
+	expectError(t, `[].splice_in_place(0, [])`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got array`)
+	expectError(t, `[].splice_in_place(0, {})`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got record`)
+	expectError(t, `[].splice_in_place(0, freeze_shallow([]))`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(0, freeze_shallow({}))`, nil, `invalid_argument_type: (splice_in_place) argument second expects type int, got immutable-record`)
 	expectError(t, `[].splice_in_place(1)`, nil, "index_out_of_bounds")
-	expectError(t, `[1, 2, 3].splice_in_place(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, `[1, 2, 3].splice_in_place(0, -1)`, nil, "invalid_value: (splice_in_place) delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice_in_place(99, 0, "a", "b")`, nil, "index_out_of_bounds")
 	expectError(t, `freeze_shallow([1, 2, 3]).splice_in_place(0)`, nil,
 		`not_mutable: (splice_in_place) type immutable-array is immutable`)
@@ -5282,7 +5282,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 		out = [result, v]`, nil, ARR{ARR{1, "a", "b", 2, 3}, ARR{1, 2, 3}})
 	expectRun(t, `out = [1, 2, 3].splice(0, 1) == [1, 2, 3].splice_in_place(0, 1)`, nil, true) // the twins correspond now
 	expectRun(t, `out = freeze_shallow([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})               // pure: works on immutable too
-	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: (splice) delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
 }
 
@@ -5730,7 +5730,7 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, 'x')`, nil, []byte("axbc"))
 	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, bytes("xy"))`, nil, []byte("axybc"))
 	expectRun(t, `out = freeze(bytes("abc")).splice(0, 1)`, nil, []byte("bc")) // pure: works on immutable too
-	expectError(t, `bytes("abc").splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, `bytes("abc").splice(0, -1)`, nil, "invalid_value: (splice) delete count must be non-negative")
 
 	// bytes: splice_in_place() mutates and returns the receiver
 	expectRun(t, `v := bytes("abc"); res := v.splice_in_place(0, 1); out = [res, v]`, nil,
@@ -11626,6 +11626,41 @@ norm = func(v) {
 		check(mutable, `x := X; r := try(func() { return x.`+c+` }); out = [norm(r), norm(x)]`)
 		check(mutable, `x := X.freeze(); out = norm(try(func() { return x.`+c+` }))`)
 	}
+}
+
+// An _in_place twin reports its OWN name in every error, never its non-mutating sibling's, and checks the
+// receiver's mutability before anything about its arguments: a frozen receiver raises not_mutable however the
+// member was called.
+func TestInPlaceTwinErrors(t *testing.T) {
+	for _, r := range []struct{ x, typ string }{
+		{`[3, 1]`, "array"}, {`bytes([3, 1])`, "bytes"}, {`runes("ba")`, "runes"},
+	} {
+		for _, m := range []string{"sort_in_place", "dedup_in_place", "unique_in_place", "reverse_in_place"} {
+			expectError(t, `x := `+r.x+`; x.`+m+`(1)`, nil, "wrong_num_arguments: ("+m+") expected 0 argument(s), got 1")
+			expectError(t, `x := `+r.x+`.freeze(); x.`+m+`(1)`, nil, "not_mutable: ("+m+") type immutable-"+r.typ+" is immutable")
+		}
+		expectError(t, `x := `+r.x+`; x.splice_in_place("s")`, nil,
+			"invalid_argument_type: (splice_in_place) argument first expects type int, got string")
+		expectError(t, `x := `+r.x+`; x.splice_in_place(9)`, nil, "index_out_of_bounds: (splice_in_place, start index)")
+		expectError(t, `x := `+r.x+`.freeze(); x.splice_in_place("s")`, nil,
+			"not_mutable: (splice_in_place) type immutable-"+r.typ+" is immutable")
+		expectError(t, `x := `+r.x+`.freeze(); x.append_in_place({})`, nil,
+			"not_mutable: (append_in_place) type immutable-"+r.typ+" is immutable")
+	}
+	expectError(t, `bytes([1]).splice_in_place(0, 0, {})`, nil, "invalid_argument_type: (splice_in_place)")
+	expectError(t, `runes("a").splice_in_place(0, 0, {})`, nil, "invalid_argument_type: (splice_in_place)")
+	expectError(t, `[1].freeze().shuffle_in_place()`, nil, "not_mutable: (shuffle_in_place) type immutable-array is immutable")
+
+	// merge names a bad operand by its ordinal word, like every other argument error
+	expectError(t, `d := dict({a: 1}); d.merge_in_place(d, 1)`, nil,
+		"invalid_argument_type: (merge_in_place) argument second expects type dict or record, got int")
+	expectError(t, `d := dict({a: 1}).freeze(); d.merge_in_place(1)`, nil,
+		"not_mutable: (merge_in_place) type immutable-dict is immutable")
+	expectError(t, `out = dict({}).merge(1)`, nil, "invalid_argument_type: (merge) argument first expects type dict or record, got int")
+	expectError(t, `d := dict({}); out = d.merge(`+strings.Repeat("d, ", 10)+`1)`, nil,
+		"invalid_argument_type: (merge) argument 11th expects type dict or record, got int")
+	expectError(t, `d := dict({}); out = d.merge(`+strings.Repeat("d, ", 21)+`1)`, nil,
+		"invalid_argument_type: (merge) argument 22nd expects type dict or record, got int")
 }
 
 // A member call carries its argument count in one byte: more than 255 literal arguments is a compile error, for

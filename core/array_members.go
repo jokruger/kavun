@@ -415,12 +415,12 @@ func arrayAvg(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func arraySort(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return arrayFnSort(v, args, false)
+	return arrayFnSort(id.String(), v, args, false)
 }
 
 // IMPURE by contract (mutates the receiver)
 func arraySortInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return arrayFnSort(v, args, true)
+	return arrayFnSort(id.String(), v, args, true)
 }
 
 // arrayDedup is dedup(): a new array with each run of equal neighbours collapsed to one.
@@ -435,11 +435,11 @@ func arrayDedup(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // IMPURE: mutates the receiver. arrayDedupInPlace is dedup_in_place(): dedup applied to the receiver itself.
 func arrayDedupInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "dedup_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
 	o.Set(arrayDeduped(o.Elements))
@@ -462,7 +462,7 @@ func arrayUniqueInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
 	}
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("unique", "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
 	o.Set(arrayUniqueElements(o.Elements))
@@ -512,11 +512,11 @@ func arrayReverse(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // IMPURE by contract (mutates the receiver)
 func arrayReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
 	slices.Reverse(o.Elements)
@@ -973,7 +973,7 @@ func arrayInsertInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // PURE by contract
 func arraySplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	elems := (*Array)(v.Ptr).Elements
-	start, end, err := readSpliceRange(args, len(elems))
+	start, end, err := readSpliceRange("splice", args, len(elems))
 	if err != nil {
 		return Undefined, err
 	}
@@ -992,11 +992,12 @@ func arraySplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // A side-effecting member returns the RECEIVER, so mutators chain; the removed span is x.slice(i, j) taken
 // beforehand.
 func arraySpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	const name = "splice_in_place"
 	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("splice_in_place", v.TypeName())
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
 	}
 	o := (*Array)(v.Ptr)
-	start, end, err := readSpliceRange(args, len(o.Elements))
+	start, end, err := readSpliceRange(name, args, len(o.Elements))
 	if err != nil {
 		return Undefined, err
 	}
@@ -1095,11 +1096,11 @@ func arrayShuffle(vm VM, v Value, id member.ID, args []Value) (Value, error) {
 // IMPURE by contract (mutates the receiver; the generator's state moves) — shuffle_in_place(g)
 func arrayShuffleInPlace(vm VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
 	if err := shuffleWith(vm, id, args[0], (*Array)(v.Ptr).Elements); err != nil {
 		return Undefined, err

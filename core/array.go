@@ -1063,12 +1063,12 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 // mutate=false: PURE, returns a fresh, independently-owned sorted array, source untouched. mutate=true: sorts
 // the receiver's own backing storage directly, visible to every other alias sharing it; rejects an immutable
 // receiver.
-func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
-	}
+func arrayFnSort(name string, v Value, args []Value, mutate bool) (Value, error) {
 	if mutate && v.Immutable {
-		return Undefined, errs.NewNotMutableError("sort_in_place", v.TypeName())
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 
 	var err error

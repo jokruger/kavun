@@ -327,11 +327,11 @@ func bytesSort(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func bytesSortInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*Bytes)(v.Ptr)
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	slices.Sort(o.Elements)
 	return v, nil
@@ -349,11 +349,11 @@ func bytesDedup(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // IMPURE: mutates the receiver. bytesDedupInPlace is dedup_in_place(): dedup applied to the receiver itself.
 func bytesDedupInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "dedup_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Bytes)(v.Ptr)
 	o.Set(bytesDeduped(o.Elements))
@@ -372,11 +372,11 @@ func bytesUnique(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // IMPURE: mutates the receiver. bytesUniqueInPlace is unique_in_place(): unique applied to the receiver itself.
 func bytesUniqueInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "unique_in_place"
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Bytes)(v.Ptr)
 	o.Set(bytesUniqueElements(o.Elements))
@@ -401,11 +401,11 @@ func bytesReverse(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func bytesReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*Bytes)(v.Ptr)
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
 	if v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	slices.Reverse(o.Elements)
 	return v, nil
@@ -641,7 +641,7 @@ func bytesInsertInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // PURE by contract
 func bytesSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	elems := (*Bytes)(v.Ptr).Elements
-	start, end, err := readSpliceRange(args, len(elems))
+	start, end, err := readSpliceRange("splice", args, len(elems))
 	if err != nil {
 		return Undefined, err
 	}
@@ -662,17 +662,18 @@ func bytesSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // A side-effecting member returns the RECEIVER, so mutators chain; the removed span is x.slice(i, j) taken
 // beforehand.
 func bytesSpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	const name = "splice_in_place"
 	if v.Immutable {
-		return Undefined, errs.NewNotMutableError("splice_in_place", v.TypeName())
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
 	}
 	o := (*Bytes)(v.Ptr)
-	start, end, err := readSpliceRange(args, len(o.Elements))
+	start, end, err := readSpliceRange(name, args, len(o.Elements))
 	if err != nil {
 		return Undefined, err
 	}
 	var items []byte
 	if len(args) > 2 {
-		if items, err = bytesAddItems("splice", args[2:]); err != nil {
+		if items, err = bytesAddItems(name, args[2:]); err != nil {
 			return Undefined, err
 		}
 	}

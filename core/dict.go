@@ -540,20 +540,20 @@ func dictTypeMerge(v Value, args []Value, mutate bool) (Value, error) {
 	if mutate {
 		name = "merge_in_place"
 	}
+	if mutate && v.Immutable {
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
 	maps := make([]map[string]Value, 0, len(args))
 	for i, a := range args {
 		m, ok := a.AsDict()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, fmt.Sprintf("%d", i+1), "dict or record", a.TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, argOrdinal(i), "dict or record", a.TypeName())
 		}
 		maps = append(maps, m)
 	}
 
 	o := (*Dict)(v.Ptr)
 	if mutate {
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError("merge_in_place", v.TypeName())
-		}
 		for _, m := range maps {
 			for k, e := range m {
 				o.Elements[k] = e

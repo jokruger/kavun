@@ -325,7 +325,9 @@ one, which is why no `is_system()` predicate exists.
 | `internal` | a VM invariant was violated, or a Go panic was contained at the run boundary |
 | `host` | a host setup mistake: `SetValueType` on a builtin slot, an unregistered module ID |
 
-`not_mutable` is uniform: **every** mutating member on an immutable receiver raises it, whatever the verb.
+`not_mutable` is uniform: **every** mutating member on an immutable receiver raises it, whatever the verb —
+and before it looks at its arguments, so `[1].freeze().sort_in_place(1)` raises `not_mutable`, not
+`wrong_num_arguments`.
 `not_assignable` is the assignment statement's own kind.
 
 ## Telling apart the kinds of wrong
