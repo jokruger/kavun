@@ -1,7 +1,10 @@
 package kavun_test
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -20,6 +23,7 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/stdlib/fin"
+	kjson "github.com/jokruger/kavun/stdlib/json"
 )
 
 func testBinaryOp(t *testing.T, lhs core.Value, op token.Token, rhs core.Value, expected core.Value) {
@@ -2667,4 +2671,58 @@ func TestFormatIntRangeValue(t *testing.T) {
 			require.Equal(t, c.want, got)
 		})
 	}
+}
+
+func TestValueOf_JSONNumber(t *testing.T) {
+	ok := func(text string, expected core.Value) {
+		t.Helper()
+		actual, err := kavun.ValueOf(json.Number(text))
+		require.NoError(t, err)
+		require.Equal(t, expected, actual)
+		// The same text through json.decode answers the same value.
+		decoded, err := kjson.Decode([]byte(text))
+		require.NoError(t, err)
+		require.Equal(t, decoded, actual)
+	}
+	ok("0", core.IntValue(0))
+	ok("123", core.IntValue(123))
+	ok("-123", core.IntValue(-123))
+	ok("9007199254740993", core.IntValue(9007199254740993)) // above 2^53: exact, not through float64
+	ok("9223372036854775807", core.IntValue(math.MaxInt64))
+	ok("-9223372036854775808", core.IntValue(math.MinInt64))
+	ok("123.45", core.FloatValue(123.45))
+	ok("-0.5", core.FloatValue(-0.5))
+	ok("1e5", core.FloatValue(100000))
+	ok("1E5", core.FloatValue(100000))
+	ok("1.5e-3", core.FloatValue(0.0015))
+	ok("1.0", core.FloatValue(1))
+
+	fails := func(text, msg string) {
+		t.Helper()
+		_, err := kavun.ValueOf(json.Number(text))
+		require.Error(t, err)
+		require.Equal(t, msg, err.Error())
+	}
+	fails("9223372036854775808", "cannot convert json.Number: number 9223372036854775808 is out of int range")
+	fails("-9223372036854775809", "cannot convert json.Number: number -9223372036854775809 is out of int range")
+	fails("1e999", "cannot convert json.Number: number 1e999 is out of float range")
+	// Not a JSON number: Go's own spellings, other JSON tokens, malformed or padded text.
+	for _, text := range []string{"", " 1", "1 ", "abc", "true", "null", `"1"`, "+1", "01", "1.", ".5", "1e",
+		"0x10", "1_000", "Inf", "NaN", "--1", "1.5.5", "[1]"} {
+		fails(text, fmt.Sprintf("cannot convert json.Number: %q is not a JSON number", text))
+	}
+
+	// Nested, and end to end from a host that decoded with UseNumber.
+	dec := json.NewDecoder(strings.NewReader(`{"id": 9007199254740993, "rate": 0.035, "tiers": [1, 2.5]}`))
+	dec.UseNumber()
+	var payload map[string]any
+	require.NoError(t, dec.Decode(&payload))
+	res, err := kavun.Eval(context.Background(),
+		`[type_name(payload.id), payload.id - 9007199254740992, type_name(payload.rate), type_name(payload.tiers[0]), type_name(payload.tiers[1])]`,
+		map[string]any{"payload": payload})
+	require.NoError(t, err)
+	require.Equal(t, kavun.MustValueOf([]any{"int", int64(1), "float", "int", "float"}), res)
+
+	_, err = kavun.ValueOf(map[string]any{"too_big": json.Number("1e999")})
+	require.Error(t, err)
 }

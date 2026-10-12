@@ -85,6 +85,48 @@ sum, _ := out.AsInt()
 fmt.Println(sum)
 ```
 
+### Converting Go values
+
+`kavun.ValueOf(v)` converts a Go value into a `core.Value` (`kavun.MustValueOf` panics instead of returning the
+error); `kavun.Eval` runs it on every parameter. It accepts exactly these Go types, recursing into containers, and
+returns an error for any other:
+
+| Go type | Kavun value |
+|---|---|
+| `nil` | `undefined` |
+| `bool` | `bool` |
+| `byte` (`uint8`) / `[]byte` | `byte` / `bytes` |
+| `rune` (`int32`) / `[]rune` | `rune` / `runes` |
+| `int`, `int64` | `int` |
+| `float64` | `float` |
+| `string` | `string` |
+| `json.Number` | `int` or `float`, by `json.decode`'s rule (below) |
+| `dec128.Dec128` | `decimal` |
+| `time.Time` / `civil.Date` | `time` / `date` |
+| `error` | `error` (kind `user`, message = `Error()`) |
+| `[]string`, `[]any`, `[]core.Value` | `array` |
+| `map[string]any`, `map[string]core.Value` | `record` |
+| `core.NativeFunc` | `function` |
+| `core.Value` | itself |
+
+Other integer and float widths (`int8`, `uint`, `float32`, …) and pointers are not accepted: convert them first.
+
+**JSON a host decoded itself.** `encoding/json` decodes every number to `float64` by default, which silently
+changes integers above 2⁵³. Decode with `UseNumber()` instead and pass the result as is: each `json.Number` becomes
+the value `json.decode` would answer for the same text — `int` without a fraction or exponent, `float` otherwise —
+and one that does not fit (`9223372036854775808`, `1e999`) is an error, never a rounded float. Text that is not a
+JSON number (`"0x10"`, `" 1"`, `"NaN"`) is an error too.
+
+```go
+dec := json.NewDecoder(body)
+dec.UseNumber()
+var payload map[string]any
+if err := dec.Decode(&payload); err != nil {
+    return err
+}
+v, err := kavun.ValueOf(payload) // {"id": 9007199254740993} -> id is the int 9007199254740993, exact
+```
+
 ## Modules and Imports
 
 ### The module grant

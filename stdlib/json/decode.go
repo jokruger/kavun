@@ -9,6 +9,7 @@ package json
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -224,21 +225,42 @@ func (d *decodeState) literal() (core.Value, error) {
 		if c != '-' && (c < '0' || c > '9') {
 			panic(phasePanicMsg)
 		}
-		// The scanner has already checked the syntax, so the only failure left is a magnitude that does not fit
-		// (int64 overflow, or a float that would round to ±Inf); that raises rather than clamping.
-		if isFloat {
-			n, err := strconv.ParseFloat(string(item), 64)
-			if err != nil {
-				return core.Undefined, fmt.Errorf("number %s is out of float range", item)
-			}
-			return core.FloatValue(n), nil
-		}
-		n, err := strconv.ParseInt(string(item), 10, 64)
-		if err != nil {
-			return core.Undefined, fmt.Errorf("number %s is out of int range", item)
-		}
-		return core.IntValue(n), nil
+		return number(string(item), isFloat)
 	}
+}
+
+// DecodeNumber reads text holding exactly one JSON number — what encoding/json keeps in a json.Number — with
+// the same rule as Decode, so a host that decoded JSON itself hands a script the value json.decode would have.
+// Anything else (empty, surrounding space, a non-number token, malformed syntax) is an error.
+func DecodeNumber(text string) (core.Value, error) {
+	// A JSON number starts with '-' or a digit and ends with a digit; with checkValid passing, that leaves
+	// exactly one number and nothing around it.
+	if text == "" || (text[0] != '-' && (text[0] < '0' || text[0] > '9')) || text[len(text)-1] < '0' || text[len(text)-1] > '9' {
+		return core.Undefined, fmt.Errorf("%q is not a JSON number", text)
+	}
+	var scan scanner
+	if err := checkValid([]byte(text), &scan); err != nil {
+		return core.Undefined, fmt.Errorf("%q is not a JSON number", text)
+	}
+	return number(text, strings.ContainsAny(text, ".eE"))
+}
+
+// number converts the text of a syntactically valid JSON number: one without a fraction or exponent is an int,
+// any other a float. The only failure left is a magnitude that does not fit (int64 overflow, or a float that
+// would round to ±Inf); that raises rather than clamping.
+func number(text string, isFloat bool) (core.Value, error) {
+	if isFloat {
+		n, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return core.Undefined, fmt.Errorf("number %s is out of float range", text)
+		}
+		return core.FloatValue(n), nil
+	}
+	n, err := strconv.ParseInt(text, 10, 64)
+	if err != nil {
+		return core.Undefined, fmt.Errorf("number %s is out of int range", text)
+	}
+	return core.IntValue(n), nil
 }
 
 // getu4 decodes \uXXXX from the beginning of s, returning the hex value,

@@ -461,7 +461,9 @@ json.encode({"a": 1, "b": true})
 **Failures.** `decode` and `indent` raise kind `json_decoding` on malformed input. `decode` reads a number without
 a fraction or exponent as `int` and any other as `float`, and raises `json_decoding` when it does not fit — an
 integer outside int64 (`(json.decode) number 9223372036854775808 is out of int range`) or a float that would be
-±Inf (`1e999`); it never wraps or clamps. `encode` raises kind
+±Inf (`1e999`); it never wraps or clamps. A host passing JSON it decoded itself (`json.Number` through
+`kavun.ValueOf`) gets the same rule — [embedding.md § Converting Go values](embedding.md#converting-go-values).
+`encode` raises kind
 `json_encoding` on a value with no JSON representation, naming the path to it once — `.items[0].price: value type
 <compiled-function/0> does not support JSON encoding` — and on text holding octets that are not symbols (JSON is
 UTF-8 by definition; encode such text as `bytes`, which goes as base64).

@@ -1,6 +1,7 @@
 package kavun
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
+	kjson "github.com/jokruger/kavun/stdlib/json"
 )
 
 func MustValueOf(v any) core.Value {
@@ -49,6 +51,15 @@ func ValueOf(v any) (core.Value, error) {
 
 	case string:
 		return core.NewStringValue(v), nil
+
+	case json.Number:
+		// What encoding/json keeps under UseNumber: converted by json.decode's rule (int, else float; a
+		// magnitude that does not fit is an error), never through float64 first.
+		nv, err := kjson.DecodeNumber(string(v))
+		if err != nil {
+			return core.Undefined, fmt.Errorf("cannot convert json.Number: %w", err)
+		}
+		return nv, nil
 
 	case dec128.Dec128:
 		return core.NewDecimalValue(v), nil
