@@ -63,19 +63,19 @@ var TypeError = ValueTypeDescr{
 	AsString:     errorTypeAsString,                                   // PURE by contract
 	AsBool:       Const2Hook(true, true),                              // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:        {Fn: memberIsTrue, Pure: true},
-		members.String:        {Fn: errorString, Pure: true},
-		members.Format:        {Fn: memberFormat, Pure: true},
-		members.Copy:          {Fn: errorCopy, Pure: true},
-		members.Freeze:        {Fn: errorFreeze, Pure: true},
-		members.Runes:         {Fn: errorRunes, Pure: true},
-		members.Bool:          {Fn: errorBool, Pure: true},
-		members.Kind:          {Fn: errorKind, Pure: true},
-		members.Value:         {Fn: errorValue, Pure: true},
-		members.IsUser:        {Fn: errorIsUser, Pure: true},
-		members.IsRuntime:     {Fn: errorIsRuntime, Pure: true},
-		members.IsRequirement: {Fn: errorIsRequirement, Pure: true},
+	Methods: []Method{
+		members.IsTrue:        NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:        NewPureMethod(errorString, 0, Variadic),
+		members.Format:        NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:          NewPureMethod(errorCopy, 0, Fixed),
+		members.Freeze:        NewPureMethod(errorFreeze, 0, Fixed),
+		members.Runes:         NewPureMethod(errorRunes, 0, Variadic),
+		members.Bool:          NewPureMethod(errorBool, 0, Fixed),
+		members.Kind:          NewPureMethod(errorKind, 0, Fixed),
+		members.Value:         NewPureMethod(errorValue, 0, Fixed),
+		members.IsUser:        NewPureMethod(errorIsUser, 0, Fixed),
+		members.IsRuntime:     NewPureMethod(errorIsRuntime, 0, Fixed),
+		members.IsRequirement: NewPureMethod(errorIsRequirement, 0, Fixed),
 	},
 }
 

@@ -37,15 +37,15 @@ var TypeBool = ValueTypeDescr{
 	AsInt:        boolTypeAsInt,                                           // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue: {Fn: memberIsTrue, Pure: true},
-		members.String: {Fn: boolString, Pure: true},
-		members.Format: {Fn: memberFormat, Pure: true},
-		members.Copy:   {Fn: memberSelf, Pure: true},
-		members.Freeze: {Fn: memberSelf, Pure: true},
-		members.Runes:  {Fn: boolRunes, Pure: true},
-		members.Int:    {Fn: boolInt, Pure: true},
-		members.Bool:   {Fn: boolBool, Pure: true},
+	Methods: []Method{
+		members.IsTrue: NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String: NewPureMethod(boolString, 0, Fixed),
+		members.Format: NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:   NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze: NewPureMethod(memberSelf, 0, Fixed),
+		members.Runes:  NewPureMethod(boolRunes, 0, Variadic),
+		members.Int:    NewPureMethod(boolInt, 0, Variadic),
+		members.Bool:   NewPureMethod(boolBool, 0, Variadic),
 	},
 }
 

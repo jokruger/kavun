@@ -307,12 +307,16 @@ func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value
 	return d.CallNamedMethod(vm, v, name, args)
 }
 
-// AccessProperty answers x.name: the type's Properties[id].Get when that slot has one, else AccessNamedProperty.
+// AccessProperty answers x.name: the type's Properties[id].Get when that slot has one, else a bound member when
+// Methods[id] has one (a member function read as a value), else AccessNamedProperty.
 // PURE by contract
 func (v Value) AccessProperty(vm VM, id member.ID, name string) (Value, error) {
 	d := &ValueTypes[v.Type]
 	if id != member.Unknown && int(id) < len(d.Properties) && d.Properties[id].Get != nil {
 		return d.Properties[id].Get(vm, v, id)
+	}
+	if id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
+		return NewBoundMemberValue(v, id, name), nil
 	}
 	return d.AccessNamedProperty(vm, v, name)
 }

@@ -104,11 +104,11 @@ func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
 	// classification names types: scripts branch on bare lowercase names, so the
-	// three function kinds answer "function" uniformly and the kind/arity detail
+	// four function kinds answer "function" uniformly and the kind/arity detail
 	// lives in the render (format(), f-strings). Custom host-defined callable
 	// types keep their own registered name — is_callable is their unifier.
 	switch args[0].Type {
-	case value.CompiledFunction, value.BuiltinFunction, value.BuiltinClosure:
+	case value.CompiledFunction, value.BuiltinFunction, value.BuiltinClosure, value.BoundMember:
 		return core.NewStringValue("function"), nil
 	}
 	return core.NewStringValue(args[0].TypeName()), nil

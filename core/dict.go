@@ -81,38 +81,38 @@ var TypeDict = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
-	Methods: []MethodEntry{
-		members.IsTrue:        {Fn: memberIsTrue, Pure: true},
-		members.Format:        {Fn: memberFormat, Pure: true},
-		members.Copy:          {Fn: dictCopy, Pure: true},
-		members.Freeze:        {Fn: dictFreeze, Pure: true},
-		members.Time:          {Fn: dictTime, Pure: true},
-		members.Date:          {Fn: dictDate, Pure: true},
-		members.Array:         {Fn: dictArray, Pure: true},
-		members.Dict:          {Fn: dictDict, Pure: true},
-		members.Record:        {Fn: dictRecord, Pure: true},
-		members.Range:         {Fn: dictRange, Pure: true},
-		members.Len:           {Fn: dictLen, Pure: true},
-		members.IsEmpty:       {Fn: dictIsEmpty, Pure: true},
-		members.Contains:      {Fn: dictContains, Pure: true},
-		members.Index:         {Fn: dictIndex, Pure: true},
-		members.Count:         {Fn: dictCount, Pure: true},
-		members.All:           {Fn: dictAll, Pure: true},
-		members.Any:           {Fn: dictAny, Pure: true},
-		members.ForEach:       {Fn: dictForEach, Pure: true},
-		members.Reduce:        {Fn: dictReduce, Pure: true},
-		members.Keep:          {Fn: dictKeep, Pure: true},
-		members.Map:           {Fn: dictMap, Pure: true},
-		members.Remove:        {Fn: dictRemove, Pure: true},
-		members.CopyShallow:   {Fn: dictCopyShallow, Pure: true},
-		members.FreezeShallow: {Fn: dictFreezeShallow, Pure: true},
-		members.Keys:          {Fn: dictKeys, Pure: true},
-		members.Values:        {Fn: dictValues, Pure: true},
-		members.Merge:         {Fn: dictMerge, Pure: true},
-		members.MergeInPlace:  {Fn: dictMergeInPlace, Pure: false},
-		members.RecordView:    {Fn: dictRecordView, Pure: true},
-		members.KeepInPlace:   {Fn: dictKeepInPlace, Pure: false},
-		members.RemoveInPlace: {Fn: dictRemoveInPlace, Pure: false},
+	Methods: []Method{
+		members.IsTrue:        NewPureMethod(memberIsTrue, 0, Fixed),
+		members.Format:        NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:          NewPureMethod(dictCopy, 0, Fixed),
+		members.Freeze:        NewPureMethod(dictFreeze, 0, Fixed),
+		members.Time:          NewPureMethod(dictTime, 0, Variadic),
+		members.Date:          NewPureMethod(dictDate, 0, Variadic),
+		members.Array:         NewPureMethod(dictArray, 0, Variadic),
+		members.Dict:          NewPureMethod(dictDict, 0, Variadic),
+		members.Record:        NewPureMethod(dictRecord, 0, Fixed),
+		members.Range:         NewPureMethod(dictRange, 0, Variadic),
+		members.Len:           NewPureMethod(dictLen, 0, Fixed),
+		members.IsEmpty:       NewPureMethod(dictIsEmpty, 0, Fixed),
+		members.Contains:      NewPureMethod(dictContains, 1, Variadic),
+		members.Index:         NewPureMethod(dictIndex, 1, Variadic),
+		members.Count:         NewPureMethod(dictCount, 1, Variadic),
+		members.All:           NewPureMethod(dictAll, 1, Variadic),
+		members.Any:           NewPureMethod(dictAny, 1, Variadic),
+		members.ForEach:       NewPureMethod(dictForEach, 1, Fixed),
+		members.Reduce:        NewPureMethod(dictReduce, 2, Fixed),
+		members.Keep:          NewPureMethod(dictKeep, 1, Variadic),
+		members.Map:           NewPureMethod(dictMap, 1, Fixed),
+		members.Remove:        NewPureMethod(dictRemove, 1, Variadic),
+		members.CopyShallow:   NewPureMethod(dictCopyShallow, 0, Fixed),
+		members.FreezeShallow: NewPureMethod(dictFreezeShallow, 0, Fixed),
+		members.Keys:          NewPureMethod(dictKeys, 0, Fixed),
+		members.Values:        NewPureMethod(dictValues, 0, Fixed),
+		members.Merge:         NewPureMethod(dictMerge, 0, Variadic),
+		members.MergeInPlace:  NewMethod(dictMergeInPlace, 0, Variadic),
+		members.RecordView:    NewPureMethod(dictRecordView, 0, Fixed),
+		members.KeepInPlace:   NewMethod(dictKeepInPlace, 1, Variadic),
+		members.RemoveInPlace: NewMethod(dictRemoveInPlace, 1, Variadic),
 	},
 }
 
@@ -347,8 +347,8 @@ func dictTypeAccessIndex(v Value, index Value) (Value, error) {
 
 // PURE by contract — a dict's keys are data, reached by d[k] only; d.name is refused
 func dictTypeAccessNamedProperty(vm VM, v Value, name string) (Value, error) {
-	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
-		return e.Get(vm, v, id)
+	if r, ok, err := PropertyByLookup(vm, v, name); ok {
+		return r, err
 	}
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), name)
 }
@@ -514,8 +514,8 @@ func dictTypeAssignIndex(v Value, index Value, r Value) error {
 
 // IMPURE by contract — d.name = r is refused, as d.name is
 func dictTypeAssignNamedProperty(vm VM, v Value, name string, r Value) error {
-	if e, id, ok := PropertyByLookup(v, name); ok && e.Set != nil {
-		return e.Set(vm, v, id, r)
+	if ok, err := AssignPropertyByLookup(vm, v, name, r); ok {
+		return err
 	}
 	return errs.NewInvalidSelectorError(v.TypeName(), name)
 }

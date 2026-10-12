@@ -38,11 +38,11 @@ var TypeBuiltinClosure = ValueTypeDescr{
 	Arity:      builtinClosureTypeArity,                                   // PURE by contract
 	Call:       builtinClosureTypeCall,                                    // CALLABLE-DEPENDENT by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue: {Fn: memberIsTrue, Pure: true},
-		members.Format: {Fn: memberFormat, Pure: true},
-		members.Copy:   {Fn: memberSelf, Pure: true},
-		members.Freeze: {Fn: memberSelf, Pure: true},
+	Methods: []Method{
+		members.IsTrue: NewPureMethod(memberIsTrue, 0, Fixed),
+		members.Format: NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:   NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze: NewPureMethod(memberSelf, 0, Fixed),
 	},
 }
 

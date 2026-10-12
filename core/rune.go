@@ -42,18 +42,18 @@ var TypeRune = ValueTypeDescr{
 	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },                   // PURE by contract
 	AsByte:       runeTypeAsByte,                                                             // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
-		members.String:  {Fn: runeString, Pure: true},
-		members.Format:  {Fn: memberFormat, Pure: true},
-		members.Copy:    {Fn: memberSelf, Pure: true},
-		members.Freeze:  {Fn: memberSelf, Pure: true},
-		members.Runes:   {Fn: runeRunes, Pure: true},
-		members.Int:     {Fn: runeInt, Pure: true},
-		members.Byte:    {Fn: runeByte, Pure: true},
-		members.Rune:    {Fn: runeRune, Pure: true},
-		members.IsASCII: {Fn: runeIsASCII, Pure: true},
-		members.IsValid: {Fn: runeIsValid, Pure: true},
+	Methods: []Method{
+		members.IsTrue:  NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:  NewPureMethod(runeString, 0, Variadic),
+		members.Format:  NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:    NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze:  NewPureMethod(memberSelf, 0, Fixed),
+		members.Runes:   NewPureMethod(runeRunes, 0, Variadic),
+		members.Int:     NewPureMethod(runeInt, 0, Variadic),
+		members.Byte:    NewPureMethod(runeByte, 0, Variadic),
+		members.Rune:    NewPureMethod(runeRune, 0, Variadic),
+		members.IsASCII: NewPureMethod(runeIsASCII, 0, Fixed),
+		members.IsValid: NewPureMethod(runeIsValid, 0, Fixed),
 	},
 }
 

@@ -143,21 +143,53 @@ type ValueTypeDescr struct {
 
 	// Member functions and properties by member ID (core/member). Each is a keyed slice literal — the literal is
 	// the table — and a zero entry (nil Fn/Get/Set) is the miss that falls through to the named hook.
-	Methods    []MethodEntry   // x.name(args): answered by Methods[id].Fn, else CallNamedMethod
-	Properties []PropertyEntry // x.name and x.name = r: answered by Properties[id].Get/Set, else the named hooks
+	Methods    []Method   // x.name(args): answered by Methods[id].Fn, else CallNamedMethod
+	Properties []Property // x.name and x.name = r: answered by Properties[id].Get/Set, else the named hooks
 }
 
-// MethodEntry is one slot of a type's Methods table.
-type MethodEntry struct {
+// Method is one slot of a type's Methods table. Build it with NewMethod or NewPureMethod, never as a struct literal:
+// the constructor names every fact, so an entry reads "a pure method, stringSplit, 0 or more arguments".
+type Method struct {
 	Fn   func(vm VM, v Value, id member.ID, args []Value) (Value, error) // validates its own argument count
 	Pure bool                                                            // optimizer information only (docs/purity.md); never read on the call path
+
+	Arity    int  // the fewest arguments Fn accepts; a bound member's Arity, which callback-taking members dispatch on
+	Variadic bool // Fn also accepts more than Arity (optional or variadic arguments); a bound member's IsVariadic
 }
 
-// PropertyEntry is one slot of a type's Properties table.
-type PropertyEntry struct {
+// Arguments says whether a member takes exactly its Arity arguments (Fixed) or also more (Variadic).
+type Arguments bool
+
+const (
+	Fixed    Arguments = false
+	Variadic Arguments = true
+)
+
+// NewMethod is a member function the optimizer never folds: the safe default, for a member that is not pure.
+func NewMethod(fn func(vm VM, v Value, id member.ID, args []Value) (Value, error), arity int, args Arguments) Method {
+	return Method{Fn: fn, Arity: arity, Variadic: bool(args)}
+}
+
+// NewPureMethod is a member function the optimizer may fold: an explicit purity claim (docs/purity.md).
+func NewPureMethod(fn func(vm VM, v Value, id member.ID, args []Value) (Value, error), arity int, args Arguments) Method {
+	return Method{Fn: fn, Pure: true, Arity: arity, Variadic: bool(args)}
+}
+
+// Property is one slot of a type's Properties table. Build it with NewProperty or NewPureProperty.
+type Property struct {
 	Get  func(vm VM, v Value, id member.ID) (Value, error)
 	Set  func(vm VM, v Value, id member.ID, r Value) error // nil: assignment falls through to AssignNamedProperty
 	Pure bool                                              // purity of Get; Set is impure by definition
+}
+
+// NewProperty is a property whose Get the optimizer never folds; set may be nil (read-only through the table).
+func NewProperty(get func(vm VM, v Value, id member.ID) (Value, error), set func(vm VM, v Value, id member.ID, r Value) error) Property {
+	return Property{Get: get, Set: set}
+}
+
+// NewPureProperty is a property whose Get the optimizer may fold; set may be nil (read-only through the table).
+func NewPureProperty(get func(vm VM, v Value, id member.ID) (Value, error), set func(vm VM, v Value, id member.ID, r Value) error) Property {
+	return Property{Get: get, Set: set, Pure: true}
 }
 
 // DefaultValueType provides default implementations for all ValueType hooks.

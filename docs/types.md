@@ -91,14 +91,40 @@ the operator surface.
 
 ### Callables
 
-Functions, closures, and builtins carry exactly the universal set: `copy`, `freeze`, `format`, `is_true` —
-nothing else. `copy`/`freeze` are provable no-ops kept so generic code never type-errors; `format()` renders
-the detail form:
+Functions, closures, builtins and bound members carry exactly the universal set: `copy`, `freeze`, `format`,
+`is_true` — nothing else. `copy`/`freeze` are provable no-ops kept so generic code never type-errors; `format()`
+renders the detail form:
 
 ```go
 format(func(a, b) { return a })    // "<compiled-function/2>"
-type_name(func() { return 1 })     // "function" — uniformly for all three kinds
+type_name(func() { return 1 })     // "function" — uniformly for all four kinds
 ```
+
+### Member functions are values
+
+A member function read without a call — `x.name` — is a **bound member**: a callable that answers exactly what
+`x.name(args)` would. It is a function like any other (`type_name` → `"function"`, `is_callable` → `true`), so it
+can be stored, passed and used as a callback:
+
+```go
+up := "ab".upper
+up()                                  // "AB"
+["a", "x"].map("abc".has_prefix)      // [true, false]
+format("ab".split)                    // "<bound-member:string.split/0+>" — receiver type, member, arity
+```
+
+- **The receiver is captured by value at bind time.** A heap receiver (`array`, `dict`, `bytes`, `runes`, …)
+  shares its body, so a later `_in_place` on the original is visible through the bound member
+  (`a := [1]; f := a.len; a.push_in_place(2); f()` → `2`); a scalar receiver is a snapshot. Rebinding the
+  variable afterwards (`a = a.freeze()`) does not move the bound member: it keeps the value it was bound to.
+- **Its arity is the member's.** Callbacks dispatch on arity (see Lambda callbacks); a bound member reports the
+  fewest arguments the member takes, `+` when it takes more. A member whose fewest is 0 (`"abc".contains`,
+  `[].append`) is therefore not `f/1` and is refused as an element callback — wrap it: `x => s.contains(x)`.
+- **Only dot access binds.** `x["len"]` is an index, `x.len = 1` raises (`not_assignable`; a dict keeps its own
+  `has no property` text), and a record field is a field — `r.f` reads the field, a record has no members to bind.
+  An unknown name still raises `has no property`.
+- Two bound members are equal when they bind the same member to equal receivers (`a.len == a.len`).
+  `string(f)` raises like every callable; `format(f)` renders.
 
 Two predicates, two questions: `is_function(x)` is the **type** predicate (`"function"` is a type name, and
 every type name has its `is_T`); `is_callable(x)` is the **capability** predicate — the unifier that also

@@ -120,17 +120,17 @@ var TypeFinTieredRates = ValueTypeDescr{
 	},
 	AsString: func(v Value) (string, bool) { return FinTieredRatesOf(v).String(), true }, // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
-		members.String:      {Fn: finTieredRatesString, Pure: true},
-		members.Format:      {Fn: memberFormat, Pure: true},
-		members.Copy:        {Fn: memberSelf, Pure: true},
-		members.Freeze:      {Fn: memberSelf, Pure: true},
-		members.At:          {Fn: finTieredRatesAt, Pure: true},
-		members.Bands:       {Fn: finTieredRatesBands, Pure: true},
-		members.Rate:        {Fn: finTieredRatesRate, Pure: true},
-		members.Charge:      {Fn: finTieredRatesCharge, Pure: true},
-		members.ChargeParts: {Fn: finTieredRatesChargeParts, Pure: true},
-		members.Accrue:      {Fn: finTieredRatesAccrue, Pure: true},
+	Methods: []Method{
+		members.IsTrue:      NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:      NewPureMethod(finTieredRatesString, 0, Variadic),
+		members.Format:      NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:        NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze:      NewPureMethod(memberSelf, 0, Fixed),
+		members.At:          NewPureMethod(finTieredRatesAt, 1, Fixed),
+		members.Bands:       NewPureMethod(finTieredRatesBands, 0, Fixed),
+		members.Rate:        NewPureMethod(finTieredRatesRate, 4, Fixed),
+		members.Charge:      NewPureMethod(finTieredRatesCharge, 4, Fixed),
+		members.ChargeParts: NewPureMethod(finTieredRatesChargeParts, 4, Fixed),
+		members.Accrue:      NewPureMethod(finTieredRatesAccrue, 5, Fixed),
 	},
 }

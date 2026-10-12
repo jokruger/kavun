@@ -29,6 +29,7 @@ func init() {
 	setValueType(value.ValuePtr, TypeValuePtr)
 	setValueType(value.BuiltinFunction, TypeBuiltinFunction)
 	setValueType(value.BuiltinClosure, TypeBuiltinClosure)
+	setValueType(value.BoundMember, TypeBoundMember)
 	setValueType(value.CompiledFunction, TypeCompiledFunction)
 	setValueType(value.Error, TypeError)
 	setValueType(value.Bool, TypeBool)

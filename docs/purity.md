@@ -99,7 +99,7 @@ plumbing shared between both spellings; it isn't itself consulted by the optimiz
 
 | Hook | Rule |
 | --- | --- |
-| `Call` | Pure iff the callable is (a) `*BuiltinFunction` with `Pure == true`, or (b) a `*CompiledFunction` whose body has been proven pure by an interprocedural purity pass. Never pure for arbitrary closures. **Currently, only (a) is implemented** — the optimizer never folds a call to a user-defined function; (b) is the contract such a pass would need to satisfy if one is added (see `compiler/optimizer.go`'s `foldConstantSubexpressions` doc comment). |
+| `Call` | Pure iff the callable is (a) `*BuiltinFunction` with `Pure == true`, or (b) a `*CompiledFunction` whose body has been proven pure by an interprocedural purity pass. Never pure for arbitrary closures. A bound member (`x.name` read as a value) calls exactly as `x.name(args)` does, so its purity is that member's; the optimizer never folds the binding itself — a selector is not a foldable expression. **Currently, only (a) is implemented** — the optimizer never folds a call to a user-defined function; (b) is the contract such a pass would need to satisfy if one is added (see `compiler/optimizer.go`'s `foldConstantSubexpressions` doc comment). |
 
 ### 6. Method-dependent
 

@@ -15,6 +15,9 @@ free builtins only — so it has no column).
 `is_true` is an ordinary entry in every column type's table, all pointing at the one shared `memberIsTrue`; it is
 listed in its own section rather than per column.
 
+Every `✓` member is also readable as a value: `x.name` without a call answers a bound member of `x`
+(`docs/types.md` § "Member functions are values").
+
 ## Universal (an entry in every column type's table)
 
 `is_true()` — every column type, zero arguments, answers the type's truthiness; raises where truthiness is an

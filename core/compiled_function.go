@@ -230,16 +230,19 @@ var TypeCompiledFunction = ValueTypeDescr{
 	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
 	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue: {Fn: memberIsTrue, Pure: true},
-		members.Format: {Fn: memberFormat, Pure: true},
-		members.Copy:   {Fn: memberSelf, Pure: true},
-		members.Freeze: {Fn: memberSelf, Pure: true},
+	Methods: []Method{
+		members.IsTrue: NewPureMethod(memberIsTrue, 0, Fixed),
+		members.Format: NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:   NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze: NewPureMethod(memberSelf, 0, Fixed),
 	},
 }
 
 func compiledFunctionTypeName(v Value) string {
 	o := (*CompiledFunction)(v.Ptr)
+	if o == nil { // a value whose decoding failed is named in the decode error
+		return "<compiled-function>"
+	}
 	if o.VarArgs {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
 	}

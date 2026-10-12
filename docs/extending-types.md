@@ -526,3 +526,35 @@ your type ID — which is also why you must handle both branches, not just the n
 two exceptions where a builtin rejects without delegating are `byte`/`int` bitwise and
 `float`/`decimal` arithmetic; both name specific builtin types, so neither can affect an embedder
 type.
+
+## Members as values
+
+`x.name` without a call answers a **bound member** when `name` is a member function of `x`'s type and not a
+property: `core.Value.AccessProperty` checks the type's `Properties[id]` first, then `Methods[id]`, and only then
+calls `AccessNamedProperty`. A type with a `Methods` table therefore gets bound members for free; give each entry
+its arity (the fewest arguments it accepts) and `core.Fixed` or `core.Variadic` (it accepts more), because a
+bound member reports them and callback-taking members (`map`, `keep`, `reduce`, …) dispatch on its arity.
+`core.NewPureMethod` claims the member pure (the optimizer may fold its calls), `core.NewMethod` does not:
+
+```go
+Methods: []core.Method{
+	memberScaled: core.NewPureMethod(myScaled, 1, core.Fixed), // x.scaled(n); [1, 2].map(x.scaled) passes each element
+},
+```
+
+A member answered by name (`CallNamedMethod`) has no table entry, so the type binds it itself from its own
+`AccessNamedProperty`; the bound member then calls through the name path, and reports arity 0:
+
+```go
+AccessNamedProperty: func(_ core.VM, v core.Value, name string) (core.Value, error) {
+	if name == "raw" {
+		return core.NewBoundMemberValue(v, member.Unknown, name), nil
+	}
+	return core.Undefined, errs.NewNotAccessibleError("mytype")
+},
+```
+
+An `AccessNamedProperty`/`AssignNamedProperty` that wants the table behaviour for a name the access site carried no
+member id for ends in `core.PropertyByLookup(vm, v, name)` / `core.AssignPropertyByLookup(vm, v, name, r)`, which
+answer `ok == false` on a miss so the hook keeps its own error.
+

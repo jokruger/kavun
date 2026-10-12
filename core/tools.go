@@ -964,14 +964,33 @@ func memberSelf(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return v, nil
 }
 
-// PropertyByLookup is the last step of every name path for x.name and x.name = r: the type's Properties entry for
-// name, when the type tables it under an id the access site did not carry. Each type keeps its own miss error.
-func PropertyByLookup(v Value, name string) (PropertyEntry, member.ID, bool) {
+// PropertyByLookup is the last step of every name path for x.name — the mirror of Value.AccessProperty for a
+// name the access site carried no id for: the type's Properties[id].Get, else a bound member for Methods[id].
+// false is the miss; each type keeps its own miss error.
+func PropertyByLookup(vm VM, v Value, name string) (Value, bool, error) {
 	d := &ValueTypes[v.Type]
-	if id := member.Lookup(name); id != member.Unknown && int(id) < len(d.Properties) {
-		return d.Properties[id], id, true
+	id := member.Lookup(name)
+	if id == member.Unknown {
+		return Undefined, false, nil
 	}
-	return PropertyEntry{}, member.Unknown, false
+	if int(id) < len(d.Properties) && d.Properties[id].Get != nil {
+		r, err := d.Properties[id].Get(vm, v, id)
+		return r, true, err
+	}
+	if int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
+		return NewBoundMemberValue(v, id, name), true, nil
+	}
+	return Undefined, false, nil
+}
+
+// AssignPropertyByLookup is the last step of every name path for x.name = r: the type's Properties[id].Set for a
+// name the access site carried no id for. false is the miss; each type keeps its own miss error.
+func AssignPropertyByLookup(vm VM, v Value, name string, r Value) (bool, error) {
+	d := &ValueTypes[v.Type]
+	if id := member.Lookup(name); id != member.Unknown && int(id) < len(d.Properties) && d.Properties[id].Set != nil {
+		return true, d.Properties[id].Set(vm, v, id, r)
+	}
+	return false, nil
 }
 
 // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Delete)
@@ -981,24 +1000,24 @@ func defaultDelete(v Value, _ Value, _ bool) (Value, error) {
 
 // PURE by contract
 func defaultAccessNamedProperty(vm VM, v Value, name string) (Value, error) {
-	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
-		return e.Get(vm, v, id)
+	if r, ok, err := PropertyByLookup(vm, v, name); ok {
+		return r, err
 	}
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
 // IMPURE by contract (mutates target)
 func defaultAssignNamedProperty(vm VM, v Value, name string, r Value) error {
-	if e, id, ok := PropertyByLookup(v, name); ok && e.Set != nil {
-		return e.Set(vm, v, id, r)
+	if ok, err := AssignPropertyByLookup(vm, v, name, r); ok {
+		return err
 	}
 	return errs.NewNotAssignableError(v.TypeName())
 }
 
 // PURE by contract — x.name on a type whose only access is by index: names the property, quoted
 func noNamedProperty(vm VM, v Value, name string) (Value, error) {
-	if e, id, ok := PropertyByLookup(v, name); ok && e.Get != nil {
-		return e.Get(vm, v, id)
+	if r, ok, err := PropertyByLookup(vm, v, name); ok {
+		return r, err
 	}
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), NewStringValue(name).String())
 }

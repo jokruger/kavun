@@ -11574,6 +11574,93 @@ out := [math.abs(-2), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
 	require.Equal(t, kavun.MustValueOf(ARR{2, "31/365", "fin.year_fraction", 2, 'x', 1.5}), globals[sym.Index])
 }
 
+// A member function read without a call is a bound member: a callable of type_name "function" that dispatches
+// exactly as x.name(args) does, with the receiver captured by value at bind time.
+func TestBoundMember(t *testing.T) {
+	expectRun(t, `f := "ab".upper; out = f()`, nil, "AB")
+	expectRun(t, `g := func(h) { return h() }; out = g([3, 1].sort)`, nil, ARR{1, 3})
+	expectRun(t, `out = [type_name("ab".upper), is_callable("ab".upper), is_true("ab".upper)]`, nil, ARR{"function", true, true})
+	expectRun(t, `out = [format("ab".upper), format("ab".split), format([1].push), "ab".upper.format()]`, nil,
+		ARR{"<bound-member:string.upper/0>", "<bound-member:string.split/0+>", "<bound-member:array.push/0+>", "<bound-member:string.upper/0>"})
+	expectRun(t, `f := "ab".upper; out = f"{f}"`, nil, "<bound-member:string.upper/0>")
+	expectError(t, `out = string("ab".upper)`, nil, "conversion")
+	expectError(t, `out = "ab".upper.string()`, nil, "has no method string")
+
+	// equality: the same member of equal receivers
+	expectRun(t, `a := [1]; out = [a.len == a.len, [1].len == [1].len, [1].len == [2].len, "a".upper == "a".lower]`, nil, ARR{true, true, false, false})
+	expectRun(t, `f := "a".upper; out = [f.copy() == f, f.freeze() == f]`, nil, ARR{true, true})
+
+	// the receiver is captured by value: a heap body is shared, the header (Immutable included) is the bind-time one
+	expectRun(t, `a := [1]; f := a.len; a.push_in_place(2); out = f()`, nil, 2)
+	expectRun(t, `n := 1; f := n.string; n = 5; out = f()`, nil, "1")
+	expectError(t, `a := [1].freeze(); f := a.push_in_place; f(2)`, nil, "(push_in_place) type immutable-array is immutable")
+
+	// callbacks dispatch on the member's declared Arity
+	expectRun(t, `out = ["a", "x"].map("abc".has_prefix)`, nil, ARR{true, false})
+	expectRun(t, `out = [1, 2].map("ab".repeat)`, nil, ARR{"ab", "abab"})
+	expectRun(t, `d := dict({a: 1}); out = ["a", "z"].keep(d.contains)`, nil, ARR{"a"})
+	expectError(t, `out = ["a"].keep("abc".contains)`, nil, "(keep) argument first expects type f/1 or f/2, got <bound-member:string.contains/0+>")
+
+	// only dot access binds; assignment, index access, record fields and unknown names are unchanged
+	expectError(t, `a := [1]; a.len = 1`, nil, "not_assignable: type array does not support assignment via indexing or field access")
+	expectError(t, `d := dict({a: 1}); d.len = 1`, nil, "invalid_selector: type dict has no property len")
+	expectError(t, `out = [1]["len"]`, nil, "(index access) expected int, got string")
+	expectRun(t, `r := {len: 7}; out = r.len`, nil, 7)
+	expectError(t, `out = [1].nope`, nil, `invalid_selector: type array has no property "nope"`)
+}
+
+// Every Methods entry's Arity/Variadic against the member function's own argument-count check: Arity-1 arguments
+// raise wrong_num_arguments, Arity do not, and Arity+1 raise exactly when the entry is not Variadic. Callback-taking
+// members dispatch on a bound member's Arity, so a declaration that drifts from the check is a wrong call. Every
+// builtin type with a table needs a sample here.
+func TestMemberArity(t *testing.T) {
+	src := `
+fin := import("fin")
+out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T03:04:05Z"), d"2026-01-02", error("x"),
+	"ab", runes("ab"), bytes("ab"), [1, 2], range(0, 3), dict({a: 1}),
+	fin.year_fraction(31, 365), fin.tiered_rates("0:0.005, 1000:0.007"),
+	fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0), fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02"),
+	fin.dated_charges("2024-01-01:25.00, 2025-01-01:30.00"), len, func(x) { return x }, "a".upper]
+`
+	c, err := kavun.NewScript([]byte(src), "out").Compile()
+	require.NoError(t, err)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	require.NoError(t, c.Run(machine))
+	out, _ := c.Get("out")
+	samples, _ := out.AsArray()
+	samples = append(samples, core.NewBuiltinClosureValue("f", func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }, 0, false))
+
+	isWrongNum := func(recv core.Value, e core.Method, id int, n int) bool {
+		recv, err := recv.Copy(true)
+		require.NoError(t, err)
+		recv.Immutable = false
+		_, err = e.Fn(machine, recv, member.ID(id), make([]core.Value, n))
+		ee := errs.AsError(err)
+		return ee != nil && ee.Kind == errs.KindWrongNumArguments
+	}
+
+	covered := map[uint8]bool{}
+	for _, recv := range samples {
+		covered[recv.Type] = true
+		for id, e := range core.ValueTypes[recv.Type].Methods {
+			if e.Fn == nil {
+				continue
+			}
+			name := recv.TypeName() + "." + member.ID(id).String()
+			if e.Arity > 0 {
+				require.True(t, isWrongNum(recv, e, id, e.Arity-1), "%s: %d arguments accepted, declared Arity %d", name, e.Arity-1, e.Arity)
+			}
+			require.False(t, isWrongNum(recv, e, id, e.Arity), "%s: declared Arity %d refused", name, e.Arity)
+			require.Equal(t, !e.Variadic, isWrongNum(recv, e, id, e.Arity+1), "%s: %d arguments vs declared Variadic %v", name, e.Arity+1, e.Variadic)
+		}
+	}
+	for id := range int(value.FirstUserDefinedType) {
+		if core.ValueTypes[id].Methods != nil {
+			require.True(t, covered[uint8(id)], "type %d has a Methods table and no sample", id)
+		}
+	}
+}
+
 // docs/types/function-matrix.md against the member tables, in both directions: every ✓/— cell of a tabled type
 // matches core.HasMember, and every member a type declares has a ✓ row. Every column type answers its members from a
 // table (only record, which has no column, stays name-based), so a column with no table fails here.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
@@ -149,14 +150,14 @@ func TestMemberTables(t *testing.T) {
 	}
 	err := core.SetValueType(tt, core.ValueTypeDescr{
 		Name: func(core.Value) string { return "tabled" },
-		Methods: []core.MethodEntry{
-			tblRead:  {Fn: readFn, Pure: true},
-			tblWrite: {Fn: readFn},
+		Methods: []core.Method{
+			tblRead:  core.NewPureMethod(readFn, 0, core.Fixed),
+			tblWrite: core.NewMethod(readFn, 0, core.Fixed),
 		},
-		Properties: []core.PropertyEntry{
-			tblRead: {Get: func(_ core.VM, _ core.Value, id member.ID) (core.Value, error) {
+		Properties: []core.Property{
+			tblRead: core.NewProperty(func(_ core.VM, _ core.Value, id member.ID) (core.Value, error) {
 				return core.NewStringValue("prop:" + id.String()), nil
-			}},
+			}, nil),
 		},
 		// a name switch answers its own names and ends in the lookup fallback, like every builtin name switch
 		CallNamedMethod: func(vm core.VM, v core.Value, name string, args []core.Value) (core.Value, error) {
@@ -209,11 +210,11 @@ func TestMemberTablesValidation(t *testing.T) {
 		name string
 		d    core.ValueTypeDescr
 	}{
-		{"method at an unbound id", core.ValueTypeDescr{Methods: []core.MethodEntry{tblUnbound: {Fn: noop}}}},
-		{"property at an unbound id", core.ValueTypeDescr{Properties: []core.PropertyEntry{tblUnbound: {Get: get}}}},
-		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.MethodEntry{tblWrite: {Fn: noop, Pure: true}}}},
-		{"Methods longer than member.Max", core.ValueTypeDescr{Methods: make([]core.MethodEntry, int(member.Max)+1)}},
-		{"Properties longer than member.Max", core.ValueTypeDescr{Properties: make([]core.PropertyEntry, int(member.Max)+1)}},
+		{"method at an unbound id", core.ValueTypeDescr{Methods: []core.Method{tblUnbound: core.NewMethod(noop, 0, core.Fixed)}}},
+		{"property at an unbound id", core.ValueTypeDescr{Properties: []core.Property{tblUnbound: core.NewProperty(get, nil)}}},
+		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.Method{tblWrite: core.NewPureMethod(noop, 0, core.Fixed)}}},
+		{"Methods longer than member.Max", core.ValueTypeDescr{Methods: make([]core.Method, int(member.Max)+1)}},
+		{"Properties longer than member.Max", core.ValueTypeDescr{Properties: make([]core.Property, int(member.Max)+1)}},
 	}
 	for _, c := range cases {
 		err := core.SetValueType(201, c.d)
@@ -277,4 +278,40 @@ func TestTypeIDLayout(t *testing.T) {
 	}
 
 	require.Equal(t, uint8(192), value.FirstUserDefinedType)
+}
+
+// A bound member encodes as its receiver, member id and name; decoding answers a callable bound member again, and
+// refuses an id that is not the name's or a member the receiver's type does not have. A failed decode names the
+// type without its (absent) body.
+func TestBoundMemberBinary(t *testing.T) {
+	f := core.NewBoundMemberValue(core.NewStringValue("ab"), members.Upper, "upper")
+	b, err := f.EncodeBinary()
+	require.NoError(t, err)
+	var g core.Value
+	require.NoError(t, g.DecodeBinary(b))
+	require.True(t, f.Equal(g))
+	r, err := g.Call(nil, nil)
+	require.NoError(t, err)
+	got, _ := r.AsString()
+	require.Equal(t, "AB", got)
+
+	for _, bad := range []core.Value{
+		core.NewBoundMemberValue(core.NewStringValue("ab"), members.Upper, "lower"),               // id is not the name's
+		core.NewBoundMemberValue(core.NewStringValue("ab"), members.PushInPlace, "push_in_place"), // string has no such member
+	} {
+		b, err := bad.EncodeBinary()
+		require.NoError(t, err)
+		var v core.Value
+		err = v.DecodeBinary(b)
+		e, ok := err.(*errs.Error)
+		require.True(t, ok)
+		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
+	}
+
+	for _, typ := range []uint8{value.BoundMember, value.CompiledFunction} {
+		var v core.Value
+		e := errs.AsError(v.DecodeBinary([]byte{typ, 1, 0xff}))
+		require.True(t, e != nil)
+		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
+	}
 }

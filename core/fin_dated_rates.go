@@ -116,16 +116,16 @@ var TypeFinDatedRates = ValueTypeDescr{
 	},
 	AsString: func(v Value) (string, bool) { return FinDatedRatesOf(v).String(), true }, // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
-		members.String:      {Fn: finDatedRatesString, Pure: true},
-		members.Format:      {Fn: memberFormat, Pure: true},
-		members.Copy:        {Fn: memberSelf, Pure: true},
-		members.Freeze:      {Fn: memberSelf, Pure: true},
-		members.At:          {Fn: finDatedRatesAt, Pure: true},
-		members.Bands:       {Fn: finDatedRatesBands, Pure: true},
-		members.Accrue:      {Fn: finDatedRatesAccrue, Pure: true},
-		members.AccrueParts: {Fn: finDatedRatesAccrueParts, Pure: true},
-		members.Apply:       {Fn: finDatedRatesApply, Pure: true},
+	Methods: []Method{
+		members.IsTrue:      NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:      NewPureMethod(finDatedRatesString, 0, Variadic),
+		members.Format:      NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:        NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze:      NewPureMethod(memberSelf, 0, Fixed),
+		members.At:          NewPureMethod(finDatedRatesAt, 1, Variadic),
+		members.Bands:       NewPureMethod(finDatedRatesBands, 0, Fixed),
+		members.Accrue:      NewPureMethod(finDatedRatesAccrue, 6, Fixed),
+		members.AccrueParts: NewPureMethod(finDatedRatesAccrueParts, 6, Fixed),
+		members.Apply:       NewPureMethod(finDatedRatesApply, 4, Variadic),
 	},
 }

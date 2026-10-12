@@ -54,6 +54,33 @@
    out-of-range or empty slot is a Go panic — contained by `VM.Run` as a fatal `internal` error, i.e. a defect,
    and a robustness/security gap for hosts that run bytecode they did not compile. Fix: decode validates
    `v.Data < len(BuiltinFunctions) && BuiltinFunctions[v.Data] != nil` and raises a decode error otherwise.
+9. **Callable arity has two meanings, and a member whose fewest is 0 cannot be a callback.** Found 2026-10-12
+   (bound members). Callback-taking members (`map`, `keep`, `reduce`, `for_each`, the dict members, …) choose
+   `f(e)` vs `f(i, e)` from `Arity()` (`checkElemCallback`/`callElem`, `readReduceArgs`/`callReduce` in
+   `core/tools.go`; `core/dict_members.go`). What `Arity()` means differs per callable kind:
+
+   | callable | `Arity()` of a variadic | accepted as `f/1` callback |
+   | --- | --- | --- |
+   | script `func(...a)` | 1 — the rest parameter counts (`NumParameters`) | yes |
+   | script `func(x, ...a)` | 2 | yes, called as `f(i, e)` |
+   | builtin `min` (declared `0, true`) | 0 — the fewest accepted | no |
+   | bound member `"abc".contains` (`Arity 0, Variadic`) | 0 — the fewest accepted | no — `xs.keep(s.contains)` raises `f/1 or f/2` |
+   | bound member `"abc".has_prefix` (`Arity 1, Variadic`) | 1 | yes |
+
+   Possibly a bug, possibly two rules that were never stated. Analyze and resolve in a separate session: pick ONE
+   meaning of `Arity()` for a variadic (fewest accepted vs declared parameters), then decide whether a variadic
+   callable whose accepted range includes 1 (or 2) qualifies as `f/1` (`f/2`) — and which reading wins when it
+   includes both. Touches every callable kind, `docs/types.md` § Lambda callbacks and § Member functions are
+   values, and `TestMemberArity`'s definition of `Arity`.
+10. **A compiled-function decode error is wrapped after translation.** `compiledFunctionTypeDecodeBinary`
+   (`core/compiled_function.go:259`) wraps an already-translated `*errs.Error` with `fmt.Errorf("compiled
+   function: %w", err)`; `binaryCodecError` (`core/value.go`) sees the `binary_encoding` kind through the wrap and
+   passes the wrapper on unchanged. Result: `Value.DecodeBinary` answers a `*fmt.wrapError` whose text reads
+   `compiled function: binary_encoding: (decode) …`. Severity survives (`errs.IsCritical` unwraps with
+   `errors.As`), but a plain `err.(*errs.Error)` assertion fails and the kind name appears inside the message —
+   against "one translation point per error family". Likely bug. Fix: the hook adds context only to raw errors, or
+   `binaryCodecError` re-wraps a wrapped `*errs.Error` into one `*errs.Error`; check the other `DecodeBinary` hooks
+   that call `Value.DecodeBinary` on nested values for the same shape. Pin with `err.(*errs.Error)` in a test.
 
 ## AI-friendliness / authoring feedback
 
@@ -104,6 +131,8 @@
     `undefined` vs raising, …). Every example in it executable and verified, like the rest of `docs/`.
 
 ## random ideas
+
+- refactor NewBuiltinFunction similar to NewMember/NewPureMember with Fixed/Variadic argument
 
 - enums, need a way to define enums - builtin, as well as in script, ctors from string and from identifier (compiler level), rounding strategies became enums, etc
 

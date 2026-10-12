@@ -33,23 +33,23 @@ var TypeUndefined = ValueTypeDescr{
 	SliceStep:           func(Value, Value, Value, Value) (Value, error) { return Undefined, nil }, // PURE by contract
 	AsBool:              func(Value) (bool, bool) { return false, true },                           // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
-		members.String:  {Fn: undefinedConvert, Pure: true},
-		members.Format:  {Fn: memberFormat, Pure: true},
-		members.Runes:   {Fn: undefinedConvert, Pure: true},
-		members.Int:     {Fn: undefinedConvert, Pure: true},
-		members.Bool:    {Fn: undefinedConvert, Pure: true},
-		members.Float:   {Fn: undefinedConvert, Pure: true},
-		members.Time:    {Fn: undefinedConvert, Pure: true},
-		members.Decimal: {Fn: undefinedConvert, Pure: true},
-		members.Date:    {Fn: undefinedConvert, Pure: true},
-		members.Array:   {Fn: undefinedConvert, Pure: true},
-		members.Bytes:   {Fn: undefinedConvert, Pure: true},
-		members.Byte:    {Fn: undefinedConvert, Pure: true},
-		members.Rune:    {Fn: undefinedConvert, Pure: true},
-		members.Dict:    {Fn: undefinedConvert, Pure: true},
-		members.Record:  {Fn: undefinedConvert, Pure: true},
+	Methods: []Method{
+		members.IsTrue:  NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:  NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Format:  NewPureMethod(memberFormat, 0, Variadic),
+		members.Runes:   NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Int:     NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Bool:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Float:   NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Time:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Decimal: NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Date:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Array:   NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Bytes:   NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Byte:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Rune:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Dict:    NewPureMethod(undefinedConvert, 0, Variadic),
+		members.Record:  NewPureMethod(undefinedConvert, 0, Variadic),
 	},
 }
 

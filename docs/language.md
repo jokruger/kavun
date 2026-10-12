@@ -732,6 +732,15 @@ Arguments follow the same shared-body rule as any other assignment (see "Builtin
 a container to a function shares it with the caller, so mutating it through the parameter name is visible to the
 caller too.
 
+A member function read without a call is a function too — a **bound member** of its receiver (`docs/types.md`
+§ "Member functions are values"):
+
+```go
+up := "ab".upper
+up()                                // "AB"
+["a", "x"].map("abc".has_prefix)    // [true, false]
+```
+
 ### Named return value
 
 A function can declare an optional named result between the parameter list and the body. The name is bound as a local

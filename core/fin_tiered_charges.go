@@ -139,16 +139,16 @@ var TypeFinTieredCharges = ValueTypeDescr{
 	},
 	AsString: func(v Value) (string, bool) { return FinTieredChargesOf(v).String(), true }, // PURE by contract
 
-	Methods: []MethodEntry{
-		members.IsTrue:      {Fn: memberIsTrue, Pure: true},
-		members.String:      {Fn: finTieredChargesString, Pure: true},
-		members.Format:      {Fn: memberFormat, Pure: true},
-		members.Copy:        {Fn: memberSelf, Pure: true},
-		members.Freeze:      {Fn: memberSelf, Pure: true},
-		members.At:          {Fn: finTieredChargesAt, Pure: true},
-		members.Bands:       {Fn: finTieredChargesBands, Pure: true},
-		members.Charge:      {Fn: finTieredChargesCharge, Pure: true},
-		members.ChargeParts: {Fn: finTieredChargesChargeParts, Pure: true},
-		members.Bounds:      {Fn: finTieredChargesBounds, Pure: true},
+	Methods: []Method{
+		members.IsTrue:      NewPureMethod(memberIsTrue, 0, Fixed),
+		members.String:      NewPureMethod(finTieredChargesString, 0, Variadic),
+		members.Format:      NewPureMethod(memberFormat, 0, Variadic),
+		members.Copy:        NewPureMethod(memberSelf, 0, Fixed),
+		members.Freeze:      NewPureMethod(memberSelf, 0, Fixed),
+		members.At:          NewPureMethod(finTieredChargesAt, 1, Fixed),
+		members.Bands:       NewPureMethod(finTieredChargesBands, 0, Fixed),
+		members.Charge:      NewPureMethod(finTieredChargesCharge, 4, Fixed),
+		members.ChargeParts: NewPureMethod(finTieredChargesChargeParts, 4, Fixed),
+		members.Bounds:      NewPureMethod(finTieredChargesBounds, 0, Fixed),
 	},
 }

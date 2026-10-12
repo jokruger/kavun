@@ -173,8 +173,8 @@ func init() {
 	core.SetValueType(MyTabled, core.ValueTypeDescr{
 		Name:   func(core.Value) string { return "tabled" },
 		String: func(v core.Value) string { return fmt.Sprintf("tabled(%d)", int64(v.Data)) },
-		Methods: []core.MethodEntry{
-			memberScaled: {Pure: true, Fn: func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+		Methods: []core.Method{
+			memberScaled: core.NewPureMethod(func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 				if len(args) != 1 {
 					return core.Undefined, errs.NewWrongNumArgumentsError(id.String(), "1", len(args))
 				}
@@ -183,12 +183,19 @@ func init() {
 					return core.Undefined, errs.NewInvalidArgumentTypeError(id.String(), "first", "int", args[0].TypeName())
 				}
 				return core.IntValue(int64(v.Data) * n), nil
-			}},
+			}, 1, core.Fixed),
 		},
-		Properties: []core.PropertyEntry{
-			members.Label: {Pure: true, Get: func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
+		Properties: []core.Property{
+			members.Label: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
 				return core.NewStringValue(fmt.Sprintf("#%d", int64(v.Data))), nil
-			}},
+			}, nil),
+		},
+		// raw is a name-path member, so the type binds it itself; scaled binds through its table entry
+		AccessNamedProperty: func(_ core.VM, v core.Value, name string) (core.Value, error) {
+			if name == "raw" {
+				return core.NewBoundMemberValue(v, member.Unknown, name), nil
+			}
+			return core.Undefined, errs.NewNotAccessibleError("tabled")
 		},
 		CallNamedMethod: func(_ core.VM, v core.Value, name string, args []core.Value) (core.Value, error) {
 			if name == "raw" && len(args) == 0 {
@@ -717,6 +724,10 @@ func TestEmbedderMemberTables(t *testing.T) {
 	expectError(t, `x.nope()`, opts, "type tabled has no method nope")
 	expectError(t, `x.label = "y"`, opts, "not_assignable: type tabled does not support assignment via indexing or field access")
 	expectError(t, `out = x.missing`, opts, "not_accessible")
+	expectRun(t, `f := x.scaled; out = f(7)`, opts, 42)          // bound through the table entry
+	expectRun(t, `out = [1, 2].map(x.scaled)`, opts, ARR{6, 12}) // its declared Arity makes it a callback
+	expectRun(t, `f := x.raw; out = f()`, opts, 6)               // bound by the type's own name hook
+	expectRun(t, `out = format(x.raw)`, opts, "<bound-member:tabled.raw/0>")
 	require.True(t, core.MemberIsPure(MyTabled, "scaled"))
 	require.False(t, core.MemberIsPure(MyTabled, "raw"))
 	require.True(t, core.HasMember(MyTabled, "scaled"))
