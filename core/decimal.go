@@ -645,41 +645,15 @@ func decimalOperandArg(name, pos string, a Value) (dec128.Dec128, error) {
 	return dec128.Dec128{}, errs.NewInvalidArgumentTypeError(name, pos, "decimal or int", a.TypeName())
 }
 
-// decimalRoundingModes maps a rounding-mode NAME to the dec128 mode it selects. The names are Python's `decimal`
-// module's, lowercased and without the ROUND_ prefix, because that is the reference a reader brings: `down` is
-// toward zero and `up` away from it, while `floor` / `ceiling` are the directions toward −∞ / +∞. A mode is a
-// string argument because in a real application it is configuration, not code; the round_<mode>(n) twins spell
-// the same names as suffixes for the common case where it is fixed.
-//
-// dec128's ROUND_NAN has no name here on purpose: refusing a loss is rescale(n)'s job, and it is meaningless for
-// the division-shaped operations, which lose digits by nature.
-var decimalRoundingModes = map[string]dec128.RoundingMode{
-	"ceiling":   dec128.ROUND_UP,
-	"floor":     dec128.ROUND_DOWN,
-	"down":      dec128.ROUND_TOWARD_ZERO,
-	"up":        dec128.ROUND_AWAY_FROM_ZERO,
-	"half_down": dec128.ROUND_HALF_TOWARD_ZERO,
-	"half_up":   dec128.ROUND_HALF_AWAY_FROM_ZERO,
-	"half_even": dec128.ROUND_BANK,
-}
-
-// decimalRoundingModeNames lists the accepted names in the order the docs present them, for the error message.
-const decimalRoundingModeNames = "ceiling, floor, down, up, half_down, half_up, half_even"
-
-// decimalModeArg reads a rounding-mode argument: a string naming one of the seven modes, exactly. An unknown name
-// raises and lists the valid ones — a mode read from configuration must fail loudly, never fall back to a default.
+// decimalModeArg reads a rounding-mode argument (roundingModeArg) as the dec128 mode with the same reading.
 //
 // PURE by contract.
 func decimalModeArg(name, pos string, a Value) (dec128.RoundingMode, error) {
-	if a.Type != value.String {
-		return 0, errs.NewInvalidArgumentTypeError(name, pos, "string", a.TypeName())
+	m, err := roundingModeArg(name, pos, a)
+	if err != nil {
+		return 0, err
 	}
-	s, _ := a.AsString()
-	mode, ok := decimalRoundingModes[s]
-	if !ok {
-		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) unknown rounding mode %q, expected one of: %s", name, s, decimalRoundingModeNames))
-	}
-	return mode, nil
+	return m.dec128(), nil
 }
 
 // decimalPlacesArg reads round()'s place count: 0..MaxScale fractional places, or a negative count that rounds to

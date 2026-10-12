@@ -165,9 +165,65 @@ Negative zero compares equal to zero and reads as zero everywhere:
 (-0.0).sign()           // 0
 ```
 
-`float` has **no** `sqrt` / `next_up` / `next_down` / `negate` members — those exist on [`decimal`](decimal.md)
-only. For float math use the `math` module (`math.sqrt(2.0)` → `1.4142135623730951`, `math.pow`, …) or the
-operators (`-x` negates).
+### Arithmetic members
+
+A numeric operation is a `float` member exactly when [`decimal`](decimal.md) has it — same name, same reading
+(pinned by a parity test). Like the operators, no member produces NaN or ±Inf: such a result **raises**
+`invalid_value` naming the member.
+
+```go
+16.0.sqrt()               // 4.0
+(-1.0).sqrt()             // Error: (sqrt) the result is not a number
+2.0.pow(10)               // 1024.0     — the exponent may be an int or a float
+2.0.pow(0.5)              // 1.4142135623730951
+0.0.pow(-1)               // Error: division by zero
+1.5.copy_sign(-2)         // -1.5
+5.0.clamp(0, 2)           // 2.0        — clamp(lo, hi) needs lo <= hi
+2.5.negate()              // -2.5
+1.0.next_up() > 1.0       // true       — the next representable float
+2.0.is_integer()          // true       (NaN and ±Inf are not integers)
+5.5.quo_rem(2)            // [2.0, 1.5] — quotient toward zero, remainder with the receiver's sign
+1.0.quo_rem(0)            // Error: division by zero
+```
+
+`exp()`, `ln()`, `log2()` and `log10()` are float-only: their result is inexact, so `decimal` spells them with a
+scale and a mode (`exp_round(scale, mode)`, …).
+
+```go
+1.0.exp()                 // 2.718281828459045
+1.0.ln()                  // 0.0
+8.0.log2()                // 3.0
+1000.0.log10()            // 3.0
+0.0.ln()                  // Error: (ln) the result is infinite
+```
+
+The rest of float math — trigonometry, `cbrt`, `hypot`, the special functions — is in the [`math`](../stdlib.md#math)
+module.
+
+### Rounding
+
+`round(places, mode)` and its fixed-mode twins `round_half_even(places)`, `round_half_up`, `round_half_down`,
+`round_up`, `round_down`, `round_ceiling`, `round_floor`, plus `round_to_multiple(m, mode)` and
+`round_significant(k, mode)`, are **decimal's contract**: `places` is required (negative rounds to tens,
+hundreds, …), and `mode` is one of `half_even`, `half_up`, `half_down`, `up`, `down`, `ceiling`, `floor`.
+
+A float rounds **the digits it prints** — its shortest decimal text, the one `string()` shows — not its exact
+binary value. So rounding does what the reader expects from the number they see:
+
+```go
+2.675.round(2, "half_up")          // 2.68  (2.675 is stored as 2.67499999…; it prints, and rounds, as 2.675)
+(0.1 + 0.2).round(1, "half_even")  // 0.3
+1234.5.round(-2, "half_up")        // 1200.0
+3.7.round_floor(0)                 // 3.0   — floor / ceil / trunc are round_floor / round_ceiling / round_down at 0
+1.234.round_to_multiple(0.05, "half_up")    // 1.25
+123456.0.round_significant(2, "half_even")  // 120000.0
+1.5.round(2, "bankers")            // Error: unknown rounding mode "bankers", expected one of: ceiling, …
+```
+
+Float rounds those digits itself, with the same seven modes as `decimal` (and, wherever `decimal` can hold the value,
+exactly the same answer), so no magnitude is out of range: `1e-30.round(2, "half_up")` is `0.0`, and
+`1e300.round(2, "half_up")` is `1e300` unchanged. Only a result past float's own range raises
+(`1.7976931348623157e308.round(-308, "up")` would be `2e308`); NaN and ±Inf have no digits to round and raise too.
 
 ### Sentinel predicates
 
@@ -279,3 +335,17 @@ float(3)               // 3.0
 
 There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gateway between the numeric family and
 the ordinal scalars (`x.int().byte()`).
+
+## Migration notes
+
+- **`math` functions became float members**, by parity with `decimal`: `math.sqrt(x)` → `x.sqrt()`,
+  `math.pow(x, y)` → `x.pow(y)`, `math.exp(x)` → `x.exp()`, `math.log(x)` → `x.ln()`, `math.log2(x)` →
+  `x.log2()`, `math.log10(x)` → `x.log10()`, `math.copy_sign(x, y)` → `x.copy_sign(y)`, `math.mod(x, y)` →
+  `x.quo_rem(y)[1]`, `math.floor(x)` / `math.ceil(x)` / `math.trunc(x)` → `x.round_floor(0)` /
+  `x.round_ceiling(0)` / `x.round_down(0)`. `math.abs`, `math.is_nan`, `math.is_inf` and `math.signbit` were
+  second spellings of `x.abs()`, `x.is_nan()`, `x.is_inf()` and `x < 0` / `x.sign()`, and are gone.
+- **New:** `round(places, mode)` with its seven twins, `round_to_multiple`, `round_significant`, `clamp`, `negate`,
+  `next_up`, `next_down`, `is_integer`, `quo_rem`. Float rounding rounds the printed digits, not the binary value
+  (`2.675.round(2, "half_up")` is `2.68`).
+- Like the operators, these members raise on a NaN or ±Inf result instead of answering it.
+

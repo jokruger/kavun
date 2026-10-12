@@ -290,7 +290,8 @@ const (
 	Round      = 394
 	Gcd        = 395 // planned
 	Lcm        = 396 // planned
-	// 397…408 reserved
+	Ln         = 397
+	// 398…408 reserved
 
 	// functions (builtin_function, compiled_function, builtin_closure; name also obj os.file)
 	Name       = 409
@@ -501,7 +502,7 @@ const (
 	// 679…688 reserved
 
 	// module math — functions
-	Mod       = 689
+	// Mod       = 689 // retired: math.mod → float.quo_rem(y)
 	Remainder = 690
 	Dim       = 691
 	Hypot     = 692
@@ -509,28 +510,28 @@ const (
 	Exp       = 694
 	Exp2      = 695
 	Expm1     = 696
-	Log       = 697
-	Log10     = 698
-	Log2      = 699
-	Log1p     = 700
-	Logb      = 701
-	Ilogb     = 702
-	Ldexp     = 703
-	Pow10     = 704
-	Sin       = 705
-	Cos       = 706
-	Tan       = 707
-	Asin      = 708
-	Acos      = 709
-	Atan      = 710
-	Atan2     = 711
-	Sinh      = 712
-	Cosh      = 713
-	Tanh      = 714
-	Asinh     = 715
-	Acosh     = 716
-	Atanh     = 717
-	Signbit   = 718
+	// Log       = 697 // retired: math.log → float.ln()
+	Log10 = 698
+	Log2  = 699
+	Log1p = 700
+	Logb  = 701
+	Ilogb = 702
+	Ldexp = 703
+	Pow10 = 704
+	Sin   = 705
+	Cos   = 706
+	Tan   = 707
+	Asin  = 708
+	Acos  = 709
+	Atan  = 710
+	Atan2 = 711
+	Sinh  = 712
+	Cosh  = 713
+	Tanh  = 714
+	Asinh = 715
+	Acosh = 716
+	Atanh = 717
+	// Signbit   = 718 // retired: math.signbit → x < 0, x.sign(), x.copy_sign(…)
 	NextAfter = 719
 	Inf       = 720
 	NaN       = 721

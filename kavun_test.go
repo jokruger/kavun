@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -11394,6 +11395,127 @@ func TestRuneRosterParity(t *testing.T) {
 // runs on the same ASCII content as a string, runes, bytes and an array of runes, and the normalised answers —
 // text as its string, an element as its code, an error as its kind — must agree. X is the receiver, R the same
 // receiver's own kind of run ("ab", or ['a', 'b'] on the array).
+// float and decimal answer the same numeric members (D-47's parity): every shared member exists on both and gives
+// the same value on the same receiver, and a bad argument raises the same kind on both. The four logs are
+// float-only — decimal's result is inexact, so it spells them with a scale (exp_round, …) — and decimal's scale
+// and representation members have no float twin.
+func TestNumericMemberParity(t *testing.T) {
+	shared := map[string]string{ // member → a good argument list
+		"sqrt": "()", "pow": "(2)", "round": `(0, "half_up")`, "round_half_even": "(0)", "round_half_up": "(0)",
+		"round_half_down": "(0)", "round_up": "(0)", "round_down": "(0)", "round_ceiling": "(0)", "round_floor": "(0)",
+		"round_to_multiple": `(1, "half_up")`, "round_significant": `(1, "half_up")`, "copy_sign": "(-1)",
+		"clamp": "(0, 1)", "negate": "()", "is_integer": "()", "quo_rem": "(1)", "abs": "()", "sign": "()",
+		"is_zero": "()", "is_positive": "()", "is_negative": "()", "is_nan": "()", "is_inf": "()",
+	}
+	bad := map[string][2]string{ // member → a bad argument list, the kind both raise
+		"pow": {`("x")`, "invalid_argument_type"}, "round": {`(0, "bankers")`, "invalid_value"},
+		"round_half_even": {`("x")`, "invalid_argument_type"}, "round_to_multiple": {`(-1, "half_up")`, "invalid_value"},
+		"round_significant": {`(0, "half_up")`, "invalid_value"}, "copy_sign": {`("x")`, "invalid_argument_type"},
+		"clamp": {"(3, 2)", "invalid_value"}, "quo_rem": {"(0)", "division_by_zero"}, "sqrt": {"(1)", "wrong_num_arguments"},
+	}
+	for name := range shared {
+		require.True(t, core.HasMember(value.Float, name), "float.%s", name)
+		require.True(t, core.HasMember(value.Decimal, name), "decimal.%s", name)
+	}
+	for _, name := range []string{"next_up", "next_down"} { // the step is the type's own (an ulp, a scale unit)
+		require.True(t, core.HasMember(value.Float, name) && core.HasMember(value.Decimal, name), name)
+		expectRun(t, `out = [1.5.`+name+`() != 1.5, 1.5d.`+name+`() != 1.5d]`, nil, ARR{true, true})
+	}
+	for _, name := range []string{"exp", "ln", "log2", "log10"} {
+		require.True(t, core.HasMember(value.Float, name), "float.%s", name)
+		require.False(t, core.HasMember(value.Decimal, name), "decimal.%s", name)
+	}
+	for _, name := range []string{"rescale", "scale", "scale_by_pow10", "canonical", "can_fit", "integer_digits",
+		"significant_digits", "allocate", "allocate_residual", "split_residual", "error_details", "div_round",
+		"mul_round", "pow_round", "sqrt_round", "exp_round", "ln_round"} {
+		require.True(t, core.HasMember(value.Decimal, name), "decimal.%s", name)
+		require.False(t, core.HasMember(value.Float, name), "float.%s", name)
+	}
+
+	const norm = `norm := func(v) {
+	if type_name(v) == "decimal" { return v.float() }
+	if type_name(v) == "array" { return v.map(func(e) { if type_name(e) == "decimal" { return e.float() }; return e }) }
+	return v
+}
+`
+	for name, args := range shared {
+		expectRun(t, norm+`out = norm(1.5.`+name+args+`) == norm(1.5d.`+name+args+`)`, nil, true)
+	}
+	for name, b := range bad {
+		expectError(t, `out = 1.5.`+name+b[0], nil, b[1])
+		expectError(t, `out = 1.5d.`+name+b[0], nil, b[1])
+	}
+
+	// float rounds the digits it prints (its shortest decimal text), so it agrees with decimal on the written value
+	expectRun(t, `out = [2.675.round(2, "half_up"), (0.1 + 0.2).round(1, "half_even"), 1234.5.round(-2, "half_up")]`, nil, ARR{2.68, 0.3, 1200.0})
+	expectRun(t, `out = 2.675.round(2, "half_up") == 2.675d.round(2, "half_up").float()`, nil, true)
+	// the engine rounds the text, so no magnitude is out of range; only a result past float's range raises
+	expectRun(t, `out = [1e-30.round(2, "half_up"), 1e300.round(2, "half_up") == 1e300, 1e-30.round_to_multiple(0.05, "up")]`, nil, ARR{0.0, true, 0.05})
+	expectError(t, `out = 1.7976931348623157e308.round(-308, "up")`, nil, "invalid_value: (round) the result is infinite")
+	expectError(t, `out = float("nan").round(2, "half_up")`, nil, "invalid_value: (round) cannot round NaN")
+	expectError(t, `out = (-1.0).sqrt()`, nil, "invalid_value: (sqrt) the result is not a number")
+	expectError(t, `out = 0.0.ln()`, nil, "invalid_value: (ln) the result is infinite")
+	expectError(t, `out = 0.0.pow(-1)`, nil, "division_by_zero")
+	expectRun(t, `out = [16.0.sqrt(), 2.0.pow(0.5) > 1.41, 1.0.exp() > 2.71, 8.0.log2(), 1000.0.log10(), 5.5.quo_rem(2), (-5.5).quo_rem(2)]`, nil,
+		ARR{4.0, true, true, 3.0, 3.0, ARR{2.0, 1.5}, ARR{-2.0, -1.5}})
+}
+
+// float rounds its shortest decimal text with its own engine; inside decimal's range it must agree with decimal
+// exactly, for every mode — x.round(n, mode) == x.decimal().round(n, mode).float(), and so for round_significant
+// and round_to_multiple. Ties are generated on purpose (k/10^d values), not left to chance.
+func TestFloatRoundingMatchesDecimal(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	modes := []string{"ceiling", "floor", "down", "up", "half_down", "half_up", "half_even"}
+	call := func(v core.Value, id member.ID, args ...core.Value) core.Value {
+		r, err := v.CallMember(nil, id, id.String(), args)
+		require.NoError(t, err, "%s.%s%v", v.String(), id.String(), args)
+		return r
+	}
+	viaDecimal := func(f float64, id member.ID, args ...core.Value) core.Value {
+		d := call(core.FloatValue(f), members.Decimal)
+		return call(call(d, id, args...), members.Float)
+	}
+	str := core.NewStringValue
+	compared := 0
+	for range 3000 {
+		var f float64
+		switch rng.Intn(3) {
+		case 0: // a tie or near-tie at some place: k / 10^d
+			f = float64(rng.Int63n(2000000)-1000000) / math.Pow10(rng.Intn(7))
+		case 1: // any magnitude dec128 can hold
+			f = (rng.Float64()*2 - 1) * math.Pow10(rng.Intn(24)-6)
+		default:
+			f = float64(rng.Intn(2001)-1000) + 0.5
+		}
+		if _, err := core.FloatValue(f).CallMember(nil, members.Decimal, "decimal", nil); err != nil {
+			continue // past decimal's 19 places or 38 digits: only float can round it, nothing to compare with
+		}
+		compared++
+		for _, mode := range modes {
+			n := core.IntValue(int64(rng.Intn(10) - 3))
+			want := viaDecimal(f, members.Round, n, str(mode))
+			got := call(core.FloatValue(f), members.Round, n, str(mode))
+			require.True(t, got.Equal(want), "%v.round(%v, %q): float %s, decimal %s", f, n, mode, got.String(), want.String())
+
+			k := core.IntValue(int64(rng.Intn(6) + 1))
+			want = viaDecimal(f, members.RoundSignificant, k, str(mode))
+			got = call(core.FloatValue(f), members.RoundSignificant, k, str(mode))
+			require.True(t, got.Equal(want), "%v.round_significant(%v, %q): float %s, decimal %s", f, k, mode, got.String(), want.String())
+
+			for _, m := range []string{"0.05", "0.25", "3", "10"} {
+				mf, _ := strconv.ParseFloat(m, 64)
+				md, err := kavun.ValueOf(dec128.FromString(m))
+				require.NoError(t, err)
+				want = viaDecimal(f, members.RoundToMultiple, md, str(mode))
+				got = call(core.FloatValue(f), members.RoundToMultiple, core.FloatValue(mf), str(mode))
+				require.True(t, got.Equal(want), "%v.round_to_multiple(%s, %q): float %s, decimal %s", f, m, mode, got.String(), want.String())
+			}
+		}
+	}
+	t.Logf("compared %d values × 7 modes × 6 calls", compared)
+	require.True(t, compared > 2000, "only %d values were in decimal's range", compared)
+}
+
 func TestSequenceMemberParity(t *testing.T) {
 	type receiver struct{ x, run string }
 	all := []receiver{
@@ -11585,7 +11707,7 @@ func TestTypeIDsBytecodeRoundTrip(t *testing.T) {
 math := import("math")
 fin := import("fin")
 yf := fin.year_fraction(31, 365)
-out := [math.abs(-2), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
+out := [math.hypot(3, 4), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
 `
 	file := parse(t, src)
 	symTable := compiler.NewSymbolTable()
@@ -11606,7 +11728,7 @@ out := [math.abs(-2), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
 	require.NoError(t, machine.Run())
 	sym, _, ok := symTable.Resolve("out", false)
 	require.True(t, ok)
-	require.Equal(t, kavun.MustValueOf(ARR{2, "31/365", "fin.year_fraction", 2, 'x', 1.5}), globals[sym.Index])
+	require.Equal(t, kavun.MustValueOf(ARR{5.0, "31/365", "fin.year_fraction", 2, 'x', 1.5}), globals[sym.Index])
 }
 
 // A member function read without a call is a bound member: a callable of type_name "function" that dispatches
@@ -11655,9 +11777,9 @@ func TestModuleValue(t *testing.T) {
 	expectError(t, `math := import("math"); out = math.string()`, nil, "invalid_method: module 'math' has no member 'string'")
 
 	// members: functions answer the same builtin-function value every time, constants their value
-	expectRun(t, `math := import("math"); out = [math.sqrt(16), math.pi > 3, math.sqrt == math.sqrt, format(math.sqrt)]`, nil,
-		ARR{4.0, true, true, "<builtin-function:math.sqrt/1>"})
-	expectRun(t, `math := import("math"); out = [4, 9].map(math.sqrt)`, nil, ARR{2.0, 3.0})
+	expectRun(t, `math := import("math"); out = [math.cbrt(27), math.pi > 3, math.cbrt == math.cbrt, format(math.cbrt)]`, nil,
+		ARR{3.0, true, true, "<builtin-function:math.cbrt/1>"})
+	expectRun(t, `math := import("math"); out = [8, 27].map(math.cbrt)`, nil, ARR{2.0, 3.0})
 
 	// a miss raises, as a selector and as a call; nothing is assignable; members are dot access only
 	expectError(t, `math := import("math"); out = math.pii`, nil, "invalid_selector: module 'math' has no member 'pii'")
@@ -11667,7 +11789,7 @@ func TestModuleValue(t *testing.T) {
 	expectError(t, `math := import("math"); out = math["pi"]`, nil, "not_accessible")
 
 	// len, in and for-in see the members, sorted by name
-	expectRun(t, `math := import("math"); out = [len(math), "pi" in math, "nope" in math]`, nil, ARR{76, true, false})
+	expectRun(t, `math := import("math"); out = [len(math), "pi" in math, "nope" in math]`, nil, ARR{61, true, false})
 	expectRun(t, `h := import("hex"); out = []; for k, v in h { out.push_in_place(k) }`, nil, ARR{"decode", "encode"})
 
 	// the value survives a binary round trip as the same module

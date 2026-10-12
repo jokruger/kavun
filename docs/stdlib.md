@@ -346,14 +346,19 @@ UTF-8 by definition; encode such text as `bytes`, which goes as base64).
 
 ## math
 
-`min`/`max` are not module functions: selection over arguments is the free variadic `min(a, b, ...)` /
-`max(a, b, ...)`, and aggregation over elements is the member (`arr.min()`, `arr.max()`).
+Constants, trigonometry and the special functions. A numeric operation that `decimal` has is a **float member**
+instead — `x.sqrt()`, `x.pow(y)`, `x.exp()`, `x.ln()`, `x.log2()`, `x.log10()`, `x.round(n, mode)` and its twins,
+`x.copy_sign(y)`, `x.quo_rem(y)`, … (see [types/float.md § Arithmetic members](types/float.md#arithmetic-members)) —
+so no function exists both ways. `min`/`max` are not module functions either: selection over arguments is the free
+variadic `min(a, b, ...)` / `max(a, b, ...)`, and aggregation over elements is the member (`arr.min()`).
 
 Example:
 
 ```go
 math = import("math")
-math.sqrt(144)
+math.hypot(3, 4)       // 5.0
+math.cbrt(27)          // 3.0
+math.pi                // 3.141592653589793
 ```
 
 Constants:
@@ -362,7 +367,6 @@ Constants:
 - Float bounds: `max_float32`, `smallest_nonzero_float32`, `max_float64`, `smallest_nonzero_float64`.
 - Integer bounds: `max_int`, `min_int`, `max_int8`, `min_int8`, `max_int16`, `min_int16`, `max_int32`, `min_int32`, `max_int64`, `min_int64`.
 
-- `math.abs(x float) -> float`: Absolute value.
 - `math.acos(x float) -> float`: Arc cosine.
 - `math.acosh(x float) -> float`: Inverse hyperbolic cosine.
 - `math.asin(x float) -> float`: Arc sine.
@@ -371,48 +375,40 @@ Constants:
 - `math.atan2(y float, x float) -> float`: Arc tangent of y/x with quadrant.
 - `math.atanh(x float) -> float`: Inverse hyperbolic tangent.
 - `math.cbrt(x float) -> float`: Cube root.
-- `math.ceil(x float) -> float`: Smallest integer value >= x.
-- `math.copy_sign(f float, sign float) -> float`: Magnitude of f with sign of sign.
 - `math.cos(x float) -> float`: Cosine.
 - `math.cosh(x float) -> float`: Hyperbolic cosine.
 - `math.dim(x float, y float) -> float`: Max(x-y, 0).
 - `math.erf(x float) -> float`: Error function.
 - `math.erfc(x float) -> float`: Complementary error function.
-- `math.exp(x float) -> float`: e\*\*x.
 - `math.exp2(x float) -> float`: 2\*\*x.
 - `math.expm1(x float) -> float`: e\*\*x - 1 with precision for small x.
-- `math.floor(x float) -> float`: Greatest integer value <= x.
 - `math.gamma(x float) -> float`: Gamma function.
 - `math.hypot(p float, q float) -> float`: sqrt(p*p + q*q).
 - `math.ilogb(x float) -> int`: Binary exponent as integer.
 - `math.inf(sign int) -> float`: +/- infinity by sign.
-- `math.is_inf(x float, sign int) -> bool`: Infinity check with sign filter.
-- `math.is_nan(x float) -> bool`: NaN check.
 - `math.j0(x float) -> float`: Bessel J0.
 - `math.j1(x float) -> float`: Bessel J1.
 - `math.jn(n int, x float) -> float`: Bessel Jn.
 - `math.ldexp(frac float, exp int) -> float`: frac \* 2\*\*exp.
-- `math.log(x float) -> float`: Natural logarithm.
-- `math.log10(x float) -> float`: Base-10 logarithm.
 - `math.log1p(x float) -> float`: log(1+x) with precision for small x.
-- `math.log2(x float) -> float`: Base-2 logarithm.
 - `math.logb(x float) -> float`: Binary exponent as float.
-- `math.mod(x float, y float) -> float`: Floating-point remainder.
 - `math.nan() -> float`: NaN value.
 - `math.next_after(x float, y float) -> float`: Next representable float from x toward y.
-- `math.pow(x float, y float) -> float`: x\*\*y.
 - `math.pow10(n int) -> float`: 10\*\*n.
 - `math.remainder(x float, y float) -> float`: IEEE 754 remainder.
-- `math.signbit(x float) -> bool`: True if sign bit is set.
 - `math.sin(x float) -> float`: Sine.
 - `math.sinh(x float) -> float`: Hyperbolic sine.
-- `math.sqrt(x float) -> float`: Square root.
 - `math.tan(x float) -> float`: Tangent.
 - `math.tanh(x float) -> float`: Hyperbolic tangent.
-- `math.trunc(x float) -> float`: Integer part toward zero.
 - `math.y0(x float) -> float`: Bessel Y0.
 - `math.y1(x float) -> float`: Bessel Y1.
 - `math.yn(n int, x float) -> float`: Bessel Yn.
+
+**Migration:** `abs`, `is_nan`, `is_inf`, `signbit`, `sqrt`, `pow`, `exp`, `log`, `log2`, `log10`, `floor`, `ceil`,
+`trunc`, `copy_sign` and `mod` left the module; each is a float member now (`math.log(x)` → `x.ln()`,
+`math.mod(x, y)` → `x.quo_rem(y)[1]`, `math.floor(x)` → `x.round_floor(0)`; full list in
+[types/float.md § Migration notes](types/float.md#migration-notes)). Reading one raises
+`module 'math' has no member 'sqrt'`.
 
 ## os
 

@@ -216,7 +216,7 @@ func TestScript_SetAssignmentMode(t *testing.T) {
 func TestScript_BuiltinModules(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	s := kavun.NewScript([]byte(`math := import("math"); a = math.abs(-19.84)`), "a")
+	s := kavun.NewScript([]byte(`math := import("math"); a = math.hypot(3, 4)`), "a")
 	s.SetAllowedModules("math")
 	c, err := s.Compile()
 	require.NoError(t, err)
@@ -224,7 +224,7 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.NoError(t, err)
 	v, err := c.Get("a")
 	require.NoError(t, err)
-	require.Equal(t, 19.84, v.Interface())
+	require.Equal(t, 5.0, v.Interface())
 
 	c, err = s.Compile()
 	require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.NoError(t, err)
 	v, err = c.Get("a")
 	require.NoError(t, err)
-	require.Equal(t, 19.84, v.Interface())
+	require.Equal(t, 5.0, v.Interface())
 
 	// a grant that does not name the imported module refuses it at compile time
 	s.SetAllowedModules("os")
@@ -264,7 +264,7 @@ func TestModuleGrant(t *testing.T) {
 	}
 
 	// default: pure modules only, at both gates
-	c, err := compileWith(`out = import("math").abs(-2)`, nil)
+	c, err := compileWith(`out = import("math").hypot(3, 4)`, nil)
 	require.NoError(t, err)
 	require.NoError(t, runIn(c, newVM()))
 	_, err = compileWith(`out = import("os")`, nil)

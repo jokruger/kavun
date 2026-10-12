@@ -11,9 +11,9 @@ any an embedder registers — is its own type with this one Kavun type name, so 
 ```go
 math := import("math")
 type_name(math)        // "module"
-math.sqrt(16)          // 4.0      — a member call
+math.cbrt(27)          // 3.0      — a member call
 math.pi                // 3.141592653589793 — a constant member
-[4, 9].map(math.sqrt)  // [2.0, 3.0] — a function member read as a value
+[8, 27].map(math.cbrt) // [2.0, 3.0] — a function member read as a value
 format(math)           // `import("math")` — it renders as the expression that answers it
 ```
 
@@ -45,7 +45,7 @@ member.
 
 | member | answers |
 | --- | --- |
-| its functions | `m.f(args)` calls; `m.f` is the `builtin_function` value — the same value every time (`math.sqrt == math.sqrt`) |
+| its functions | `m.f(args)` calls; `m.f` is the `builtin_function` value — the same value every time (`math.cbrt == math.cbrt`) |
 | its constants | the constant's value |
 | `is_true()` | `true` |
 | `format([spec])` | the render, `import("math")`, with the generic spec (`math.format(">20")`); `{:T}` → `module` |

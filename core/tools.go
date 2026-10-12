@@ -1460,3 +1460,93 @@ func mapContainsKey(m map[string]Value, e Value) (bool, error) {
 	_, hit := m[s]
 	return hit, nil
 }
+
+// roundingMode is one of the seven rounding modes a script names. The names are Python's `decimal` module's,
+// lowercased and without the ROUND_ prefix, because that is the reference a reader brings: `down` is toward zero
+// and `up` away from it, while `floor` / `ceiling` are the directions toward −∞ / +∞. A mode is a string argument
+// because in a real application it is configuration, not code; the round_<mode>(n) twins spell the same names as
+// suffixes for the common case where it is fixed. decimal rounds with dec128 (roundingMode.dec128); float rounds
+// its shortest decimal text with roundsUp — one table, two engines, the same seven readings.
+type roundingMode uint8
+
+const (
+	roundCeiling roundingMode = iota
+	roundFloor
+	roundDown
+	roundUp
+	roundHalfDown
+	roundHalfUp
+	roundHalfEven
+)
+
+var roundingModes = map[string]roundingMode{
+	"ceiling":   roundCeiling,
+	"floor":     roundFloor,
+	"down":      roundDown,
+	"up":        roundUp,
+	"half_down": roundHalfDown,
+	"half_up":   roundHalfUp,
+	"half_even": roundHalfEven,
+}
+
+// roundingModeNames lists the accepted names in the order the docs present them, for the error message.
+const roundingModeNames = "ceiling, floor, down, up, half_down, half_up, half_even"
+
+// dec128 answers the dec128 mode with the same reading. dec128's ROUND_NAN has no name on purpose: refusing a loss
+// is rescale(n)'s job, and it is meaningless for the division-shaped operations, which lose digits by nature.
+func (m roundingMode) dec128() dec128.RoundingMode {
+	switch m {
+	case roundCeiling:
+		return dec128.ROUND_UP
+	case roundFloor:
+		return dec128.ROUND_DOWN
+	case roundDown:
+		return dec128.ROUND_TOWARD_ZERO
+	case roundUp:
+		return dec128.ROUND_AWAY_FROM_ZERO
+	case roundHalfDown:
+		return dec128.ROUND_HALF_TOWARD_ZERO
+	case roundHalfUp:
+		return dec128.ROUND_HALF_AWAY_FROM_ZERO
+	default:
+		return dec128.ROUND_BANK
+	}
+}
+
+// roundsUp is the rounding decision on a magnitude that lost digits: whether its last kept unit goes up by one.
+// negative is the value's sign, odd whether the last kept digit is odd, half how the dropped part compares with
+// half a unit (-1 below, 0 exactly, +1 above). The caller has already established that something was dropped.
+func (m roundingMode) roundsUp(negative, odd bool, half int) bool {
+	switch m {
+	case roundCeiling:
+		return !negative // toward +∞
+	case roundFloor:
+		return negative // toward −∞
+	case roundDown:
+		return false // toward zero
+	case roundUp:
+		return true // away from zero
+	case roundHalfDown:
+		return half > 0
+	case roundHalfUp:
+		return half >= 0
+	default: // half_even
+		return half > 0 || (half == 0 && odd)
+	}
+}
+
+// roundingModeArg reads a rounding-mode argument: a string naming one of the seven modes, exactly. An unknown name
+// raises and lists the valid ones — a mode read from configuration must fail loudly, never fall back to a default.
+//
+// PURE by contract.
+func roundingModeArg(name, pos string, a Value) (roundingMode, error) {
+	if a.Type != value.String {
+		return 0, errs.NewInvalidArgumentTypeError(name, pos, "string", a.TypeName())
+	}
+	s, _ := a.AsString()
+	mode, ok := roundingModes[s]
+	if !ok {
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) unknown rounding mode %q, expected one of: %s", name, s, roundingModeNames))
+	}
+	return mode, nil
+}

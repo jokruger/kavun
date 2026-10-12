@@ -256,7 +256,7 @@ func decimalRound(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 }
 
 // the fixed-mode twins of round(n, mode): same contract, the mode spelled in the name; each names its mode through
-// decimalRoundingModes, so a twin and round(n, "<mode>") cannot drift
+// roundingModes, so a twin and round(n, "<mode>") cannot drift
 
 // PURE by contract
 func decimalRoundCeiling(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -304,7 +304,7 @@ func decimalRoundFixed(v Value, id member.ID, args []Value, mode string) (Value,
 	if err != nil {
 		return Undefined, err
 	}
-	return decimalResult(name, decimalRoundTo(*o, places, decimalRoundingModes[mode]))
+	return decimalResult(name, decimalRoundTo(*o, places, roundingModes[mode].dec128()))
 }
 
 // PURE by contract

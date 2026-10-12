@@ -765,7 +765,11 @@ func TestRetiredModuleFunctions(t *testing.T) {
 			// the construction, parsing and calendar functions moved onto the type: time({…, zone}), time(s, layout),
 			// t.add_days/add_months/add_years, t.in_zone, (n).time(); the Go-layout constants went with times.parse
 			"date", "parse", "add_date", "in_location", "from_unix", "format_rfc3339", "format_kitchen"},
-		"math": {"min", "max"},
+		// min/max are the free builtins' and the members' job; the rest became float members by parity with decimal
+		// (sqrt, pow, exp, log → ln, log2, log10, floor/ceil/trunc → the round_* twins, copy_sign, mod → quo_rem) or
+		// were second spellings of one (abs, is_nan, is_inf, signbit)
+		"math": {"min", "max", "abs", "is_nan", "is_inf", "signbit", "sqrt", "pow", "exp", "log", "log2", "log10",
+			"floor", "ceil", "trunc", "copy_sign", "mod"},
 	}
 	for module, names := range retired {
 		for _, name := range names {
