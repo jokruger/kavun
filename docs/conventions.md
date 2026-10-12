@@ -251,6 +251,22 @@ identifier reference": `low..high` is a language construct, immune to a local `r
 way a `b"..."` bytes literal is immune to reassigning `byte` — see
 [Shadowing and reassigning builtins](language.md#shadowing-and-reassigning-builtins).
 
+### Modules and module-owned types
+
+- **A builtin module** has a short, well-known, one-word lowercase name that is never a builtin identifier
+  (`io`, `fs`, `re`, `clock`), and is either *pure* (only computes; importable by default) or *world access*
+  (needs a grant) — never both: a module is the grant unit, so world access splits into its own module (`os`,
+  `fs`, `exec`). No function exists both as a module function and as a type member (`x.sqrt()`, not
+  `math.sqrt(x)`), and no module is named after a type's plural.
+- **A module-owned type** (one that exists only for one module) is named `<module>.<constructor>` in Kavun —
+  `re.pattern`, `fs.file`, `exec.command`, `exec.process`, `rand.generator`, `fin.year_fraction` — and is built only
+  by that module's constructor. On the Go side it lives in its module's package (`stdlib/re/pattern.go`),
+  registered by the module (`core.ModuleBuilder.Type`); its Go identifiers drop the prefix the package already
+  gives (`re.TypePattern`), while its type id keeps it (`value.RePattern`).
+- **A handle on the world** (`fs.file`, `exec.*`) is equal by identity, has no `string()`, renders as
+  `<type:detail>`, and every member is impure; **a value with text content** (`re.pattern`) has `string()` and
+  renders as the expression that builds it.
+
 ### Arity and Optional Arguments
 
 Two argument devices exist, and a member may use **one or the other, never both**:

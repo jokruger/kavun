@@ -33,6 +33,8 @@ Notes:
 
 ## base64
 
+**Pure** — importable by default.
+
 Example:
 
 ```go
@@ -52,6 +54,8 @@ base64.encode(bytes("hello"))
 **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode) illegal base64 data at input byte 0`.
 
 ## clock
+
+**World access** — needs a grant (`docs/embedding.md` § The module grant).
 
 The world's time: the current instant, the distance to one, and waiting. It is the only place a script reads the
 wall clock, so it needs a grant.
@@ -82,7 +86,9 @@ Construction, parsing, zones, calendar arithmetic and calendar facts are on the 
 
 ## exec
 
-Run external programs. World access: a host must grant it.
+**World access** — needs a grant (`docs/embedding.md` § The module grant).
+
+Run external programs.
 
 ```go
 exec := import("exec")
@@ -109,6 +115,8 @@ process are types instead of records of closures; the wait result is a record of
 `st.success()` — and its text field is `status` (was `string()`).
 
 ## fin
+
+**Pure** — importable by default.
 
 Deterministic financial arithmetic — time value of money, cashflows, depreciation, rate conversion — backed by
 [fin128](https://github.com/jokruger/fin128) over the same dec128 library `decimal` uses. Every function either
@@ -326,7 +334,9 @@ a wrong count `wrong_num_arguments`, a division by zero `division_by_zero`.
 
 ## fs
 
-The file system: files, directories, links, permissions. World access: a host must grant it.
+**World access** — needs a grant (`docs/embedding.md` § The module grant).
+
+The file system: files, directories, links, permissions.
 
 ```go
 fs := import("fs")
@@ -373,6 +383,8 @@ file is a type instead of a record of closures.
 
 ## hex
 
+**Pure** — importable by default.
+
 Example:
 
 ```go
@@ -387,9 +399,10 @@ hex.encode(bytes("ok"))
 
 ## io
 
+**World access** — needs a grant (`docs/embedding.md` § The module grant).
+
 The script's console. It writes to the VM's stdout and reads from its stdin — the process streams unless the host
 redirects them (`VM.SetStdout`, `VM.SetStdin`, see [embedding.md § Standard streams](embedding.md#standard-streams)).
-`io` touches the world, so a host must grant it; the `kavun` CLI does.
 
 | | line-oriented | raw stream |
 | --- | --- | --- |
@@ -431,6 +444,8 @@ Failures: `io` (an output or input stream the world refused, or end of input for
 
 ## json
 
+**Pure** — importable by default.
+
 Example:
 
 ```go
@@ -452,6 +467,8 @@ integer outside int64 (`(json.decode) number 9223372036854775808 is out of int r
 UTF-8 by definition; encode such text as `bytes`, which goes as base64).
 
 ## math
+
+**Pure** — importable by default.
 
 Constants, trigonometry and the special functions. A numeric operation that `decimal` has is a **float member**
 instead — `x.sqrt()`, `x.pow(y)`, `x.exp()`, `x.ln()`, `x.log2()`, `x.log10()`, `x.round(n, mode)` and its twins,
@@ -519,8 +536,10 @@ Constants:
 
 ## os
 
+**World access** — needs a grant (`docs/embedding.md` § The module grant).
+
 The process and its environment: arguments, exit, environment variables, identity, the working directory. Files are
-[`fs`](#fs)'s, other processes [`exec`](#exec)'s, path text [`path`](#path)'s. World access: a host must grant it.
+[`fs`](#fs)'s, other processes [`exec`](#exec)'s, path text [`path`](#path)'s.
 
 ```go
 os := import("os")
@@ -560,6 +579,8 @@ The objects they answer are types now (`fs.file`, `exec.command`, `exec.process`
 
 ## path
 
+**Pure** — importable by default.
+
 Path TEXT with the host's separator — joining, splitting, cleaning. It never touches the file system (that is
 [`fs`](#fs)), so it is pure and importable by default.
 
@@ -583,6 +604,8 @@ path.split("/x/y.txt")          // ["/x/", "y.txt"]
 Failures: `invalid_value` (as above), `invalid_argument_type` (a non-string), `wrong_num_arguments`.
 
 ## rand
+
+**Pure** — importable by default.
 
 Pseudo-random numbers as a value. The module's one function is the constructor of the type it owns:
 `rand.generator(seed)` answers a [`rand.generator`](types/rand-generator.md) whose draws are its own state. Pure —
@@ -615,6 +638,8 @@ script in the process. `rand.int_n(n)` → `g.int(n)`, `rand.int()` → `g.int()
 `rand.generator(s)`; for unpredictable draws use `os.rand_generator()`. `rand` no longer needs a grant.
 
 ## re
+
+**Pure** — importable by default.
 
 Regular expressions. The module's one function is the constructor of the type it owns: `re.pattern(src)` compiles
 the expression once, and the [`re.pattern`](types/re-pattern.md) answers `match`, `find`, `replace` and `split`.

@@ -126,16 +126,20 @@ functions and constants through `core.NewModule`, each under a member id (a buil
 ```go
 const myModule = uint8(200)
 
-var memberDouble = member.ID(2100) // embedder member ids start at member.FirstUserDefined (2048)
+var (
+    memberDouble = member.ID(2100) // embedder member ids start at member.FirstUserDefined (2048)
+    memberLabel  = member.ID(2101)
+)
 
 func init() {
     member.Define(memberDouble, "double")
+    member.Define(memberLabel, "label")
     err := core.NewModule(myModule, "mymod", true). // true: pure — granted by default
         PureFn(memberDouble, 0, func(_ core.VM, args []core.Value) (core.Value, error) {
             n, _ := args[0].AsInt()
             return core.IntValue(2 * n), nil
         }, 1, core.Fixed).
-        Const(members.Label, core.NewStringValue("mine")).
+        Const(memberLabel, core.NewStringValue("mine")).
         Register()
     if err != nil {
         panic(err)
@@ -160,7 +164,7 @@ script.EnableFileImport()
 
 // In-memory source module
 script.AddCustomModule("helpers", []byte(`
-export add := func(a, b) { return a + b }
+export {add: func(a, b) { return a + b }}
 `))
 ```
 

@@ -105,7 +105,7 @@
     "unknown" stays silent at compile time and the runtime still raises (never a false positive). Tiers:
     - **A. Binding provenance** — a symbol bound by `:= import("io")` and never reassigned anywhere in the
       file (closures included — visible at compile time) has a known export set: builtin modules' exports
-      already exist at compile time (`stdlib.InitModule` → `name2Module[...].Body`); user modules too when
+      already exist at compile time (`core.LookupModule(name)` and the module type's member table); user modules too when
       `export` is a literal `{...}`. Catches `io.printf`, `math.pii` as compile errors.
     - **B. Flow-insensitive local inference** — a local is "known type T" iff every assignment to it is a
       literal or a constructor (`[...]`, `"..."`, `int(x)`, …), else "unknown". Catches
@@ -113,7 +113,8 @@
     - **C. Optional type annotations** — the only route to completeness; see "optional static types" below.
     Build A+B once inside `compiler` as a reusable analysis: it is exactly what an LSP needs (completion,
     hover, go-to-definition, diagnostics), so the checker, the hints and the LSP share one engine.
-  - **A `module` type** instead of `immutable-record` for imported modules. Motivation beyond nicer messages:
+  - **A `module` type** instead of `immutable-record` for imported modules. — **DONE 2026-10-12**
+    (`docs/types/module.md`: a miss raises `module 'math' has no member 'pii'`; script modules export any value.) Motivation beyond nicer messages:
     a record answers `undefined` for a missing field, and `undefined` propagates through arithmetic by design
     (`docs/types/undefined.md`), so `math.pii * 2` answers `undefined` and the script exits 0 — a misspelled
     module member is a program error, not absent data. A `module` value would raise on a missing member
@@ -350,9 +351,10 @@
   existing `record`/`dict`) before scoping
 
 - Enforce allowed-module list at the VM level (host can permit bytecode execution but deny specific
-      modules) — directly serves the sandboxing goal.
+      modules) — directly serves the sandboxing goal. — **DONE 2026-10-12** (`VM.SetAllowedModules`; pure-only by
+      default at both gates; `docs/embedding.md` § The module grant).
 
-- Split `rand` into two explicit modes: a seeded, deterministic PRNG (for reproducible simulation/decisioning
+- **DONE 2026-10-12** (`rand.generator(seed)` / `os.rand_generator()`, one type): Split `rand` into two explicit modes: a seeded, deterministic PRNG (for reproducible simulation/decisioning
       — same seed, same script, same output, replayable for audit) vs. an unpredictable source (for anything
       needing real entropy, e.g. token generation). New nuance: `TODO.md`'s "migrate to crypto/rand" is solving
       the *opposite* problem (unpredictability) from what a reproducible finance/decisioning script usually
@@ -396,7 +398,7 @@
 
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
-- control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
+- control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules! — **DONE 2026-10-12** (see above).
 
 - type as data + extension methods:
   - array.foo => call array static method

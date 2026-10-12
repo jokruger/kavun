@@ -1,110 +1,44 @@
 // Package members is the enum of builtin member ids: one untyped constant per member name a builtin type or stdlib
-// module answers (or is planned to answer). It holds constants only — the kind (member.ID), the id ↔ name table and
+// module answers — a name is bound only once something answers it (an embedder binds its own from 2048 with
+// member.Define). It holds constants only — the kind (member.ID), the id ↔ name table and
 // every function live in core/member — so an identifier here can only ever collide with another member name.
 //
 // FROZEN: a released id is never changed, removed or reused. A new name takes the next free id inside its block's
 // reserved range, or follows the last block once that range is full; a retired name keeps its line, commented out.
 // Blocks run from names shared by many owners to names owned by one, because a type's table is as long as the
-// highest id it uses. "planned" marks a name reserved for a member that does not exist yet.
+// highest id it uses.
 package members
 
 const (
 	// universal — every builtin type
-	IsTrue      = 1
-	String      = 2
-	Format      = 3
-	Copy        = 4
-	Freeze      = 5
-	Or          = 6 // planned
-	TypeName    = 7 // planned
-	IsImmutable = 8 // planned
-	// 9…16 reserved
+	IsTrue = 1
+	String = 2
+	Format = 3
+	Copy   = 4
+	Freeze = 5
+	// 6…16 reserved
 
-	// common domain properties — identity, money, ranges (embedder and future domain types; one id shared by all)
-	ID               = 17 // domain property; embedder use
-	UID              = 18 // domain property; embedder use
-	UUID             = 19 // domain property; embedder use
-	CID              = 20 // domain property; embedder use
-	PID              = 21
-	Hash             = 22 // domain property; embedder use
-	TID              = 23 // domain property; embedder use
-	TransactionID    = 24 // domain property; embedder use
-	ReferenceID      = 25 // domain property; embedder use
-	OriginationID    = 26 // domain property; embedder use
-	AccountID        = 27 // domain property; embedder use
-	AccountNumber    = 28 // domain property; embedder use
-	ProductBalanceID = 29 // domain property; embedder use
-	ParentID         = 30 // domain property; embedder use
-	CustomerID       = 31 // domain property; embedder use
-	ProductID        = 32 // domain property; embedder use
-	Amount           = 33 // domain property; embedder use
-	Currency         = 34 // domain property; embedder use
-	Quantity         = 35 // domain property; embedder use
-	Price            = 36 // domain property; embedder use
-	Fee              = 37 // domain property; embedder use
-	Interest         = 38 // domain property; embedder use
-	Principal        = 39 // domain property; embedder use
-	Tax              = 40 // domain property; embedder use
-	Total            = 41 // domain property; embedder use
-	Balance          = 42
-	Debit            = 43 // domain property; embedder use
-	Credit           = 44 // domain property; embedder use
-	Ledger           = 45 // domain property; embedder use
-	Reversal         = 46 // domain property; embedder use
-	Scheduled        = 47 // domain property; embedder use
-	ValueTime        = 48 // domain property; embedder use
-	Status           = 49 // domain property; embedder use
-	State            = 50 // domain property; embedder use
-	CreatedAt        = 51 // domain property; embedder use
-	UpdatedAt        = 52 // domain property; embedder use
-	EffectiveDate    = 53 // domain property; embedder use
-	PostingDate      = 54 // domain property; embedder use
-	DueDate          = 55 // domain property; embedder use
-	MaturityDate     = 56 // domain property; embedder use
-	StartDate        = 57 // domain property; embedder use
-	EndDate          = 58 // domain property; embedder use
-	From             = 59 // domain property; embedder use
-	To               = 60 // domain property; embedder use
-	Type             = 61 // domain property; embedder use
-	Description      = 62 // domain property; embedder use
-	Body             = 63 // domain property; embedder use
-	DateStr          = 64 // domain property; embedder use
-	TimeStr          = 65 // domain property; embedder use
-	DateTimeStr      = 66 // domain property; embedder use
-	MonthStr         = 67 // domain property; embedder use
-	Code             = 68 // domain property; embedder use
-	Key              = 69 // domain property; embedder use
-	Version          = 70 // domain property; embedder use
-	Label            = 71 // domain property; embedder use
-	Note             = 72 // domain property; embedder use
-	Tags             = 73 // domain property; embedder use
-	Metadata         = 74 // domain property; embedder use
-	// 75…104 reserved
+	// shared property names (pid: exec.process; balance: fin)
+	PID     = 17
+	Balance = 18
+	// 19…104 reserved
 
 	// conversions — by breadth
-	Runes       = 105
-	Int         = 106
-	Bool        = 107
-	Float       = 108
-	Time        = 109
-	Decimal     = 110
-	Date        = 111
-	Array       = 112
-	Bytes       = 113
-	Byte        = 114
-	Rune        = 115
-	Dict        = 116
-	Record      = 117
-	Range       = 118
-	Set         = 119 // planned
-	Ints        = 120 // planned
-	Floats      = 121 // planned
-	BigInt      = 122 // planned
-	BigFloat    = 123 // planned
-	BigRational = 124 // planned
-	Duration    = 125 // planned
-	Regex       = 126 // planned
-	// 127…144 reserved
+	Runes   = 105
+	Int     = 106
+	Bool    = 107
+	Float   = 108
+	Time    = 109
+	Decimal = 110
+	Date    = 111
+	Array   = 112
+	Bytes   = 113
+	Byte    = 114
+	Rune    = 115
+	Dict    = 116
+	Record  = 117
+	Range   = 118
+	// 119…144 reserved
 
 	// collections — size, search, callbacks (array, bytes, runes, string, range, dict)
 	Len      = 145
@@ -115,45 +49,27 @@ const (
 	Count    = 150
 	All      = 151
 	Any      = 152
-	None     = 153 // planned
-	ForEach  = 154
-	Reduce   = 155
-	Keep     = 156
-	Map      = 157
-	GroupBy  = 158 // planned
-	CountBy  = 159 // planned
-	MinBy    = 160 // planned
-	MaxBy    = 161 // planned
-	Remove   = 162
-	// 163…176 reserved
+	ForEach  = 153
+	Reduce   = 154
+	Keep     = 155
+	Map      = 156
+	Remove   = 157
+	// 158…176 reserved
 
 	// sequences — order, ends, slices (array, bytes, runes, string, range)
-	First       = 177
-	Last        = 178
-	IndexLast   = 179
-	Min         = 180
-	Max         = 181
-	Slice       = 182
-	Reverse     = 183
-	Sort        = 184
-	IsSorted    = 185 // planned
-	Unique      = 186
-	Dedup       = 187
-	Chunk       = 188
-	Take        = 189 // planned
-	Drop        = 190 // planned
-	Pop         = 191 // planned
-	PopFirst    = 192 // planned
-	Window      = 193 // planned
-	Enumerate   = 194 // planned
-	Zip         = 195 // planned
-	Unzip       = 196 // planned
-	Intersperse = 197 // planned
-	Cycle       = 198 // planned
-	SortBy      = 199 // planned
-	Shuffle     = 200
-	Rotate      = 201 // planned
-	// 202…216 reserved
+	First     = 177
+	Last      = 178
+	IndexLast = 179
+	Min       = 180
+	Max       = 181
+	Slice     = 182
+	Reverse   = 183
+	Sort      = 184
+	Unique    = 185
+	Dedup     = 186
+	Chunk     = 187
+	Shuffle   = 188
+	// 189…216 reserved
 
 	// sequences — edit and text-trait verbs (array, bytes, runes, string)
 	Append       = 217
@@ -165,57 +81,33 @@ const (
 	Repeat       = 223
 	PadStart     = 224
 	PadEnd       = 225
-	PadCenter    = 226 // planned
-	Trim         = 227
-	TrimStart    = 228
-	TrimEnd      = 229
-	HasPrefix    = 230
-	HasSuffix    = 231
-	RemovePrefix = 232
-	RemoveSuffix = 233
-	RemoveAt     = 234 // planned
-	Replace      = 235
-	Split        = 236
-	FlatMap      = 237
-	// 238…248 reserved
+	Trim         = 226
+	TrimStart    = 227
+	TrimEnd      = 228
+	HasPrefix    = 229
+	HasSuffix    = 230
+	RemovePrefix = 231
+	RemoveSuffix = 232
+	Replace      = 233
+	Split        = 234
+	FlatMap      = 235
+	// 236…248 reserved
 
 	// text (string, runes; is_ascii/is_valid also byte, rune, bytes)
-	IsASCII     = 249
-	IsValid     = 250
-	IsLetter    = 251 // planned
-	IsDigit     = 252 // planned
-	IsNumber    = 253 // planned
-	IsSpace     = 254 // planned
-	IsUpper     = 255 // planned
-	IsLower     = 256 // planned
-	IsTitle     = 257 // planned
-	IsPunct     = 258 // planned
-	IsSymbol    = 259 // planned
-	IsControl   = 260 // planned
-	IsGraphic   = 261 // planned
-	IsPrint     = 262 // planned
-	IsMark      = 263 // planned
-	SplitLines  = 264
-	Words       = 265 // planned
-	Partition   = 266
-	Lower       = 267
-	Upper       = 268
-	CaseFold    = 269
-	Normalize   = 270 // planned
-	TitleCase   = 271
-	CamelCase   = 272
-	PascalCase  = 273
-	SnakeCase   = 274
-	KebabCase   = 275
-	Truncate    = 276
-	Graphemes   = 277 // planned
-	GraphemeLen = 278 // planned
-	Quote       = 279 // planned
-	Unquote     = 280 // planned
-	ParseArray  = 281 // planned
-	Hex         = 282 // planned
-	Base64      = 283 // planned
-	// 284…304 reserved
+	IsASCII    = 249
+	IsValid    = 250
+	SplitLines = 251
+	Partition  = 252
+	Lower      = 253
+	Upper      = 254
+	CaseFold   = 255
+	TitleCase  = 256
+	CamelCase  = 257
+	PascalCase = 258
+	SnakeCase  = 259
+	KebabCase  = 260
+	Truncate   = 261
+	// 262…304 reserved
 
 	// containers — array, dict, range extras
 	CopyShallow   = 305
@@ -226,19 +118,10 @@ const (
 	Avg           = 310
 	Keys          = 311
 	Values        = 312
-	Items         = 313 // planned
-	Merge         = 314
-	MergeInPlace  = 315
-	Pick          = 316 // planned
-	Omit          = 317 // planned
-	Invert        = 318 // planned
-	RecordView    = 319
-	Union         = 320 // planned
-	Intersect     = 321 // planned
-	Diff          = 322 // planned
-	IsSubsetOf    = 323 // planned
-	IsSupersetOf  = 324 // planned
-	// 325…336 reserved
+	Merge         = 313
+	MergeInPlace  = 314
+	RecordView    = 315
+	// 316…336 reserved
 
 	// sequences — _in_place twins and views (array, bytes, runes; keep/remove also dict)
 	KeepInPlace         = 337
@@ -261,55 +144,38 @@ const (
 	SortInPlace         = 354
 	UniqueInPlace       = 355
 	DedupInPlace        = 356
-	PadCenterInPlace    = 357 // planned
-	SortByInPlace       = 358 // planned
-	ShuffleInPlace      = 359
-	RotateInPlace       = 360 // planned
-	SliceView           = 361
-	ChunkView           = 362
-	// 363…376 reserved
+	ShuffleInPlace      = 357
+	SliceView           = 358
+	ChunkView           = 359
+	// 360…376 reserved
 
-	// numbers — shared (int, float, decimal, fin.year_fraction; abs/is_nan/is_inf/sqrt/pow/copy_sign also math)
+	// numbers — shared (int, float, decimal, fin.year_fraction)
 	Abs        = 377
 	Sign       = 378
 	IsZero     = 379
 	IsPositive = 380
 	IsNegative = 381
-	IsEven     = 382 // planned
-	IsOdd      = 383 // planned
-	IsNaN      = 384
-	IsInf      = 385
-	IsFinite   = 386 // planned
-	Clamp      = 387
-	Sqrt       = 388
-	Pow        = 389
-	CopySign   = 390
-	Floor      = 391
-	Ceil       = 392
-	Trunc      = 393
-	Round      = 394
-	Gcd        = 395 // planned
-	Lcm        = 396 // planned
-	Ln         = 397
-	// 398…408 reserved
+	IsNaN      = 382
+	IsInf      = 383
+	Clamp      = 384
+	Sqrt       = 385
+	Pow        = 386
+	CopySign   = 387
+	Round      = 388
+	Ln         = 389
+	// 390…408 reserved
 
-	// functions (builtin_function, compiled_function, builtin_closure; name also obj os.file)
-	Name       = 409
-	Arity      = 410 // planned
-	IsVariadic = 411 // planned
-	IsPure     = 412 // planned
-	Memoize    = 413 // planned
-	// 414…416 reserved
+	// functions (builtin_function, compiled_function, builtin_closure; name also fs.file)
+	Name = 409
+	// 410…416 reserved
 
 	// error
 	Kind          = 417
 	Value         = 418
-	Message       = 419 // planned
-	Trace         = 420 // planned
-	IsUser        = 421
-	IsRuntime     = 422
-	IsRequirement = 423
-	// 424…432 reserved
+	IsUser        = 419
+	IsRuntime     = 420
+	IsRequirement = 421
+	// 422…432 reserved
 
 	// fin.* types (rate also fin module)
 	At          = 433
@@ -324,64 +190,44 @@ const (
 	Terms       = 442
 	// 443…448 reserved
 
-	// time and date (time, date; *_in_month/_year/leap also times; hour…nanosecond also times constants)
-	Components      = 449
-	Year            = 450
-	Month           = 451
-	Day             = 452
-	Hour            = 453
-	Minute          = 454
-	Second          = 455
-	Nanosecond      = 456
-	WeekDay         = 457
-	WeekDayName     = 458
-	MonthName       = 459
-	YearDay         = 460
-	Quarter         = 461 // planned
-	ISOWeek         = 462 // planned
-	DaysInMonth     = 463
-	DaysInYear      = 464
-	IsLeapYear      = 465
-	IsWeekend       = 466 // planned
-	IsWeekday       = 467 // planned
-	IsHoliday       = 468 // planned
-	IsBusinessDay   = 469 // planned
-	AddYears        = 470
-	AddMonths       = 471
-	AddQuarters     = 472 // planned
-	AddWeeks        = 473 // planned
-	AddDays         = 474
-	AddBusinessDays = 475 // planned
-	AddHours        = 476 // planned
-	AddMinutes      = 477 // planned
-	AddSeconds      = 478 // planned
-	StartOfYear     = 479 // planned
-	EndOfYear       = 480 // planned
-	StartOfQuarter  = 481 // planned
-	EndOfQuarter    = 482 // planned
-	StartOfMonth    = 483
-	EndOfMonth      = 484
-	StartOfWeek     = 485 // planned
-	EndOfWeek       = 486 // planned
-	StartOfDay      = 487 // planned
-	EndOfDay        = 488 // planned
-	IsEndOfMonth    = 489
-	YearsSince      = 490 // planned
-	MonthsSince     = 491
-	DaysSince       = 492 // planned
-	Unix            = 493
-	UnixMs          = 494
-	UnixMicro       = 495
-	UnixNano        = 496
-	UTC             = 497
-	InZone          = 498
-	ZoneName        = 499
-	ZoneOffset      = 500
-	DateIn          = 501
-	TimeIn          = 502
-	TimeMs          = 503
-	TimeMicro       = 504
-	TimeNano        = 505
+	// time and date (time, date)
+	Components   = 449
+	Year         = 450
+	Month        = 451
+	Day          = 452
+	Hour         = 453
+	Minute       = 454
+	Second       = 455
+	Nanosecond   = 456
+	WeekDay      = 457
+	WeekDayName  = 458
+	MonthName    = 459
+	YearDay      = 460
+	DaysInMonth  = 461
+	DaysInYear   = 462
+	IsLeapYear   = 463
+	AddYears     = 464
+	AddMonths    = 465
+	AddDays      = 466
+	StartOfMonth = 467
+	EndOfMonth   = 468
+	IsEndOfMonth = 469
+	MonthsSince  = 470
+	Unix         = 471
+	UnixMs       = 472
+	UnixMicro    = 473
+	UnixNano     = 474
+	UTC          = 475
+	InZone       = 476
+	ZoneName     = 477
+	ZoneOffset   = 478
+	DateIn       = 479
+	TimeIn       = 480
+	TimeMs       = 481
+	TimeMicro    = 482
+	TimeNano     = 483
+	// 484…505 reserved
+
 	// durations: an int counts nanoseconds when its member says so (int, float build; int reads; string parses)
 	Nanoseconds    = 506
 	Microseconds   = 507
@@ -446,25 +292,19 @@ const (
 	Decode = 586
 	// 587…592 reserved
 
-	// module io (formerly fmt)
-	Print = 593
-	// Println = 594 // retired: print ends the line; io.write is the no-newline form
-	ReadLine = 595
-	// 596…600 reserved
+	// module io
+	Print    = 593
+	ReadLine = 594
+	// 595…600 reserved
 
 	// module json
 	Indent     = 601
 	HTMLEscape = 602
 	// 603…608 reserved
 
-	// module re (formerly regexp)
-	// ReMatch   = 609 // retired: re.pattern(p).match(s)
-	// ReFind    = 610 // retired: re.pattern(p).find(s)
-	// ReReplace = 611 // retired: re.pattern(p).replace(s, r)
-	// ReSplit   = 612 // retired: re.pattern(p).split(s)
-	// ReCompile = 613 // retired: re.pattern(p) — a constructor is named after its type
-	Pattern = 614
-	// 615…616 reserved
+	// module re
+	Pattern = 609
+	// 610…616 reserved
 
 	// module base64
 	URLEncode    = 617
@@ -476,93 +316,62 @@ const (
 	// 623…624 reserved
 
 	// module rand
-	// Seed      = 625 // retired: rand.generator(seed) — a generator, not global state
-	// Rand      = 626 // retired: g.int(n)
-	// IntN      = 627 // retired: g.int(n)
-	ExpFloat  = 628
-	NormFloat = 629
-	Perm      = 630
-	Read      = 631
-	Generator = 632
-	// 633…640 reserved
+	ExpFloat  = 625
+	NormFloat = 626
+	Perm      = 627
+	Read      = 628
+	Generator = 629
+	// 630…640 reserved
 
-	// module times — functions
-	Now   = 641
-	Since = 642
-	Until = 643
-	Sleep = 644
-	// ParseDuration       = 645 // retired: "1h30m".nanoseconds()
-	DurationString = 646
-	// DurationHours       = 647 // retired: d.in_hours()
-	// DurationMinutes     = 648 // retired: d.in_minutes()
-	// DurationSeconds     = 649 // retired: d.in_seconds()
-	// DurationNanoseconds = 650 // retired: the int itself
-	// FromUnixMs          = 651 // retired: n.time_ms()
-	// FromUnixMicro       = 652 // retired: n.time_micro()
-	// FromUnixNano        = 653 // retired: n.time_nano()
-	// 654…664 reserved
-
-	// module times — constants
-	// Millisecond = 665 // retired: 1.milliseconds()
-	// Microsecond = 666 // retired: 1.microseconds()
-	// January     = 667 // retired: an integer literal (1–12)
-	// February    = 668 // retired: an integer literal (1–12)
-	// March       = 669 // retired: an integer literal (1–12)
-	// April       = 670 // retired: an integer literal (1–12)
-	// May         = 671 // retired: an integer literal (1–12)
-	// June        = 672 // retired: an integer literal (1–12)
-	// July        = 673 // retired: an integer literal (1–12)
-	// August      = 674 // retired: an integer literal (1–12)
-	// September   = 675 // retired: an integer literal (1–12)
-	// October     = 676 // retired: an integer literal (1–12)
-	// November    = 677 // retired: an integer literal (1–12)
-	// December    = 678 // retired: an integer literal (1–12)
-	// 679…688 reserved
+	// module clock (formerly times); duration_string is int's
+	Now            = 641
+	Since          = 642
+	Until          = 643
+	Sleep          = 644
+	DurationString = 645
+	// 646…664 reserved
 
 	// module math — functions
-	// Mod       = 689 // retired: math.mod → float.quo_rem(y)
-	Remainder = 690
-	Dim       = 691
-	Hypot     = 692
-	Cbrt      = 693
-	Exp       = 694
-	Exp2      = 695
-	Expm1     = 696
-	// Log       = 697 // retired: math.log → float.ln()
-	Log10 = 698
-	Log2  = 699
-	Log1p = 700
-	Logb  = 701
-	Ilogb = 702
-	Ldexp = 703
-	Pow10 = 704
-	Sin   = 705
-	Cos   = 706
-	Tan   = 707
-	Asin  = 708
-	Acos  = 709
-	Atan  = 710
-	Atan2 = 711
-	Sinh  = 712
-	Cosh  = 713
-	Tanh  = 714
-	Asinh = 715
-	Acosh = 716
-	Atanh = 717
-	// Signbit   = 718 // retired: math.signbit → x < 0, x.sign(), x.copy_sign(…)
-	NextAfter = 719
-	Inf       = 720
-	NaN       = 721
-	Erf       = 722
-	Erfc      = 723
-	Gamma     = 724
-	J0        = 725
-	J1        = 726
-	Jn        = 727
-	Y0        = 728
-	Y1        = 729
-	Yn        = 730
-	// 731…744 reserved
+	Remainder = 665
+	Dim       = 666
+	Hypot     = 667
+	Cbrt      = 668
+	Exp       = 669
+	Exp2      = 670
+	Expm1     = 671
+	Log10     = 672
+	Log2      = 673
+	Log1p     = 674
+	Logb      = 675
+	Ilogb     = 676
+	Ldexp     = 677
+	Pow10     = 678
+	Sin       = 679
+	Cos       = 680
+	Tan       = 681
+	Asin      = 682
+	Acos      = 683
+	Atan      = 684
+	Atan2     = 685
+	Sinh      = 686
+	Cosh      = 687
+	Tanh      = 688
+	Asinh     = 689
+	Acosh     = 690
+	Atanh     = 691
+	NextAfter = 692
+	Inf       = 693
+	NaN       = 694
+	Erf       = 695
+	Erfc      = 696
+	Gamma     = 697
+	J0        = 698
+	J1        = 699
+	Jn        = 700
+	Y0        = 701
+	Y1        = 702
+	Yn        = 703
+	// 704…744 reserved
 
 	// module math — constants
 	Pi                     = 745
@@ -690,6 +499,7 @@ const (
 	GetEgid      = 886
 	GetGroups    = 887
 	GetPageSize  = 888
+
 	// module path (os block reserve)
 	Base          = 889
 	Dir           = 890
@@ -733,7 +543,7 @@ const (
 	ModePerm          = 934
 	// 935…944 reserved
 
-	// objects — compiled regexp, os file/process/cmd (record-backed today; members once they become types)
+	// module-owned types — re.pattern, fs.file, exec.command, exec.process
 	Match          = 945
 	Close          = 946
 	Write          = 947
@@ -745,32 +555,15 @@ const (
 	Signal         = 953
 	Wait           = 954
 	Release        = 955
-	Exited         = 956
-	Success        = 957
-	Run            = 958
-	Start          = 959
-	Output         = 960
-	CombinedOutput = 961
-	Process        = 962
-	SetDir         = 963
-	SetPath        = 964
-	// 965…976 reserved
+	Run            = 956
+	Start          = 957
+	Output         = 958
+	CombinedOutput = 959
+	Process        = 960
+	SetDir         = 961
+	SetPath        = 962
+	// 963…976 reserved
 
-	// alias spellings — embedder use only; never builtin members (builtins keep the one convention spelling shown)
-	Empty     = 977 // alias of is_empty; embedder use only
-	Filter    = 978 // alias of keep; embedder use only
-	Sorted    = 979 // alias of sort; embedder use only
-	Immutable = 980 // alias of freeze / is_immutable(x); embedder use only
-	LeapYear  = 981 // alias of is_leap_year; embedder use only
-	Pos       = 982 // alias of is_positive; embedder use only
-	Positive  = 983 // alias of is_positive; embedder use only
-	Neg       = 984 // alias of is_negative / negate; embedder use only
-	Negative  = 985 // alias of is_negative / negate; embedder use only
-	Sod       = 986 // alias of start_of_day; embedder use only
-	Som       = 987 // alias of start_of_month; embedder use only
-	Soy       = 988 // alias of start_of_year; embedder use only
-	Eod       = 989 // alias of end_of_day; embedder use only
-	Eom       = 990 // alias of end_of_month; embedder use only
-	Eoy       = 991 // alias of end_of_year; embedder use only
-	// 992…1000 reserved
+	// free
+	// 977…1000 reserved
 )

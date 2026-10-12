@@ -11849,6 +11849,31 @@ func TestDurationMembers(t *testing.T) {
 	expectError(t, `out = 1.seconds(1)`, nil, "wrong_num_arguments")
 }
 
+// A builtin member name is bound only once something answers it: every name in core/member/members is a Methods or
+// Properties entry of some registered type or module. A placeholder name is not reserved ahead of its member — the
+// id stays a free reserve until then (embedders bind their own from member.FirstUserDefined).
+func TestEveryBuiltinMemberNameIsAnswered(t *testing.T) {
+	answered := map[member.ID]bool{}
+	for i := range core.ValueTypes {
+		d := &core.ValueTypes[i]
+		for id, m := range d.Methods {
+			if m.Fn != nil {
+				answered[member.ID(id)] = true
+			}
+		}
+		for id, p := range d.Properties {
+			if p.Get != nil || p.Set != nil {
+				answered[member.ID(id)] = true
+			}
+		}
+	}
+	for id := member.ID(1); id < member.FirstUserDefined; id++ {
+		if name := id.String(); name != "" {
+			require.True(t, answered[id], "builtin member name %q (id %d) is bound but nothing answers it", name, id)
+		}
+	}
+}
+
 // Every Methods entry's Arity/Variadic against the member function's own argument-count check: Arity-1 arguments
 // raise wrong_num_arguments, Arity do not, and Arity+1 raise exactly when the entry is not Variadic. Callback-taking
 // members dispatch on a bound member's Arity, so a declaration that drifts from the check is a wrong call. Every

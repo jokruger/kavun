@@ -68,9 +68,9 @@ func TestBuiltinBinding(t *testing.T) {
 		id   member.ID
 		name string
 	}{
-		{members.IsTrue, "is_true"}, {members.Len, "len"}, {members.Repeat, "repeat"}, {members.ID, "id"},
-		{members.UUID, "uuid"}, {members.IsNaN, "is_nan"}, {members.Max, "max"}, {members.String, "string"},
-		{members.HTMLEscape, "html_escape"}, {members.ISOWeek, "iso_week"},
+		{members.IsTrue, "is_true"}, {members.Len, "len"}, {members.Repeat, "repeat"}, {members.PID, "pid"},
+		{members.Pattern, "pattern"}, {members.IsNaN, "is_nan"}, {members.Max, "max"}, {members.String, "string"},
+		{members.HTMLEscape, "html_escape"}, {members.Seconds, "seconds"},
 	}
 	for _, c := range cases {
 		if got := c.id.String(); got != c.name {

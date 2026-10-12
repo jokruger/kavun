@@ -38,7 +38,10 @@ var (
 
 // A member name the embedder binds for its own type, in the embedder range. Its other member, label, reuses the
 // builtin id: an embedder may declare entries under builtin ids as well as its own.
-const memberScaled = member.FirstUserDefined
+const (
+	memberScaled = member.FirstUserDefined
+	memberLabel  = member.FirstUserDefined + 1
+)
 
 func NewCounterValue(val int64) core.Value {
 	o := &Counter{value: val}
@@ -168,6 +171,7 @@ type Panicker struct{}
 
 func init() {
 	member.Define(memberScaled, "scaled")
+	member.Define(memberLabel, "label")
 
 	// Register Tabled — an int wrapper whose members are table entries: scaled under the embedder's own id, the
 	// label property under the builtin id, raw answered by name.
@@ -187,7 +191,7 @@ func init() {
 			}, 1, core.Fixed),
 		},
 		Properties: []core.Property{
-			members.Label: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
+			memberLabel: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
 				return core.NewStringValue(fmt.Sprintf("#%d", int64(v.Data))), nil
 			}, nil),
 		},
@@ -745,7 +749,7 @@ func TestEmbedderModule(t *testing.T) {
 			n, _ := args[0].AsInt()
 			return core.IntValue(2 * n), nil
 		}, 1, core.Fixed).
-		Const(members.Label, core.NewStringValue("embedder")).
+		Const(memberLabel, core.NewStringValue("embedder")).
 		New(func() core.Value {
 			imports++
 			n := imports
@@ -773,7 +777,7 @@ func TestModuleBuilderRefusals(t *testing.T) {
 		{"unbound id", core.NewModule(231, "m1", true).PureFn(member.ID(4000), 0, noop, 0, core.Fixed), "is not bound"},
 		{"universal name", core.NewModule(231, "m1", true).PureFn(members.Format, 0, noop, 0, core.Fixed), "universal member"},
 		{"same name twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).Const(memberScaled, core.IntValue(1)), "declared twice"},
-		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).PureFn(members.Label, 0, noop, 0, core.Fixed), "already filled"},
+		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).PureFn(memberLabel, 0, noop, 0, core.Fixed), "already filled"},
 		{"slot out of range", core.NewModule(231, "m1", true).PureFn(memberScaled, 128, noop, 0, core.Fixed), "out of range"},
 		{"language type id", core.NewModule(value.Array, "m1", true), "not a module type id"},
 		{"builtin name", core.NewModule(231, "math", true), "name already registered"},

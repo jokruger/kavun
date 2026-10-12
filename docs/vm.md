@@ -19,10 +19,19 @@ Each bytecode instruction has fixed size: 8 bytes total.
   left to right, and one `AssignProperty` or `AssignIndex` instruction performs the write.
 - Maximum length of a count-driven sequence allocation is `4294967296` elements. It bounds the
   allocation a *count* asks for — `repeat(n)`, its `*` operator form, and `pad_start(n)` / `pad_end(n)`
-  on `array`, `string`, `runes` and `bytes`, and materializing a `range`'s elements (`array()`, `join()`,
-  `for_each`, … — see the range page) — and a count past it raises a catchable
+  on `array`, `string`, `runes` and `bytes`, materializing a `range`'s elements (`array()`, `join()`,
+  `for_each`, … — see the range page), `rand.generator`'s `bytes(n)` / `perm(n)` and a `re.pattern`'s
+  replacement expansion — and a count past it raises a catchable
   `invalid_value` rather than panicking the host. It is not a limit on a sequence's length: a
   sequence grown by appending or concatenation is bounded only by memory.
+
+## Bytecode format
+
+Encoded bytecode (`Bytecode.Encode`) opens with `vm.BytecodeMagic`, currently `KVN002`; `Decode` refuses any
+other header, so bytecode from an incompatible build fails loudly. `002` regrouped the type ids, moved the
+builtin-function slots to *type id* × 128, made `ImportBuiltinModule`'s `Op3` a module type id, and added the
+encodings of bound members and module values. A builtin module's grant is checked by the VM when the import runs
+(`VM.SetAllowedModules`), so decoded bytecode cannot import a module the host did not grant.
 
 ## Defaults
 
