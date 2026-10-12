@@ -366,7 +366,7 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	case value.String, value.Runes, value.Bytes, value.Array, value.Dict, value.Record, value.IntRange:
 		return core.IntValue(args[0].Len()), nil
 	}
-	if args[0].Type >= value.FirstUserDefinedType {
+	if args[0].Type >= value.FirstUserDefinedType || core.ModuleByType(args[0].Type) != nil { // a module: its member count
 		return core.IntValue(args[0].Len()), nil
 	}
 	return core.Undefined, errs.NewInvalidArgumentTypeError("len", "first", "a value with a length", args[0].TypeName())

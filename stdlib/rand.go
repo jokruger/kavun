@@ -4,23 +4,26 @@ import (
 	"math/rand"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
+	m := core.NewModule(value.ModuleRand, "rand", false)
 	// 9..127 reserved
-	InitModule("rand", module.Rand, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("int", randInt63, 0, false, false),
-		1: core.NewBuiltinFunction("float", randFloat64, 0, false, false),
-		2: core.NewBuiltinFunction("int_n", randInt63n, 1, false, false),
-		3: core.NewBuiltinFunction("exp_float", randExpFloat64, 0, false, false),
-		4: core.NewBuiltinFunction("norm_float", randNormFloat64, 0, false, false),
-		5: core.NewBuiltinFunction("perm", randPerm, 1, false, false),
-		6: core.NewBuiltinFunction("seed", randSeed, 1, false, false),
-		7: core.NewBuiltinFunction("read", randRead, 1, false, false),
-		8: core.NewBuiltinFunction("rand", randFunc, 1, false, false),
-	})
+	m.Fn(members.Int, 0, randInt63, 0, core.Fixed)
+	m.Fn(members.Float, 1, randFloat64, 0, core.Fixed)
+	m.Fn(members.IntN, 2, randInt63n, 1, core.Fixed)
+	m.Fn(members.ExpFloat, 3, randExpFloat64, 0, core.Fixed)
+	m.Fn(members.NormFloat, 4, randNormFloat64, 0, core.Fixed)
+	m.Fn(members.Perm, 5, randPerm, 1, core.Fixed)
+	m.Fn(members.Seed, 6, randSeed, 1, core.Fixed)
+	m.Fn(members.Read, 7, randRead, 1, core.Fixed)
+	m.Fn(members.Rand, 8, randFunc, 1, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func randPerm(vm core.VM, args []core.Value) (core.Value, error) {

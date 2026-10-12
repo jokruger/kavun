@@ -5,19 +5,22 @@ import (
 	gojson "encoding/json"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/json"
 )
 
 func init() {
+	m := core.NewModule(value.ModuleJson, "json", true)
 	// 4..127 reserved
-	InitModule("json", module.Json, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("decode", jsonDecode, 1, false, true),
-		1: core.NewBuiltinFunction("encode", jsonEncode, 1, false, true),
-		2: core.NewBuiltinFunction("indent", jsonIndent, 3, false, true),
-		3: core.NewBuiltinFunction("html_escape", jsonHTMLEscape, 1, false, true),
-	})
+	m.PureFn(members.Decode, 0, jsonDecode, 1, core.Fixed)
+	m.PureFn(members.Encode, 1, jsonEncode, 1, core.Fixed)
+	m.PureFn(members.Indent, 2, jsonIndent, 3, core.Fixed)
+	m.PureFn(members.HTMLEscape, 3, jsonHTMLEscape, 1, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {

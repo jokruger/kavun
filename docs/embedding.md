@@ -87,11 +87,70 @@ fmt.Println(sum)
 
 ## Modules and Imports
 
-Control what scripts can import:
+### The module grant
+
+A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`os`, `fmt`,
+`rand`, `times`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
+else must be granted. The grant is checked twice — by the compiler, and again by the VM that runs the bytecode —
+so bytecode compiled elsewhere or decoded from a file cannot bypass it:
 
 ```go
-// Selected stdlib modules
-script.SetAllowedModules("math", "json")
+script.SetAllowedModules("math", "os") // compile-time gate: exactly these
+compiled, err := script.Compile()
+
+machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+if err := machine.SetAllowedModules("math", "os"); err != nil { // run-time gate: an unknown name is a host error
+    return err
+}
+err = compiled.Run(machine)
+```
+
+`Script.AllowAllModules()` and `VM.AllowAllModules()` grant everything (the `kavun` CLI does both). A refusal at
+compile time is a compile error (`module 'os' is not allowed to import`); at run time it is the recoverable kind
+`module_not_allowed` (`module 'os' is not allowed`). The VM keeps its grant across `Reset`. `kavun.Eval` runs with
+the default grant. The **grant is the security boundary** for what a script may do to the host: grant world
+modules only to scripts you trust with them.
+
+### Standard streams
+
+`VM.SetStdout(w)` and `VM.SetStdin(r)` set the streams the VM hands to modules that print or read (default
+`os.Stdout` / `os.Stdin`); `VM.Stdout()` / `VM.Stdin()` answer them, also through the `core.VM` interface.
+
+### Your own builtin module
+
+An embedder registers its own builtin modules beside the standard ones. A builtin module is a type; an
+embedder's lives in the embedder range (type ids 192–255, shared with embedder types). Declare its
+functions and constants through `core.NewModule`, each under a member id (a builtin name, or one you bind with
+`member.Define`), and a builtin-function slot 0–127:
+
+```go
+const myModule = uint8(200)
+
+var memberDouble = member.ID(2100) // embedder member ids start at member.FirstUserDefined (2048)
+
+func init() {
+    member.Define(memberDouble, "double")
+    err := core.NewModule(myModule, "mymod", true). // true: pure — granted by default
+        PureFn(memberDouble, 0, func(_ core.VM, args []core.Value) (core.Value, error) {
+            n, _ := args[0].AsInt()
+            return core.IntValue(2 * n), nil
+        }, 1, core.Fixed).
+        Const(members.Label, core.NewStringValue("mine")).
+        Register()
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+`PureFn` claims a function pure (the optimizer may fold its calls), `Fn` does not. `New(f)` makes `import` answer a
+fresh value per import instead of one singleton, and `Descr()` lets you amend the module type's hooks before
+`Register`. `core.UnregisterModule(typeID)` removes an embedder module again (teardown, tests);
+`kavun.ModuleNames()` lists every registered module.
+
+### Imports from source
+
+```go
 
 // Enable/disable file imports
 script.DisableFileImport()

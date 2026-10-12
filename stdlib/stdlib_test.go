@@ -11,11 +11,12 @@ import (
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/stdlib"
+	_ "github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -55,21 +56,19 @@ func (c callres) call(funcName string, args ...any) callres {
 
 	v := mock.Vm
 
-	if o, ok := c.o.(*stdlib.Module); ok {
-		m, ok := (*core.Record)(o.Body.Ptr).Elements[funcName]
-		if !ok {
-			return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
-		}
-
-		if m.Type != value.BuiltinFunction && m.Type != value.BuiltinClosure {
-			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
-		}
-
-		res, err := m.Call(v, oargs)
-		return callres{t: c.t, o: res, e: err}
-	}
-
 	if o, ok := c.o.(core.Value); ok {
+		if core.ModuleByType(o.Type) != nil {
+			m, err := o.AccessProperty(v, member.Lookup(funcName), funcName)
+			if err != nil {
+				return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
+			}
+			if m.Type != value.BuiltinFunction && m.Type != value.BuiltinClosure {
+				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
+			}
+			res, err := m.Call(v, oargs)
+			return callres{t: c.t, o: res, e: err}
+		}
+
 		if o.Type == value.BuiltinFunction || o.Type == value.BuiltinClosure {
 			res, err := o.Call(v, oargs)
 			return callres{t: c.t, o: res, e: err}
@@ -105,12 +104,12 @@ func (c callres) expectError() {
 }
 
 func module(t *testing.T, moduleName string) callres {
-	mod, ok := stdlib.GetModuleDefinition(moduleName)
+	def, ok := core.LookupModule(moduleName)
 	if !ok {
 		return callres{t: t, e: fmt.Errorf("module_not_found: %s", moduleName)}
 	}
 
-	return callres{t: t, o: mod}
+	return callres{t: t, o: def.New()}
 }
 
 func object(v any) core.Value {
@@ -186,12 +185,25 @@ func object(v any) core.Value {
 	panic(fmt.Errorf("unknown type: %T", v))
 }
 
-func expect(t *testing.T, input string, expected any) {
+// The module tests run scripts the way the CLI does, every builtin module granted at both gates; the grant itself
+// is tested in the root package (script_test.go).
+func compileGranted(src string, bindings ...string) (*kavun.Compiled, error) {
+	s := kavun.NewScript([]byte(src), bindings...)
+	s.AllowAllModules()
+	return s.Compile()
+}
+
+func newGrantedVM() *vm.VM {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.AllowAllModules()
+	return machine
+}
+
+func expect(t *testing.T, input string, expected any) {
+	machine := newGrantedVM()
 	e, err := kavun.ValueOf(expected)
 	require.NoError(t, err)
-	s := kavun.NewScript([]byte(input), "out")
-	c, err := s.Compile()
+	c, err := compileGranted(input, "out")
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
@@ -259,8 +271,8 @@ func TestModuleFailuresRaise(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-			c, err := kavun.NewScript([]byte(tc.src)).Compile()
+			machine := newGrantedVM()
+			c, err := compileGranted(tc.src)
 			require.NoError(t, err)
 			err = c.Run(machine)
 			require.Error(t, err)
@@ -287,8 +299,8 @@ func TestJSONFailuresRaise(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-			c, err := kavun.NewScript([]byte(tc.src)).Compile()
+			machine := newGrantedVM()
+			c, err := compileGranted(tc.src)
 			require.NoError(t, err)
 			err = c.Run(machine)
 			require.Error(t, err)
@@ -305,10 +317,10 @@ func TestJSONFailuresRaise(t *testing.T) {
 // The regexp expansion ceiling is a function of the script's own arguments, so it is recoverable like every
 // other declared limit — it used to be a fatal resource_limit, which no recover() could catch.
 func TestRegexpExpansionLimitIsRecoverable(t *testing.T) {
-	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine := newGrantedVM()
 	// 200k matches x a 40k-reference template: far past the 4294967296-element ceiling, and cheap to reject.
 	src := `r := import("regexp"); r.re_replace("a", "a".repeat(200000), "$0".repeat(40000))`
-	c, err := kavun.NewScript([]byte(src)).Compile()
+	c, err := compileGranted(src)
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.Error(t, err)
@@ -745,19 +757,25 @@ func TestTimes(t *testing.T) {
 // TestRetiredModuleFunctions pins the module-surface deletions: the text module is gone entirely —
 // its five regex functions live on in the regexp module and everything string-shaped became member
 // functions — times keeps only what has no member or operator spelling, and min/max selection is
-// the free variadic builtins' and the members' job. A retired name reads as undefined through the
-// module record (selector semantics), so the loud failure is at the call: undefined is not callable.
+// the free variadic builtins' and the members' job. A module is a type, so reading a retired name
+// raises invalid_selector naming the module and the member.
 func TestRetiredModuleFunctions(t *testing.T) {
-	expect(t, `times := import("times")
-out = times.add == undefined && times.sub == undefined && times.after == undefined &&
-      times.before == undefined && times.is_zero == undefined && times.time_year == undefined &&
-      times.to_utc == undefined && times.month_string == undefined && times.time_format == undefined`, true)
-	// the construction, parsing and calendar functions moved onto the type: time({…, zone}), time(s, layout),
-	// t.add_days/add_months/add_years, t.in_zone, (n).time(); the Go-layout constants went with times.parse
-	expect(t, `times := import("times")
-out = times.date == undefined && times.parse == undefined && times.add_date == undefined &&
-      times.in_location == undefined && times.from_unix == undefined && times.format_rfc3339 == undefined &&
-      times.format_kitchen == undefined`, true)
-	expect(t, `math := import("math"); out = math.min == undefined && math.max == undefined`, true)
+	retired := map[string][]string{
+		"times": {"add", "sub", "after", "before", "is_zero", "time_year", "to_utc", "month_string", "time_format",
+			// the construction, parsing and calendar functions moved onto the type: time({…, zone}), time(s, layout),
+			// t.add_days/add_months/add_years, t.in_zone, (n).time(); the Go-layout constants went with times.parse
+			"date", "parse", "add_date", "in_location", "from_unix", "format_rfc3339", "format_kitchen"},
+		"math": {"min", "max"},
+	}
+	for module, names := range retired {
+		for _, name := range names {
+			// a module is a type: reading a member it does not have raises, it does not answer undefined
+			c, err := compileGranted(fmt.Sprintf(`m := import(%q); m.%s`, module, name))
+			require.NoError(t, err)
+			err = c.Run(newGrantedVM())
+			require.Error(t, err, "%s.%s", module, name)
+			require.True(t, strings.Contains(err.Error(), fmt.Sprintf("invalid_selector: module '%s' has no member '%s'", module, name)), err.Error())
+		}
+	}
 	expect(t, `re := import("regexp"); out = re.re_match("[0-9]", "a1")`, true)
 }

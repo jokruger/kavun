@@ -301,6 +301,7 @@ Each kind has one severity and one [category](#categories), always. **Recoverabl
 | `formatting` | a value that cannot be rendered at all | — |
 | `undefined_variable` | reading a name the runtime cannot resolve | — |
 | `module_not_found` | `import` of a name that is not registered | `import("nope")` |
+| `module_not_allowed` | `import` of a builtin module the host did not grant (checked by the VM) | `import("os")` without a grant |
 | `json_encoding` | a value with no JSON representation | `json.encode(func(){})` |
 | `json_decoding` | malformed JSON input | `json.decode("{")` |
 | `binary_encoding` | a value that cannot be binary-encoded, or corrupt input | — |

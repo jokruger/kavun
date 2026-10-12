@@ -2,7 +2,9 @@ package vm
 
 import (
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"sync/atomic"
 
 	"github.com/jokruger/kavun/ast"
@@ -15,7 +17,6 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/stdlib"
 )
 
 var (
@@ -79,6 +80,12 @@ type VM struct {
 	fileSet *ast.SourceFileSet // source positions for runtime stack traces
 	err     error              // last runtime error captured by run()
 
+	// Host configuration, kept across Reset (vm/host.go)
+	grant     [4]uint64 // granted module type ids, when grantMode is grantNamed
+	grantMode uint8
+	stdin     io.Reader
+	stdout    io.Writer
+
 	// concurrent state
 	abort int64 // flag for aborting execution
 }
@@ -96,6 +103,8 @@ func NewVM(maxFrames int, maxStack int) *VM {
 	return &VM{
 		frames: make([]frame, maxFrames),
 		stack:  make([]core.Value, maxStack),
+		stdin:  os.Stdin,
+		stdout: os.Stdout,
 	}
 }
 
@@ -1140,12 +1149,21 @@ func (v *VM) run() {
 			v.stack[v.sp-1] = core.NewStringValue(s)
 
 		case opcodes.ImportBuiltinModule:
-			m, err := stdlib.GetModule(int(v.curInsts[v.ip].Op3))
-			if err != nil {
-				v.err = err
+			t := v.curInsts[v.ip].Op3
+			def := (*core.ModuleDef)(nil)
+			if t < 256 {
+				def = core.ModuleByType(uint8(t))
+			}
+			if def == nil {
+				// the bytecode and the registered modules disagree — a host setup mistake: fatal, kind "host"
+				v.err = errs.NewHostError(fmt.Sprintf("(import) builtin module not found for ID: %d", t))
 				return
 			}
-			v.stack[v.sp] = m
+			if !v.moduleAllowed(def) {
+				v.err = errs.NewModuleNotAllowedError(def.Name)
+				return
+			}
+			v.stack[v.sp] = def.New()
 			v.sp++
 
 		case opcodes.DefineLocal:

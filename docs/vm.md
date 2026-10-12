@@ -59,5 +59,6 @@ records type ids (in the static pool's primitives) and builtin-function slots, s
 | 192–255 | embedder types (`kavun.UserDefinedType` is 192) |
 
 The language owns ids 0–191, embedders 192–255. Ids 112–191 are frozen: allocated alphabetically on first use,
-then append-only, never renumbered. A module's builtin functions live in `core.BuiltinFunctions` at slot *module
-id* × `core.ModuleSlotSize` (128) + their index; the global builtins use slot base 0.
+then append-only, never renumbered. A builtin module's id is its type id (`ImportBuiltinModule`'s `Op3`); its
+functions live in `core.BuiltinFunctions` at slot *type id* × `core.ModuleSlotSize` (128) + their index, and the
+global builtins use slot base 0.

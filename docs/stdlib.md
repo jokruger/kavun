@@ -15,6 +15,11 @@ This document covers the main builtin modules in Kavun stdlib:
 
 Notes:
 
+- Each module is a value of type [`module`](types/module.md): `import("math")` answers it, its functions and
+  constants are read-only members, and a missing name raises.
+- **Grant.** `base64`, `fin`, `hex`, `json`, `math` and `regexp` are *pure* (they only compute) and importable by
+  default. `fmt`, `os`, `rand` and `times` touch the world and must be granted by the host (`docs/embedding.md`
+  § The module grant); the `kavun` CLI grants every module.
 - Signatures below use Kavun-facing names and argument order.
 - A module function either answers the documented value or **raises** — nothing answers an error value, and
   nothing answers a `true` that means "it worked". A function whose success has no result answers `undefined`.

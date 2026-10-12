@@ -1,6 +1,8 @@
 package kavun_test
 
 import (
+	"bytes"
+	"errors"
 	"math/rand"
 	"strings"
 	"sync"
@@ -12,7 +14,6 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -233,6 +234,7 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 19.84, v.Interface())
 
+	// a grant that does not name the imported module refuses it at compile time
 	s.SetAllowedModules("os")
 	_, err = s.Compile()
 	require.Error(t, err)
@@ -240,6 +242,83 @@ func TestScript_BuiltinModules(t *testing.T) {
 	s.SetAllowedModules("qqqq")
 	_, err = s.Compile()
 	require.Error(t, err)
+}
+
+// The module grant is checked twice: by the compiler (a compile error) and by the VM that runs the bytecode (a
+// recoverable module_not_allowed). Without a grant only the pure modules pass either gate.
+func TestModuleGrant(t *testing.T) {
+	compileWith := func(src string, grant func(*kavun.Script)) (*kavun.Compiled, error) {
+		s := kavun.NewScript([]byte(src), "out")
+		if grant != nil {
+			grant(s)
+		}
+		return s.Compile()
+	}
+	runIn := func(c *kavun.Compiled, machine *vm.VM) error { return c.Run(machine) }
+	newVM := func() *vm.VM { return vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) }
+	requireKind := func(err error, kind string) {
+		var re *kavun.RuntimeError
+		require.True(t, errors.As(err, &re), "got %T: %v", err, err)
+		require.Equal(t, kind, re.Kind)
+		require.False(t, re.Fatal)
+	}
+
+	// default: pure modules only, at both gates
+	c, err := compileWith(`out = import("math").abs(-2)`, nil)
+	require.NoError(t, err)
+	require.NoError(t, runIn(c, newVM()))
+	_, err = compileWith(`out = import("os")`, nil)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "module 'os' is not allowed to import"), err.Error())
+
+	// a compile-time grant alone is not enough: the VM refuses, recoverably
+	c, err = compileWith(`out = import("os")`, func(s *kavun.Script) { s.SetAllowedModules("os") })
+	require.NoError(t, err)
+	err = runIn(c, newVM())
+	require.Error(t, err)
+	requireKind(err, "module_not_allowed")
+	require.True(t, strings.Contains(err.Error(), "module 'os' is not allowed"), err.Error())
+	c, err = compileWith(`f := func() r { defer func() { r = recover().kind() }(); return import("os") }; out = f()`,
+		func(s *kavun.Script) { s.SetAllowedModules("os") })
+	require.NoError(t, err)
+	require.NoError(t, runIn(c, newVM()))
+	out, err := c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, "module_not_allowed", out.Interface())
+
+	// granted at both gates: by name, or everything
+	c, err = compileWith(`out = type_name(import("os"))`, func(s *kavun.Script) { s.SetAllowedModules("os") })
+	require.NoError(t, err)
+	machine := newVM()
+	require.NoError(t, machine.SetAllowedModules("os"))
+	require.NoError(t, runIn(c, machine))
+	require.NoError(t, runIn(c, machine)) // the grant survives Reset
+	c, err = compileWith(`out = type_name(import("times"))`, func(s *kavun.Script) { s.AllowAllModules() })
+	require.NoError(t, err)
+	machine = newVM()
+	machine.AllowAllModules()
+	require.NoError(t, runIn(c, machine))
+	machine = newVM()
+	require.NoError(t, machine.SetAllowedModules("os")) // a named grant is exact: times is not in it
+	requireKind(runIn(c, machine), "module_not_allowed")
+
+	// an unknown module name is a host mistake
+	err = newVM().SetAllowedModules("nope")
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "unknown module 'nope'"), err.Error())
+
+	// bytecode compiled elsewhere and decoded is checked by the VM like any other
+	file := parse(t, `x := import("os")`)
+	cc := compiler.NewCompiler(compiler.O0(), nil, file.InputFile, nil, nil, nil, nil)
+	cc.AllowAllModules()
+	require.NoError(t, cc.CompileNode(file))
+	var buf bytes.Buffer
+	require.NoError(t, cc.Bytecode().Encode(&buf))
+	decoded := &vm.Bytecode{}
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+	machine = newVM()
+	machine.Reset(decoded, nil)
+	requireKind(machine.Run(), "module_not_allowed")
 }
 
 func TestCompiled_Get(t *testing.T) {
@@ -448,20 +527,15 @@ for i:=1; i<=d; i++ {
 e = mod1.double(s)
 `)
 
-	stdlib.InitModule("mod1", kavun.UsedDefinedModule, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction(
-			"double",
-			func(v core.VM, args []core.Value) (ret core.Value, err error) {
-				arg0, _ := args[0].AsInt()
-				ret = core.IntValue(arg0 * 2)
-				return
-			},
-			1,
-			false,
-			false,
-		),
-	})
-	defer stdlib.RemoveModule("mod1")
+	// an embedder module declared pure: granted by default, so the scripts below need no grant
+	require.NoError(t, core.NewModule(kavun.UserDefinedType, "mod1", true).
+		PureFn(testMemberID("double"), 0, func(v core.VM, args []core.Value) (ret core.Value, err error) {
+			arg0, _ := args[0].AsInt()
+			ret = core.IntValue(arg0 * 2)
+			return
+		}, 1, core.Fixed).
+		Register())
+	defer func() { require.NoError(t, core.UnregisterModule(kavun.UserDefinedType)) }()
 
 	concurrency := 500
 
@@ -609,19 +683,13 @@ func TestScriptCustomModule(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(8), v.Interface())
 
-	stdlib.InitModule("text1", kavun.UsedDefinedModule, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction(
-			"title",
-			func(v core.VM, args []core.Value) (core.Value, error) {
-				s, _ := args[0].AsString()
-				return core.NewStringValue(strings.Title(s)), nil
-			},
-			1,
-			false,
-			false,
-		),
-	})
-	defer stdlib.RemoveModule("text1")
+	require.NoError(t, core.NewModule(kavun.UserDefinedType, "text1", true).
+		PureFn(testMemberID("title"), 0, func(v core.VM, args []core.Value) (core.Value, error) {
+			s, _ := args[0].AsString()
+			return core.NewStringValue(strings.Title(s)), nil
+		}, 1, core.Fixed).
+		Register())
+	defer func() { require.NoError(t, core.UnregisterModule(kavun.UserDefinedType)) }()
 
 	scr = kavun.NewScript([]byte(`out = import("mod1")`), "out")
 	scr.AddCustomModule("mod1", []byte(`text := import("text1"); export text.title("foo")`))

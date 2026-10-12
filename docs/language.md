@@ -1009,6 +1009,13 @@ is recoverable by construction.
 `import("name")` is an expression that loads a module and returns its exported value. Module source can be a builtin
 module or a Kavun source file.
 
+A **builtin module** answers a value of type [`module`](types/module.md): its functions and constants are
+members (`math.sqrt(2)`, `math.pi`, `arr.map(math.sqrt)`), it is read-only, and a name it does not have raises
+(`math.pii` → `module 'math' has no member 'pii'`). `len`, `in` and `for k, v in m` see its members, sorted by
+name. Which builtin modules a script may import is the host's decision: by default only the pure ones (no world
+access); `os`, `fmt`, `rand` and `times` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
+grants everything.
+
 A Kavun module uses `export` to publish its result. The exported value is automatically made immutable. `export` inside
 a function body is a compile error.
 
@@ -1037,6 +1044,9 @@ export func(x) { return x * 2 }
 double = import("double")
 double(21)   // 42
 ```
+
+A source module's export is whatever it exports — a record keeps record rules (a missing field is `undefined`),
+a function is callable — and it is frozen.
 
 ## Built-in functions
 

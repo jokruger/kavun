@@ -14,6 +14,7 @@ import (
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
+	_ "github.com/jokruger/kavun/stdlib" // registers the builtin modules
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -154,6 +155,7 @@ func CompileAndRun(data []byte, inputFile string, oc *compiler.OptimizationConfi
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.AllowAllModules()
 	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
@@ -169,6 +171,7 @@ func RunCompiled(data []byte) (err error) {
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.AllowAllModules()
 	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
@@ -180,6 +183,7 @@ func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 
 	c := compiler.NewCompiler(oc, nil, srcFile, nil, nil, nil, nil)
+	c.AllowAllModules() // the CLI runs the user's own scripts: every builtin module is granted
 	if strictAssign {
 		c.SetAssignmentMode(compiler.AssignmentModeStrict)
 	}
@@ -206,6 +210,8 @@ func doHelp() {
 	fmt.Println("	-strict-assign  require variables to be declared before '=' assignment")
 	fmt.Println("	-version  show version")
 	fmt.Println("   -OX       optimization level (X = 0, 1, 2, 3)")
+	fmt.Println()
+	fmt.Println("All builtin modules are allowed from the CLI.")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println()

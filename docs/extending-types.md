@@ -466,7 +466,8 @@ guarantee it.
 
 ## Extensibility for embedder types
 
-An embedder using `SetValueType` (type IDs 192–255) participates in this exact dispatch model with no
+An embedder using `SetValueType` (type IDs 192–255, one space shared with embedder modules — `docs/embedding.md`
+§ Your own builtin module) participates in this exact dispatch model with no
 special casing — but **rule 3 is no longer automatic**. There used to be a central dispatcher that
 retried the other operand for you whenever your hook declined; that mechanism is gone. If your
 `BinaryOp` hook wants a pairing with some other type (built-in or another embedder type) to succeed

@@ -40,6 +40,7 @@ const (
 	KindConversion            = "conversion"
 	KindInvalidValue          = "invalid_value"
 	KindModuleNotFound        = "module_not_found"
+	KindModuleNotAllowed      = "module_not_allowed"
 	KindUndefinedVariable     = "undefined_variable"
 	KindJSONEncoding          = "json_encoding"
 	KindJSONDecoding          = "json_decoding"
@@ -446,6 +447,15 @@ func NewModuleNotFoundError(name string, path string) *Error {
 		Kind:        KindModuleNotFound,
 		Recoverable: true,
 		Message:     fmt.Sprintf("module '%s' not found at: %s", name, path),
+	}
+}
+
+// NewModuleNotAllowedError is the VM's refusal of a builtin module the host did not grant (VM.SetAllowedModules).
+func NewModuleNotAllowedError(name string) *Error {
+	return &Error{
+		Kind:        KindModuleNotAllowed,
+		Recoverable: true,
+		Message:     fmt.Sprintf("module '%s' is not allowed", name),
 	}
 }
 

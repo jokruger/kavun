@@ -165,6 +165,14 @@ whole safe to fold if a function-valued argument's own behavior is unknown. The 
 
 > A method call is pure iff every function-valued argument passed to it is also pure.
 
+## Module purity is a grant class, not a folding claim
+
+A builtin module carries one `Pure` flag (`core.NewModule(id, name, pure)`): whether the module as a whole only
+computes. It decides the **default grant** — a pure module is importable without the host's permission — and
+nothing else. Folding is still per function: `PureFn` registers a function the optimizer may fold, `Fn` one it
+never folds, exactly as `NewPureMethod`/`NewMethod` do for a type's members. A module value itself is never
+folded (an `import` is not a foldable expression).
+
 ## Escape hatch: `_in_place` methods
 
 If a mutating method is ever required on a container type, it MUST be exposed under a name ending in `_in_place`

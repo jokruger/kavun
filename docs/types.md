@@ -28,7 +28,8 @@ carry the full contracts; [types/function-matrix.md](types/function-matrix.md) i
 | [range](types/range.md) | lazy integer sequence `start..stop` (stop excluded); immutable, computed, never materialized |
 | [dict](types/dict.md) | mutable set of keys with attached values; the key is the element |
 | [record](types/record.md) | field bag with `r.field` access; **no member surface by design** — free builtins only |
-| function / closure / builtin | callables; `type_name()` answers `"function"` for all three |
+| function / closure / builtin / bound member | callables; `type_name()` answers `"function"` for all four |
+| [module](types/module.md) | a builtin module as `import` answers it: read-only members, dot access only |
 
 ## The type-shape families
 

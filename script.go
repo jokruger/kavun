@@ -15,6 +15,7 @@ import (
 type Script struct {
 	oc               *compiler.OptimizationConfig
 	allowedModules   []string
+	allowAllModules  bool
 	customModules    map[string][]byte
 	bindings         []string
 	source           []byte
@@ -24,8 +25,8 @@ type Script struct {
 }
 
 // NewScript creates a Script instance with the given source code and bound variable names (optional). The script is
-// initialized with default settings, including smart assignment mode, file import disabled and all builtin modules
-// allowed.
+// initialized with default settings, including smart assignment mode, file import disabled and only the pure builtin
+// modules allowed (core.PureModuleNames).
 func NewScript(source []byte, bindings ...string) *Script {
 	return &Script{
 		oc:             compiler.O3(),
@@ -55,9 +56,17 @@ func (s *Script) AddBindings(bindings ...string) {
 	s.bindings = append(s.bindings, bindings...)
 }
 
-// SetAllowedModules sets the allowed builtin module names for import. If not set, all modules are allowed.
+// SetAllowedModules sets the builtin module names an import may name. If not set, only the pure modules are allowed
+// (core.PureModuleNames). This is the compile-time half of the grant: the VM that runs the script checks it again,
+// so grant the same modules there (vm.VM.SetAllowedModules).
 func (s *Script) SetAllowedModules(modules ...string) {
 	s.allowedModules = modules
+}
+
+// AllowAllModules lets an import name every builtin module, world-touching ones included (vm.VM.AllowAllModules
+// is the run-time half).
+func (s *Script) AllowAllModules() {
+	s.allowAllModules = true
 }
 
 // AddCustomModule adds a custom module with the given name and source code.
@@ -112,6 +121,9 @@ func (s *Script) Compile() (*Compiled, error) {
 
 	c := compiler.NewCompiler(s.oc, nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
+	if s.allowAllModules {
+		c.AllowAllModules()
+	}
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)
 	if err := c.Compile(srcFile, s.source, nil); err != nil {

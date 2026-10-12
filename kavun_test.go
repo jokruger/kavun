@@ -29,7 +29,6 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -114,19 +113,41 @@ func traceCompileRun(
 		symTable.DefineBuiltin(idx, name)
 	}
 
-	idx := 0
-	for name, mod := range customBuiltinModules {
-		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.cs, mod.fns)
-		idx++
-	}
+	// custom builtin modules are embedder modules (type ids from 240, clear of the embedder test types at 193+),
+	// granted at both gates like the CLI does; the grant rules themselves are tested in script_test.go
+	var registered []uint8
 	defer func() {
-		for name := range customBuiltinModules {
-			stdlib.RemoveModule(name)
+		for _, t := range registered {
+			_ = core.UnregisterModule(t)
 		}
 	}()
+	for name, mod := range customBuiltinModules {
+		t := uint8(240) + uint8(len(registered))
+		b := core.NewModule(t, name, false)
+		for k, v := range mod.cs {
+			b.Const(testMemberID(k), v)
+		}
+		for slot, fn := range mod.fns {
+			args := core.Fixed
+			if fn.Variadic {
+				args = core.Variadic
+			}
+			if fn.Pure {
+				b.PureFn(testMemberID(fn.Name), slot, fn.Func, fn.Arity, args)
+			} else {
+				b.Fn(testMemberID(fn.Name), slot, fn.Func, fn.Arity, args)
+			}
+		}
+		if err = b.Register(); err != nil {
+			return
+		}
+		registered = append(registered, t)
+	}
+	machine.AllowAllModules()
 
 	tr := &vmTracer{}
 	c := compiler.NewCompiler(compiler.O3(), nil, file.InputFile, symTable, nil, customModules, tr)
+	c.AllowAllModules()
 	var node ast.Node
 	node, err = c.Optimize(file)
 	if err != nil {
@@ -171,6 +192,19 @@ func parse(t *testing.T, input string) *ast.File {
 	file, err := p.ParseFile()
 	require.NoError(t, err)
 	return file
+}
+
+// testMemberID answers name's member id, binding the next free embedder id for a name no builtin uses.
+func testMemberID(name string) member.ID {
+	if id := member.Lookup(name); id != member.Unknown {
+		return id
+	}
+	id := member.FirstUserDefined
+	for id.String() != "" {
+		id++
+	}
+	member.Define(id, name)
+	return id
 }
 
 type module struct {
@@ -9278,6 +9312,7 @@ func TestErrorKindSeverityAndCategory(t *testing.T) {
 		errs.NewRequirementError("detail"),
 		errs.NewInvalidValueError("detail"),
 		errs.NewModuleNotFoundError("import", "m"),
+		errs.NewModuleNotAllowedError("os"),
 		errs.NewUndefinedVariableError("x"),
 		errs.NewJSONEncodingError("detail"),
 		errs.NewJSONDecodingError("detail"),
@@ -11609,6 +11644,43 @@ func TestBoundMember(t *testing.T) {
 	expectError(t, `out = [1].nope`, nil, `invalid_selector: type array has no property "nope"`)
 }
 
+// A builtin module is a value of type module: read-only, dot access only, a miss raises naming the module.
+func TestModuleValue(t *testing.T) {
+	expectRun(t, `math := import("math"); out = [type_name(math), format(math), f"{math}", f"{math:T}", math.format()]`, nil,
+		ARR{"module", `import("math")`, `import("math")`, "module", `import("math")`})
+	expectRun(t, `math := import("math"); out = [math == math, math == import("math"), math != import("json"), is_true(math), math.is_true()]`, nil,
+		ARR{true, true, true, true, true})
+	expectRun(t, `math := import("math"); out = [math.copy() == math, math.freeze() == math]`, nil, ARR{true, true})
+	expectError(t, `math := import("math"); out = string(math)`, nil, "conversion")
+	expectError(t, `math := import("math"); out = math.string()`, nil, "invalid_method: module 'math' has no member 'string'")
+
+	// members: functions answer the same builtin-function value every time, constants their value
+	expectRun(t, `math := import("math"); out = [math.sqrt(16), math.pi > 3, math.sqrt == math.sqrt, format(math.sqrt)]`, nil,
+		ARR{4.0, true, true, "<builtin-function:math.sqrt/1>"})
+	expectRun(t, `math := import("math"); out = [4, 9].map(math.sqrt)`, nil, ARR{2.0, 3.0})
+
+	// a miss raises, as a selector and as a call; nothing is assignable; members are dot access only
+	expectError(t, `math := import("math"); out = math.pii`, nil, "invalid_selector: module 'math' has no member 'pii'")
+	expectError(t, `math := import("math"); out = math.pii()`, nil, "invalid_method: module 'math' has no member 'pii'")
+	expectError(t, `math := import("math"); math.pi = 1`, nil, "not_assignable: module 'math' is read-only: cannot assign member 'pi'")
+	expectError(t, `math := import("math"); math["pi"] = 1`, nil, "not_assignable: module 'math' is read-only: cannot assign member 'pi'")
+	expectError(t, `math := import("math"); out = math["pi"]`, nil, "not_accessible")
+
+	// len, in and for-in see the members, sorted by name
+	expectRun(t, `math := import("math"); out = [len(math), "pi" in math, "nope" in math]`, nil, ARR{76, true, false})
+	expectRun(t, `h := import("hex"); out = []; for k, v in h { out.push_in_place(k) }`, nil, ARR{"decode", "encode"})
+
+	// the value survives a binary round trip as the same module
+	def, ok := core.LookupModule("math")
+	require.True(t, ok)
+	b, err := def.New().EncodeBinary()
+	require.NoError(t, err)
+	var decoded core.Value
+	require.NoError(t, decoded.DecodeBinary(b))
+	require.True(t, decoded.Equal(def.New()))
+	require.Equal(t, value.ModuleMath, decoded.Type)
+}
+
 // Every Methods entry's Arity/Variadic against the member function's own argument-count check: Arity-1 arguments
 // raise wrong_num_arguments, Arity do not, and Arity+1 raise exactly when the entry is not Variadic. Callback-taking
 // members dispatch on a bound member's Arity, so a declaration that drifts from the check is a wrong call. Every
@@ -11654,8 +11726,10 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 			require.Equal(t, !e.Variadic, isWrongNum(recv, e, id, e.Arity+1), "%s: %d arguments vs declared Variadic %v", name, e.Arity+1, e.Variadic)
 		}
 	}
+	// module types are not sampled: their entries are generated by core.ModuleBuilder from each function's own
+	// BuiltinFunction declaration, and calling world-touching module functions with probe arguments is not safe
 	for id := range int(value.FirstUserDefinedType) {
-		if core.ValueTypes[id].Methods != nil {
+		if core.ValueTypes[id].Methods != nil && core.ModuleByType(uint8(id)) == nil {
 			require.True(t, covered[uint8(id)], "type %d has a Methods table and no sample", id)
 		}
 	}

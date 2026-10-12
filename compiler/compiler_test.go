@@ -16,6 +16,7 @@ import (
 	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
+	_ "github.com/jokruger/kavun/stdlib" // registers the builtin modules the test script imports
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -1892,6 +1893,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
+	c.AllowAllModules() // the script imports os and fmt, which are not pure
 
 	// Search for "*.kvn" and ".yb" (custom extension)
 	c.SetImportFileExt(".kvn", ".yb")

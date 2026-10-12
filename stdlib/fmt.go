@@ -4,16 +4,18 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
 func init() {
+	m := core.NewModule(value.ModuleIo, "fmt", false)
 	// 2..127 reserved
-	InitModule("fmt", module.Fmt, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("print", fmtPrint, 0, true, false),
-		1: core.NewBuiltinFunction("println", fmtPrintln, 0, true, false),
-	})
+	m.Fn(members.Print, 0, fmtPrint, 0, core.Variadic)
+	m.Fn(members.Println, 1, fmtPrintln, 0, core.Variadic)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {

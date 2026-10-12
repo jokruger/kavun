@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -732,4 +733,59 @@ func TestEmbedderMemberTables(t *testing.T) {
 	require.False(t, core.MemberIsPure(MyTabled, "raw"))
 	require.True(t, core.HasMember(MyTabled, "scaled"))
 	require.False(t, core.HasMember(MyTabled, "raw"))
+}
+
+// An embedder module is a type in the embedder range: it can answer a fresh value per import through New and amend
+// its descriptor before Register; UnregisterModule removes it again.
+func TestEmbedderModule(t *testing.T) {
+	const tid = uint8(230)
+	imports := 0
+	b := core.NewModule(tid, "per_import", true).
+		PureFn(memberScaled, 0, func(_ core.VM, args []core.Value) (core.Value, error) {
+			n, _ := args[0].AsInt()
+			return core.IntValue(2 * n), nil
+		}, 1, core.Fixed).
+		Const(members.Label, core.NewStringValue("embedder")).
+		New(func() core.Value {
+			imports++
+			n := imports
+			return core.Value{Type: tid, Immutable: true, Ptr: unsafe.Pointer(&n)}
+		})
+	b.Descr().String = func(v core.Value) string { return fmt.Sprintf("per_import#%d", *(*int)(v.Ptr)) }
+	require.NoError(t, b.Register())
+	defer func() { require.NoError(t, core.UnregisterModule(tid)) }()
+
+	expectRun(t, `m := import("per_import"); out = [m.scaled(21), m.label, type_name(m), len(m)]`, nil, ARR{42, "embedder", "module", 2})
+	expectRun(t, `a := import("per_import"); b := import("per_import"); out = [a == a, a == b, format(a) != format(b)]`, nil, ARR{true, false, true})
+	expectError(t, `m := import("per_import"); m.nope`, nil, "invalid_selector: module 'per_import' has no member 'nope'")
+	require.True(t, slices.Contains(core.ModuleNames(), "per_import"))
+	require.True(t, slices.Contains(core.PureModuleNames(), "per_import"))
+}
+
+// The builder refuses what would make a module ambiguous; each refusal is a host error from Register.
+func TestModuleBuilderRefusals(t *testing.T) {
+	noop := func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }
+	cases := []struct {
+		name string
+		b    *core.ModuleBuilder
+		msg  string
+	}{
+		{"unbound id", core.NewModule(231, "m1", true).PureFn(member.ID(4000), 0, noop, 0, core.Fixed), "is not bound"},
+		{"universal name", core.NewModule(231, "m1", true).PureFn(members.Format, 0, noop, 0, core.Fixed), "universal member"},
+		{"same name twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).Const(memberScaled, core.IntValue(1)), "declared twice"},
+		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).PureFn(members.Label, 0, noop, 0, core.Fixed), "already filled"},
+		{"slot out of range", core.NewModule(231, "m1", true).PureFn(memberScaled, 128, noop, 0, core.Fixed), "out of range"},
+		{"language type id", core.NewModule(value.Array, "m1", true), "not a module type id"},
+		{"builtin name", core.NewModule(231, "math", true), "name already registered"},
+		{"builtin module id", core.NewModule(value.ModuleMath, "m1", true), "already module 'math'"},
+	}
+	for _, c := range cases {
+		err := c.b.Register()
+		require.Error(t, err, c.name)
+		e := errs.AsError(err)
+		require.True(t, e != nil && e.Kind == errs.KindHost, c.name)
+		require.True(t, strings.Contains(e.Message, c.msg), "%s: %s", c.name, e.Message)
+	}
+	require.Error(t, core.UnregisterModule(value.ModuleMath))
+	require.Error(t, core.UnregisterModule(231))
 }

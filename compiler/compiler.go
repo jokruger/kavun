@@ -51,7 +51,8 @@ type Compiler struct {
 	symbolTable     *SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
-	allowedModules  set.Set[string]
+	allowedModules  set.Set[string] // nil: only pure builtin modules (core.ModuleDef.Pure)
+	allowAll        bool            // AllowAllModules: every builtin module, the allowedModules set ignored
 	customModules   map[string][]byte
 	compiledModules map[string]core.CompiledFunction
 	allowFileImport bool
@@ -63,7 +64,9 @@ type Compiler struct {
 	indent          int
 }
 
-// New creates a Compiler.
+// NewCompiler creates a Compiler. allowedModules is the builtin modules an import may name; nil allows only the
+// pure ones (core.PureModuleNames), and AllowAllModules lifts the gate. The VM checks the same grant again at run
+// time (vm.VM.SetAllowedModules), so precompiled bytecode cannot bypass it.
 func NewCompiler(
 	oc *OptimizationConfig,
 	sb *StaticBuilder,
@@ -120,6 +123,11 @@ func NewCompiler(
 		compiledModules: make(map[string]core.CompiledFunction),
 		importFileExt:   []string{DefaultSourceFileExt},
 	}
+}
+
+// AllowAllModules lets an import name every builtin module, world-touching ones included.
+func (c *Compiler) AllowAllModules() {
+	c.allowAll = true
 }
 
 // SetAssignmentMode sets how plain '=' handles unresolved identifiers.

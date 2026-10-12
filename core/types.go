@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"time"
@@ -22,6 +23,8 @@ type VM interface {
 	Call(Value, []Value) (Value, error) // calls a compiled function
 	Run() error                         // runs the VM until completion
 	Recover() Value                     // returns the in-flight error if in "deferred-for" frame
+	Stdin() io.Reader                   // the reader the io module reads from
+	Stdout() io.Writer                  // the writer the io module prints to
 }
 
 type NativeFunc = func(VM, []Value) (Value, error)

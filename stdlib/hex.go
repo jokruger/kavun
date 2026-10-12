@@ -4,16 +4,19 @@ import (
 	"encoding/hex"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
+	m := core.NewModule(value.ModuleHex, "hex", true)
 	// 2..127 reserved
-	InitModule("hex", module.Hex, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("encode", hexEncodeToString, 1, false, true),
-		1: core.NewBuiltinFunction("decode", hexDecodeString, 1, false, true),
-	})
+	m.PureFn(members.Encode, 0, hexEncodeToString, 1, core.Fixed)
+	m.PureFn(members.Decode, 1, hexDecodeString, 1, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {

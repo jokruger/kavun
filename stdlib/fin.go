@@ -13,7 +13,7 @@ import (
 	"github.com/jokruger/fin128/daycount"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
@@ -31,84 +31,83 @@ import (
 // Every fin128 failure becomes a Kavun error exactly once, in finRaise.
 
 func init() {
-	InitModule("fin", module.Fin,
-		map[string]core.Value{},
-		map[uint64]*core.BuiltinFunction{
-			// units (exact, no rounding)
-			0: core.NewBuiltinFunction("to_percent", finToPercent, 1, false, true),
-			1: core.NewBuiltinFunction("from_percent", finFromPercent, 1, false, true),
-			2: core.NewBuiltinFunction("to_basis_points", finToBasisPoints, 1, false, true),
-			3: core.NewBuiltinFunction("from_basis_points", finFromBasisPoints, 1, false, true),
-			// rounding / exact
-			4: core.NewBuiltinFunction("apply_rate", finApplyRate, 4, false, true),
-			5: core.NewBuiltinFunction("exact_product", finExactProduct, 2, false, true),
-			6: core.NewBuiltinFunction("mul_div_round", finMulDivRound, 6, false, true),
-			// rate conversion
-			7: core.NewBuiltinFunction("nominal_to_effective", finNominalToEffective, 4, false, true),
-			8: core.NewBuiltinFunction("effective_to_nominal", finEffectiveToNominal, 4, false, true),
-			9: core.NewBuiltinFunction("per_year", finPerYear, 1, false, true),
-			// factors
-			10: core.NewBuiltinFunction("compound_factor", finCompoundFactor, 4, false, true),
-			11: core.NewBuiltinFunction("discount_factor", finDiscountFactor, 4, false, true),
-			// annuity / TVM
-			12: core.NewBuiltinFunction("annuity_factor_fv", finAnnuityFactorFV, 5, false, true),
-			13: core.NewBuiltinFunction("annuity_factor_pv", finAnnuityFactorPV, 5, false, true),
-			14: core.NewBuiltinFunction("payment", finPayment, 7, false, true),
-			15: core.NewBuiltinFunction("present_value", finPresentValue, 7, false, true),
-			16: core.NewBuiltinFunction("future_value", finFutureValue, 7, false, true),
-			17: core.NewBuiltinFunction("periods", finPeriods, 7, false, true),
-			18: core.NewBuiltinFunction("rate", finRate, 7, true, true),
-			// schedule
-			19: core.NewBuiltinFunction("balance", finBalance, 8, false, true),
-			20: core.NewBuiltinFunction("charge_part", finChargePart, 8, false, true),
-			21: core.NewBuiltinFunction("principal_part", finPrincipalPart, 8, false, true),
-			// cashflows
-			22: core.NewBuiltinFunction("npv", finNPV, 4, false, true),
-			23: core.NewBuiltinFunction("irr", finIRR, 3, true, true),
-			24: core.NewBuiltinFunction("mirr", finMIRR, 5, false, true),
-			// depreciation
-			25: core.NewBuiltinFunction("straight_line", finStraightLine, 5, false, true),
-			26: core.NewBuiltinFunction("sum_of_digits", finSumOfDigits, 6, false, true),
-			27: core.NewBuiltinFunction("declining_balance", finDecliningBalance, 5, false, true),
-			28: core.NewBuiltinFunction("declining_rate_from_factor", finDecliningRateFromFactor, 4, false, true),
-			29: core.NewBuiltinFunction("declining_rate_from_salvage", finDecliningRateFromSalvage, 5, false, true),
-			// solver
-			30: core.NewBuiltinFunction("default_solver", finDefaultSolver, 0, false, true),
-			// fin.year_fraction and day count
-			31: core.NewBuiltinFunction("year_fraction", finYearFraction, 0, true, true),
-			32: core.NewBuiltinFunction("is_year_fraction", finIsYearFraction, 1, false, true),
-			33: core.NewBuiltinFunction("year_fraction_between", finYearFractionBetween, 3, false, true),
-			34: core.NewBuiltinFunction("year_fraction_between_final", finYearFractionBetweenFinal, 3, false, true),
-			35: core.NewBuiltinFunction("days_between", finDaysBetween, 3, false, true),
-			36: core.NewBuiltinFunction("days_between_final", finDaysBetweenFinal, 3, false, true),
-			37: core.NewBuiltinFunction("days_in_year", finDaysInYear, 2, false, true),
-			38: core.NewBuiltinFunction("conventions", finConventions, 0, false, true),
-			// functions of a year fraction
-			39: core.NewBuiltinFunction("compound_factor_for", finCompoundFactorFor, 4, false, true),
-			40: core.NewBuiltinFunction("discount_factor_for", finDiscountFactorFor, 4, false, true),
-			41: core.NewBuiltinFunction("accrue_simple", finAccrueSimple, 5, false, true),
-			42: core.NewBuiltinFunction("accrue_compound", finAccrueCompound, 6, false, true),
-			43: core.NewBuiltinFunction("discount_price", finDiscountPrice, 5, false, true),
-			44: core.NewBuiltinFunction("discount_rate", finDiscountRate, 5, false, true),
-			45: core.NewBuiltinFunction("discount_yield", finDiscountYield, 5, false, true),
-			// dated cashflows
-			46: core.NewBuiltinFunction("xnpv", finXNPV, 5, false, true),
-			47: core.NewBuiltinFunction("xirr", finXIRR, 4, true, true),
-			// rate and charge tables
-			48: core.NewBuiltinFunction("tiered_rates", finTieredRates, 0, true, true),
-			49: core.NewBuiltinFunction("tiered_charges", finTieredCharges, 0, true, true),
-			50: core.NewBuiltinFunction("dated_rates", finDatedRates, 0, true, true),
-			51: core.NewBuiltinFunction("dated_charges", finDatedCharges, 0, true, true),
-			52: core.NewBuiltinFunction("is_tiered_rates", finIsType(value.FinTieredRates, "is_tiered_rates"), 1, false, true),
-			53: core.NewBuiltinFunction("is_tiered_charges", finIsType(value.FinTieredCharges, "is_tiered_charges"), 1, false, true),
-			54: core.NewBuiltinFunction("is_dated_rates", finIsType(value.FinDatedRates, "is_dated_rates"), 1, false, true),
-			55: core.NewBuiltinFunction("is_dated_charges", finIsType(value.FinDatedCharges, "is_dated_charges"), 1, false, true),
-			// solver with a script callback — CALLABLE-DEPENDENT, so registered impure: the optimizer cannot prove a
-			// callback pure, and must never fold a call that runs one
-			56: core.NewBuiltinFunction("root", finRoot, 3, true, false),
-			57: core.NewBuiltinFunction("brackets", finBrackets, 1, true, false),
-		},
-	)
+	m := core.NewModule(value.ModuleFin, "fin", true)
+	// units (exact, no rounding)
+	m.PureFn(members.ToPercent, 0, finToPercent, 1, core.Fixed)
+	m.PureFn(members.FromPercent, 1, finFromPercent, 1, core.Fixed)
+	m.PureFn(members.ToBasisPoints, 2, finToBasisPoints, 1, core.Fixed)
+	m.PureFn(members.FromBasisPoints, 3, finFromBasisPoints, 1, core.Fixed)
+	// rounding / exact
+	m.PureFn(members.ApplyRate, 4, finApplyRate, 4, core.Fixed)
+	m.PureFn(members.ExactProduct, 5, finExactProduct, 2, core.Fixed)
+	m.PureFn(members.MulDivRound, 6, finMulDivRound, 6, core.Fixed)
+	// rate conversion
+	m.PureFn(members.NominalToEffective, 7, finNominalToEffective, 4, core.Fixed)
+	m.PureFn(members.EffectiveToNominal, 8, finEffectiveToNominal, 4, core.Fixed)
+	m.PureFn(members.PerYear, 9, finPerYear, 1, core.Fixed)
+	// factors
+	m.PureFn(members.CompoundFactor, 10, finCompoundFactor, 4, core.Fixed)
+	m.PureFn(members.DiscountFactor, 11, finDiscountFactor, 4, core.Fixed)
+	// annuity / TVM
+	m.PureFn(members.AnnuityFactorFv, 12, finAnnuityFactorFV, 5, core.Fixed)
+	m.PureFn(members.AnnuityFactorPv, 13, finAnnuityFactorPV, 5, core.Fixed)
+	m.PureFn(members.Payment, 14, finPayment, 7, core.Fixed)
+	m.PureFn(members.PresentValue, 15, finPresentValue, 7, core.Fixed)
+	m.PureFn(members.FutureValue, 16, finFutureValue, 7, core.Fixed)
+	m.PureFn(members.Periods, 17, finPeriods, 7, core.Fixed)
+	m.PureFn(members.Rate, 18, finRate, 7, core.Variadic)
+	// schedule
+	m.PureFn(members.Balance, 19, finBalance, 8, core.Fixed)
+	m.PureFn(members.ChargePart, 20, finChargePart, 8, core.Fixed)
+	m.PureFn(members.PrincipalPart, 21, finPrincipalPart, 8, core.Fixed)
+	// cashflows
+	m.PureFn(members.Npv, 22, finNPV, 4, core.Fixed)
+	m.PureFn(members.Irr, 23, finIRR, 3, core.Variadic)
+	m.PureFn(members.Mirr, 24, finMIRR, 5, core.Fixed)
+	// depreciation
+	m.PureFn(members.StraightLine, 25, finStraightLine, 5, core.Fixed)
+	m.PureFn(members.SumOfDigits, 26, finSumOfDigits, 6, core.Fixed)
+	m.PureFn(members.DecliningBalance, 27, finDecliningBalance, 5, core.Fixed)
+	m.PureFn(members.DecliningRateFromFactor, 28, finDecliningRateFromFactor, 4, core.Fixed)
+	m.PureFn(members.DecliningRateFromSalvage, 29, finDecliningRateFromSalvage, 5, core.Fixed)
+	// solver
+	m.PureFn(members.DefaultSolver, 30, finDefaultSolver, 0, core.Fixed)
+	// fin.year_fraction and day count
+	m.PureFn(members.YearFraction, 31, finYearFraction, 0, core.Variadic)
+	m.PureFn(members.IsYearFraction, 32, finIsYearFraction, 1, core.Fixed)
+	m.PureFn(members.YearFractionBetween, 33, finYearFractionBetween, 3, core.Fixed)
+	m.PureFn(members.YearFractionBetweenFinal, 34, finYearFractionBetweenFinal, 3, core.Fixed)
+	m.PureFn(members.DaysBetween, 35, finDaysBetween, 3, core.Fixed)
+	m.PureFn(members.DaysBetweenFinal, 36, finDaysBetweenFinal, 3, core.Fixed)
+	m.PureFn(members.DaysInYear, 37, finDaysInYear, 2, core.Fixed)
+	m.PureFn(members.Conventions, 38, finConventions, 0, core.Fixed)
+	// functions of a year fraction
+	m.PureFn(members.CompoundFactorFor, 39, finCompoundFactorFor, 4, core.Fixed)
+	m.PureFn(members.DiscountFactorFor, 40, finDiscountFactorFor, 4, core.Fixed)
+	m.PureFn(members.AccrueSimple, 41, finAccrueSimple, 5, core.Fixed)
+	m.PureFn(members.AccrueCompound, 42, finAccrueCompound, 6, core.Fixed)
+	m.PureFn(members.DiscountPrice, 43, finDiscountPrice, 5, core.Fixed)
+	m.PureFn(members.DiscountRate, 44, finDiscountRate, 5, core.Fixed)
+	m.PureFn(members.DiscountYield, 45, finDiscountYield, 5, core.Fixed)
+	// dated cashflows
+	m.PureFn(members.Xnpv, 46, finXNPV, 5, core.Fixed)
+	m.PureFn(members.Xirr, 47, finXIRR, 4, core.Variadic)
+	// rate and charge tables
+	m.PureFn(members.TieredRates, 48, finTieredRates, 0, core.Variadic)
+	m.PureFn(members.TieredCharges, 49, finTieredCharges, 0, core.Variadic)
+	m.PureFn(members.DatedRates, 50, finDatedRates, 0, core.Variadic)
+	m.PureFn(members.DatedCharges, 51, finDatedCharges, 0, core.Variadic)
+	m.PureFn(members.IsTieredRates, 52, finIsType(value.FinTieredRates, "is_tiered_rates"), 1, core.Fixed)
+	m.PureFn(members.IsTieredCharges, 53, finIsType(value.FinTieredCharges, "is_tiered_charges"), 1, core.Fixed)
+	m.PureFn(members.IsDatedRates, 54, finIsType(value.FinDatedRates, "is_dated_rates"), 1, core.Fixed)
+	m.PureFn(members.IsDatedCharges, 55, finIsType(value.FinDatedCharges, "is_dated_charges"), 1, core.Fixed)
+	// solver with a script callback — CALLABLE-DEPENDENT, so registered impure: the optimizer cannot prove a
+	// callback pure, and must never fold a call that runs one
+	m.Fn(members.Root, 56, finRoot, 3, core.Variadic)
+	m.Fn(members.Brackets, 57, finBrackets, 1, core.Variadic)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 // finRaise translates a fin128/dec128 error through core.FinError, the single translation point shared with the

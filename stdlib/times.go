@@ -7,54 +7,52 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
-	InitModule("times", module.Times,
-		map[string]core.Value{
-			"nanosecond":  core.IntValue(int64(time.Nanosecond)),
-			"microsecond": core.IntValue(int64(time.Microsecond)),
-			"millisecond": core.IntValue(int64(time.Millisecond)),
-			"second":      core.IntValue(int64(time.Second)),
-			"minute":      core.IntValue(int64(time.Minute)),
-			"hour":        core.IntValue(int64(time.Hour)),
-			"january":     core.IntValue(int64(time.January)),
-			"february":    core.IntValue(int64(time.February)),
-			"march":       core.IntValue(int64(time.March)),
-			"april":       core.IntValue(int64(time.April)),
-			"may":         core.IntValue(int64(time.May)),
-			"june":        core.IntValue(int64(time.June)),
-			"july":        core.IntValue(int64(time.July)),
-			"august":      core.IntValue(int64(time.August)),
-			"september":   core.IntValue(int64(time.September)),
-			"october":     core.IntValue(int64(time.October)),
-			"november":    core.IntValue(int64(time.November)),
-			"december":    core.IntValue(int64(time.December)),
-		},
-		// 42..127 reserved
-		map[uint64]*core.BuiltinFunction{
-			0:  core.NewBuiltinFunction("sleep", timesSleep, 1, false, false),                             // sleep(int)
-			1:  core.NewBuiltinFunction("parse_duration", timesParseDuration, 1, false, true),             // parse_duration(str) => int
-			2:  core.NewBuiltinFunction("since", timesSince, 1, false, false),                             // since(time) => int
-			3:  core.NewBuiltinFunction("until", timesUntil, 1, false, false),                             // until(time) => int
-			4:  core.NewBuiltinFunction("duration_hours", timesDurationHours, 1, false, true),             // duration_hours(int) => float
-			5:  core.NewBuiltinFunction("duration_minutes", timesDurationMinutes, 1, false, true),         // duration_minutes(int) => float
-			6:  core.NewBuiltinFunction("duration_nanoseconds", timesDurationNanoseconds, 1, false, true), // duration_nanoseconds(int) => int
-			7:  core.NewBuiltinFunction("duration_seconds", timesDurationSeconds, 1, false, true),         // duration_seconds(int) => float
-			8:  core.NewBuiltinFunction("duration_string", timesDurationString, 1, false, true),           // duration_string(int) => string
-			10: core.NewBuiltinFunction("now", timesNow, 0, false, false),                                 // now() => time
-			12: core.NewBuiltinFunction("unix", timesUnix, 2, false, true),                                // unix(sec, nsec) => time
-			16: core.NewBuiltinFunction("from_unix_ms", timesFromUnixMs, 1, false, true),                  // from_unix_ms(msec) => time
-			17: core.NewBuiltinFunction("from_unix_micro", timesFromUnixMicro, 1, false, true),            // from_unix_micro(usec) => time
-			18: core.NewBuiltinFunction("from_unix_nano", timesFromUnixNano, 1, false, true),              // from_unix_nano(nsec) => time
-			19: core.NewBuiltinFunction("is_leap_year", timesIsLeapYear, 1, false, true),                  // is_leap_year(year) => bool
-			20: core.NewBuiltinFunction("days_in_year", timesDaysInYear, 1, false, true),                  // days_in_year(year) => int
-			21: core.NewBuiltinFunction("days_in_month", timesDaysInMonth, 2, false, true),                // days_in_month(year, month) => int
-		},
-	)
+	m := core.NewModule(value.ModuleClock, "times", false)
+	m.Const(members.Nanosecond, core.IntValue(int64(time.Nanosecond)))
+	m.Const(members.Microsecond, core.IntValue(int64(time.Microsecond)))
+	m.Const(members.Millisecond, core.IntValue(int64(time.Millisecond)))
+	m.Const(members.Second, core.IntValue(int64(time.Second)))
+	m.Const(members.Minute, core.IntValue(int64(time.Minute)))
+	m.Const(members.Hour, core.IntValue(int64(time.Hour)))
+	m.Const(members.January, core.IntValue(int64(time.January)))
+	m.Const(members.February, core.IntValue(int64(time.February)))
+	m.Const(members.March, core.IntValue(int64(time.March)))
+	m.Const(members.April, core.IntValue(int64(time.April)))
+	m.Const(members.May, core.IntValue(int64(time.May)))
+	m.Const(members.June, core.IntValue(int64(time.June)))
+	m.Const(members.July, core.IntValue(int64(time.July)))
+	m.Const(members.August, core.IntValue(int64(time.August)))
+	m.Const(members.September, core.IntValue(int64(time.September)))
+	m.Const(members.October, core.IntValue(int64(time.October)))
+	m.Const(members.November, core.IntValue(int64(time.November)))
+	m.Const(members.December, core.IntValue(int64(time.December)))
+	// 42..127 reserved
+	m.Fn(members.Sleep, 0, timesSleep, 1, core.Fixed)                                 // sleep(int)
+	m.PureFn(members.ParseDuration, 1, timesParseDuration, 1, core.Fixed)             // parse_duration(str) => int
+	m.Fn(members.Since, 2, timesSince, 1, core.Fixed)                                 // since(time) => int
+	m.Fn(members.Until, 3, timesUntil, 1, core.Fixed)                                 // until(time) => int
+	m.PureFn(members.DurationHours, 4, timesDurationHours, 1, core.Fixed)             // duration_hours(int) => float
+	m.PureFn(members.DurationMinutes, 5, timesDurationMinutes, 1, core.Fixed)         // duration_minutes(int) => float
+	m.PureFn(members.DurationNanoseconds, 6, timesDurationNanoseconds, 1, core.Fixed) // duration_nanoseconds(int) => int
+	m.PureFn(members.DurationSeconds, 7, timesDurationSeconds, 1, core.Fixed)         // duration_seconds(int) => float
+	m.PureFn(members.DurationString, 8, timesDurationString, 1, core.Fixed)           // duration_string(int) => string
+	m.Fn(members.Now, 10, timesNow, 0, core.Fixed)                                    // now() => time
+	m.PureFn(members.Unix, 12, timesUnix, 2, core.Fixed)                              // unix(sec, nsec) => time
+	m.PureFn(members.FromUnixMs, 16, timesFromUnixMs, 1, core.Fixed)                  // from_unix_ms(msec) => time
+	m.PureFn(members.FromUnixMicro, 17, timesFromUnixMicro, 1, core.Fixed)            // from_unix_micro(usec) => time
+	m.PureFn(members.FromUnixNano, 18, timesFromUnixNano, 1, core.Fixed)              // from_unix_nano(nsec) => time
+	m.PureFn(members.IsLeapYear, 19, timesIsLeapYear, 1, core.Fixed)                  // is_leap_year(year) => bool
+	m.PureFn(members.DaysInYear, 20, timesDaysInYear, 1, core.Fixed)                  // days_in_year(year) => int
+	m.PureFn(members.DaysInMonth, 21, timesDaysInMonth, 2, core.Fixed)                // days_in_month(year, month) => int
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func timesSleep(vm core.VM, args []core.Value) (core.Value, error) {

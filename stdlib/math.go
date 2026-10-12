@@ -4,95 +4,95 @@ import (
 	"math"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
-	InitModule("math", module.Math,
-		map[string]core.Value{
-			"e":                        core.FloatValue(math.E),
-			"pi":                       core.FloatValue(math.Pi),
-			"phi":                      core.FloatValue(math.Phi),
-			"sqrt2":                    core.FloatValue(math.Sqrt2),
-			"sqrt_e":                   core.FloatValue(math.SqrtE),
-			"sqrt_pi":                  core.FloatValue(math.SqrtPi),
-			"sqrt_phi":                 core.FloatValue(math.SqrtPhi),
-			"ln2":                      core.FloatValue(math.Ln2),
-			"log2e":                    core.FloatValue(math.Log2E),
-			"ln10":                     core.FloatValue(math.Ln10),
-			"log10e":                   core.FloatValue(math.Log10E),
-			"max_float32":              core.FloatValue(math.MaxFloat32),
-			"smallest_nonzero_float32": core.FloatValue(math.SmallestNonzeroFloat32),
-			"max_float64":              core.FloatValue(math.MaxFloat64),
-			"smallest_nonzero_float64": core.FloatValue(math.SmallestNonzeroFloat64),
-			"max_int":                  core.IntValue(math.MaxInt),
-			"min_int":                  core.IntValue(math.MinInt),
-			"max_int8":                 core.IntValue(math.MaxInt8),
-			"min_int8":                 core.IntValue(math.MinInt8),
-			"max_int16":                core.IntValue(math.MaxInt16),
-			"min_int16":                core.IntValue(math.MinInt16),
-			"max_int32":                core.IntValue(math.MaxInt32),
-			"min_int32":                core.IntValue(math.MinInt32),
-			"max_int64":                core.IntValue(math.MaxInt64),
-			"min_int64":                core.IntValue(math.MinInt64),
-		},
-		// 53..127 reserved
-		map[uint64]*core.BuiltinFunction{
-			0:  core.NewBuiltinFunction("abs", mathAbs, 1, false, true),
-			1:  core.NewBuiltinFunction("acos", mathAcos, 1, false, true),
-			2:  core.NewBuiltinFunction("acosh", mathAcosh, 1, false, true),
-			3:  core.NewBuiltinFunction("asin", mathAsin, 1, false, true),
-			4:  core.NewBuiltinFunction("asinh", mathAsinh, 1, false, true),
-			5:  core.NewBuiltinFunction("atan", mathAtan, 1, false, true),
-			6:  core.NewBuiltinFunction("atan2", mathAtan2, 2, false, true),
-			7:  core.NewBuiltinFunction("atanh", mathAtanh, 1, false, true),
-			8:  core.NewBuiltinFunction("cbrt", mathCbrt, 1, false, true),
-			9:  core.NewBuiltinFunction("ceil", mathCeil, 1, false, true),
-			10: core.NewBuiltinFunction("copy_sign", mathCopysign, 2, false, true),
-			11: core.NewBuiltinFunction("cos", mathCos, 1, false, true),
-			12: core.NewBuiltinFunction("cosh", mathCosh, 1, false, true),
-			13: core.NewBuiltinFunction("dim", mathDim, 2, false, true),
-			14: core.NewBuiltinFunction("erf", mathErf, 1, false, true),
-			15: core.NewBuiltinFunction("erfc", mathErfc, 1, false, true),
-			16: core.NewBuiltinFunction("exp", mathExp, 1, false, true),
-			17: core.NewBuiltinFunction("exp2", mathExp2, 1, false, true),
-			18: core.NewBuiltinFunction("expm1", mathExpm1, 1, false, true),
-			19: core.NewBuiltinFunction("floor", mathFloor, 1, false, true),
-			20: core.NewBuiltinFunction("gamma", mathGamma, 1, false, true),
-			21: core.NewBuiltinFunction("hypot", mathHypot, 2, false, true),
-			22: core.NewBuiltinFunction("ilogb", mathIlogb, 1, false, true),
-			23: core.NewBuiltinFunction("inf", mathInf, 1, false, true),
-			24: core.NewBuiltinFunction("is_inf", mathIsInf, 2, false, true),
-			25: core.NewBuiltinFunction("is_nan", mathIsNaN, 1, false, true),
-			26: core.NewBuiltinFunction("j0", mathJ0, 1, false, true),
-			27: core.NewBuiltinFunction("j1", mathJ1, 1, false, true),
-			28: core.NewBuiltinFunction("jn", mathJn, 2, false, true),
-			29: core.NewBuiltinFunction("ldexp", mathLdexp, 2, false, true),
-			30: core.NewBuiltinFunction("log", mathLog, 1, false, true),
-			31: core.NewBuiltinFunction("log10", mathLog10, 1, false, true),
-			32: core.NewBuiltinFunction("log1p", mathLog1p, 1, false, true),
-			33: core.NewBuiltinFunction("log2", mathLog2, 1, false, true),
-			34: core.NewBuiltinFunction("logb", mathLogb, 1, false, true),
-			// 35/36 formerly max/min — deleted: the free variadic max/min select among arguments,
-			// and the members aggregate over elements; the module pair merely duplicated them
-			37: core.NewBuiltinFunction("mod", mathMod, 2, false, true),
-			38: core.NewBuiltinFunction("nan", mathNaN, 0, false, true),
-			39: core.NewBuiltinFunction("next_after", mathNextafter, 2, false, true),
-			40: core.NewBuiltinFunction("pow", mathPow, 2, false, true),
-			41: core.NewBuiltinFunction("pow10", mathPow10, 1, false, true),
-			42: core.NewBuiltinFunction("remainder", mathRemainder, 2, false, true),
-			43: core.NewBuiltinFunction("signbit", mathSignbit, 1, false, true),
-			44: core.NewBuiltinFunction("sin", mathSin, 1, false, true),
-			45: core.NewBuiltinFunction("sinh", mathSinh, 1, false, true),
-			46: core.NewBuiltinFunction("sqrt", mathSqrt, 1, false, true),
-			47: core.NewBuiltinFunction("tan", mathTan, 1, false, true),
-			48: core.NewBuiltinFunction("tanh", mathTanh, 1, false, true),
-			49: core.NewBuiltinFunction("trunc", mathTrunc, 1, false, true),
-			50: core.NewBuiltinFunction("y0", mathY0, 1, false, true),
-			51: core.NewBuiltinFunction("y1", mathY1, 1, false, true),
-			52: core.NewBuiltinFunction("yn", mathYn, 2, false, true),
-		})
+	m := core.NewModule(value.ModuleMath, "math", true)
+	m.Const(members.E, core.FloatValue(math.E))
+	m.Const(members.Pi, core.FloatValue(math.Pi))
+	m.Const(members.Phi, core.FloatValue(math.Phi))
+	m.Const(members.Sqrt2, core.FloatValue(math.Sqrt2))
+	m.Const(members.SqrtE, core.FloatValue(math.SqrtE))
+	m.Const(members.SqrtPi, core.FloatValue(math.SqrtPi))
+	m.Const(members.SqrtPhi, core.FloatValue(math.SqrtPhi))
+	m.Const(members.Ln2, core.FloatValue(math.Ln2))
+	m.Const(members.Log2e, core.FloatValue(math.Log2E))
+	m.Const(members.Ln10, core.FloatValue(math.Ln10))
+	m.Const(members.Log10e, core.FloatValue(math.Log10E))
+	m.Const(members.MaxFloat32, core.FloatValue(math.MaxFloat32))
+	m.Const(members.SmallestNonzeroFloat32, core.FloatValue(math.SmallestNonzeroFloat32))
+	m.Const(members.MaxFloat64, core.FloatValue(math.MaxFloat64))
+	m.Const(members.SmallestNonzeroFloat64, core.FloatValue(math.SmallestNonzeroFloat64))
+	m.Const(members.MaxInt, core.IntValue(math.MaxInt))
+	m.Const(members.MinInt, core.IntValue(math.MinInt))
+	m.Const(members.MaxInt8, core.IntValue(math.MaxInt8))
+	m.Const(members.MinInt8, core.IntValue(math.MinInt8))
+	m.Const(members.MaxInt16, core.IntValue(math.MaxInt16))
+	m.Const(members.MinInt16, core.IntValue(math.MinInt16))
+	m.Const(members.MaxInt32, core.IntValue(math.MaxInt32))
+	m.Const(members.MinInt32, core.IntValue(math.MinInt32))
+	m.Const(members.MaxInt64, core.IntValue(math.MaxInt64))
+	m.Const(members.MinInt64, core.IntValue(math.MinInt64))
+	// 53..127 reserved
+	m.PureFn(members.Abs, 0, mathAbs, 1, core.Fixed)
+	m.PureFn(members.Acos, 1, mathAcos, 1, core.Fixed)
+	m.PureFn(members.Acosh, 2, mathAcosh, 1, core.Fixed)
+	m.PureFn(members.Asin, 3, mathAsin, 1, core.Fixed)
+	m.PureFn(members.Asinh, 4, mathAsinh, 1, core.Fixed)
+	m.PureFn(members.Atan, 5, mathAtan, 1, core.Fixed)
+	m.PureFn(members.Atan2, 6, mathAtan2, 2, core.Fixed)
+	m.PureFn(members.Atanh, 7, mathAtanh, 1, core.Fixed)
+	m.PureFn(members.Cbrt, 8, mathCbrt, 1, core.Fixed)
+	m.PureFn(members.Ceil, 9, mathCeil, 1, core.Fixed)
+	m.PureFn(members.CopySign, 10, mathCopysign, 2, core.Fixed)
+	m.PureFn(members.Cos, 11, mathCos, 1, core.Fixed)
+	m.PureFn(members.Cosh, 12, mathCosh, 1, core.Fixed)
+	m.PureFn(members.Dim, 13, mathDim, 2, core.Fixed)
+	m.PureFn(members.Erf, 14, mathErf, 1, core.Fixed)
+	m.PureFn(members.Erfc, 15, mathErfc, 1, core.Fixed)
+	m.PureFn(members.Exp, 16, mathExp, 1, core.Fixed)
+	m.PureFn(members.Exp2, 17, mathExp2, 1, core.Fixed)
+	m.PureFn(members.Expm1, 18, mathExpm1, 1, core.Fixed)
+	m.PureFn(members.Floor, 19, mathFloor, 1, core.Fixed)
+	m.PureFn(members.Gamma, 20, mathGamma, 1, core.Fixed)
+	m.PureFn(members.Hypot, 21, mathHypot, 2, core.Fixed)
+	m.PureFn(members.Ilogb, 22, mathIlogb, 1, core.Fixed)
+	m.PureFn(members.Inf, 23, mathInf, 1, core.Fixed)
+	m.PureFn(members.IsInf, 24, mathIsInf, 2, core.Fixed)
+	m.PureFn(members.IsNaN, 25, mathIsNaN, 1, core.Fixed)
+	m.PureFn(members.J0, 26, mathJ0, 1, core.Fixed)
+	m.PureFn(members.J1, 27, mathJ1, 1, core.Fixed)
+	m.PureFn(members.Jn, 28, mathJn, 2, core.Fixed)
+	m.PureFn(members.Ldexp, 29, mathLdexp, 2, core.Fixed)
+	m.PureFn(members.Log, 30, mathLog, 1, core.Fixed)
+	m.PureFn(members.Log10, 31, mathLog10, 1, core.Fixed)
+	m.PureFn(members.Log1p, 32, mathLog1p, 1, core.Fixed)
+	m.PureFn(members.Log2, 33, mathLog2, 1, core.Fixed)
+	m.PureFn(members.Logb, 34, mathLogb, 1, core.Fixed)
+	// 35/36 formerly max/min — deleted: the free variadic max/min select among arguments,
+	// and the members aggregate over elements; the module pair merely duplicated them
+	m.PureFn(members.Mod, 37, mathMod, 2, core.Fixed)
+	m.PureFn(members.NaN, 38, mathNaN, 0, core.Fixed)
+	m.PureFn(members.NextAfter, 39, mathNextafter, 2, core.Fixed)
+	m.PureFn(members.Pow, 40, mathPow, 2, core.Fixed)
+	m.PureFn(members.Pow10, 41, mathPow10, 1, core.Fixed)
+	m.PureFn(members.Remainder, 42, mathRemainder, 2, core.Fixed)
+	m.PureFn(members.Signbit, 43, mathSignbit, 1, core.Fixed)
+	m.PureFn(members.Sin, 44, mathSin, 1, core.Fixed)
+	m.PureFn(members.Sinh, 45, mathSinh, 1, core.Fixed)
+	m.PureFn(members.Sqrt, 46, mathSqrt, 1, core.Fixed)
+	m.PureFn(members.Tan, 47, mathTan, 1, core.Fixed)
+	m.PureFn(members.Tanh, 48, mathTanh, 1, core.Fixed)
+	m.PureFn(members.Trunc, 49, mathTrunc, 1, core.Fixed)
+	m.PureFn(members.Y0, 50, mathY0, 1, core.Fixed)
+	m.PureFn(members.Y1, 51, mathY1, 1, core.Fixed)
+	m.PureFn(members.Yn, 52, mathYn, 2, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func mathSignbit(vm core.VM, args []core.Value) (ret core.Value, err error) {

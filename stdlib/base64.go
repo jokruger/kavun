@@ -4,22 +4,25 @@ import (
 	"encoding/base64"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
+	m := core.NewModule(value.ModuleBase64, "base64", true)
 	// 8..127 reserved
-	InitModule("base64", module.Base64, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("encode", b64EncodeToString, 1, false, true),
-		1: core.NewBuiltinFunction("decode", b64DecodeString, 1, false, true),
-		2: core.NewBuiltinFunction("raw_encode", b64RawEncodeToString, 1, false, true),
-		3: core.NewBuiltinFunction("raw_decode", b64RawDecodeString, 1, false, true),
-		4: core.NewBuiltinFunction("url_encode", b64URLEncodeToString, 1, false, true),
-		5: core.NewBuiltinFunction("url_decode", b64URLDecodeString, 1, false, true),
-		6: core.NewBuiltinFunction("raw_url_encode", b64RawURLEncodeToString, 1, false, true),
-		7: core.NewBuiltinFunction("raw_url_decode", b64RawURLDecodeString, 1, false, true),
-	})
+	m.PureFn(members.Encode, 0, b64EncodeToString, 1, core.Fixed)
+	m.PureFn(members.Decode, 1, b64DecodeString, 1, core.Fixed)
+	m.PureFn(members.RawEncode, 2, b64RawEncodeToString, 1, core.Fixed)
+	m.PureFn(members.RawDecode, 3, b64RawDecodeString, 1, core.Fixed)
+	m.PureFn(members.URLEncode, 4, b64URLEncodeToString, 1, core.Fixed)
+	m.PureFn(members.URLDecode, 5, b64URLDecodeString, 1, core.Fixed)
+	m.PureFn(members.RawURLEncode, 6, b64RawURLEncodeToString, 1, core.Fixed)
+	m.PureFn(members.RawURLDecode, 7, b64RawURLDecodeString, 1, core.Fixed)
+	if err := m.Register(); err != nil {
+		panic(err)
+	}
 }
 
 func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {

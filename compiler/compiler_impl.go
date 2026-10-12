@@ -23,7 +23,6 @@ import (
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -708,17 +707,30 @@ func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 	return nil
 }
 
+// moduleAllowed is the compile-time grant: every module after AllowAllModules, the named ones when a set was
+// given, otherwise only the pure ones.
+func (c *Compiler) moduleAllowed(def *core.ModuleDef) bool {
+	switch {
+	case c.allowAll:
+		return true
+	case c.allowedModules != nil:
+		return c.allowedModules.Contains(def.Name)
+	default:
+		return def.Pure
+	}
+}
+
 func (c *Compiler) compileImportExpr(node *expression.Import) (err error) {
 	if node.ModuleName == "" {
 		return c.errorf(node, "empty module name")
 	}
 
-	if mod, ok := stdlib.GetModuleID(node.ModuleName); ok { // builtin module
-		if c.allowedModules != nil && !c.allowedModules.Contains(node.ModuleName) {
+	if def, ok := core.LookupModule(node.ModuleName); ok { // builtin module
+		if !c.moduleAllowed(def) {
 			return c.errorf(node, "module '%s' is not allowed to import", node.ModuleName)
 		}
 
-		_, err = c.emit(node, NewImportBuiltinModule(int(mod)))
+		_, err = c.emit(node, NewImportBuiltinModule(int(def.Type)))
 		if err != nil {
 			return err
 		}
@@ -1692,10 +1704,12 @@ func (c *Compiler) leaveScope() (instructions bc.Instructions, sourceMap map[int
 }
 
 func (c *Compiler) fork(file *ast.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
-	child := NewCompiler(c.oc, c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
-	child.modulePath = modulePath // module file path
-	child.parent = c              // parent to set to current compiler
+	child := NewCompiler(c.oc, c.sb, file, symbolTable, nil, c.customModules, c.trace)
+	child.allowedModules = c.allowedModules // the set itself: an empty grant must stay empty, not turn into nil
+	child.modulePath = modulePath           // module file path
+	child.parent = c                        // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode
+	child.allowAll = c.allowAll
 	child.allowFileImport = c.allowFileImport
 	child.importDir = c.importDir
 	child.importFileExt = c.importFileExt
@@ -1718,9 +1732,11 @@ func (c *Compiler) moduleSymbolTable() *SymbolTable {
 // newShadowCompiler builds a compiler that shares no mutable state with c (own static builder, own symbol table,
 // own compiled-module cache, no parent) but otherwise mirrors c's compile-time configuration, forced to O0.
 func (c *Compiler) newShadowCompiler(file *ast.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
-	shadow := NewCompiler(O0(), nil, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, nil)
+	shadow := NewCompiler(O0(), nil, file, symbolTable, nil, c.customModules, nil)
+	shadow.allowedModules = c.allowedModules
 	shadow.modulePath = modulePath
 	shadow.assignmentMode = c.assignmentMode
+	shadow.allowAll = c.allowAll
 	shadow.allowFileImport = c.allowFileImport
 	shadow.importDir = c.importDir
 	shadow.importFileExt = c.importFileExt
