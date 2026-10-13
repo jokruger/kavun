@@ -129,6 +129,37 @@ func EncodeRuneText(r rune) string {
 	return string(r)
 }
 
+// TextFirst decodes the first symbol of s and its width in octets, reading exactly as DecodeText does: an
+// undecodable octet is one symbol — its escape — of width 1. A genuine U+FFFD in the text is a symbol of width 3
+// and is not confused with the decoder's error sentinel (which always comes with width 1). The empty string
+// answers (0, 0), so a caller walking the text stops on width 0 and never indexes past the end.
+// PURE by contract.
+func TextFirst(s string) (rune, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	r, w := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError && w == 1 {
+		return OctetEscapeRune(s[0]), 1
+	}
+	return r, w
+}
+
+// TextLast is TextFirst's mirror at the end of s. Go's backward decoder answers (RuneError, 1) for the trailing
+// octet of any sequence that does not decode as a whole, which is the per-octet escape rule applied from the
+// right; TestTextFirstLastAgreeWithDecodeText pins that walking either way reproduces DecodeText.
+// PURE by contract.
+func TextLast(s string) (rune, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	r, w := utf8.DecodeLastRuneInString(s)
+	if r == utf8.RuneError && w == 1 {
+		return OctetEscapeRune(s[len(s)-1]), 1
+	}
+	return r, w
+}
+
 // TextRuneCount counts symbols the way DecodeText produces them: one per symbol, one per undecodable octet.
 // utf8.RuneCountInString already counts each bad octet as one, so the two agree by construction.
 // PURE by contract.

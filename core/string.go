@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
@@ -320,10 +319,7 @@ func stringTypeAccessIndex(v Value, index Value) (Value, error) {
 	}
 	j := int64(0)
 	for k := 0; k < len(s); {
-		r, w := utf8.DecodeRuneInString(s[k:])
-		if r == utf8.RuneError && w <= 1 {
-			r, w = text.OctetEscapeRune(s[k]), 1
-		}
+		r, w := text.TextFirst(s[k:])
 		if j == i {
 			return RuneValue(r), nil
 		}
