@@ -7427,6 +7427,36 @@ func TestSpread(t *testing.T) {
 
 	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 2")
 	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 3 argument(s), got 2")
+	expectError(t, `func(a, b, ...c) {}(1, []...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1")
+
+	// the spread elements fill the fixed parameters left over by the literal arguments, the rest is the variadic tail
+	expectRun(t, `out = func(a, b, ...c) { return [a, b, c] }([1, 2, 3, 4]...)`, nil, ARR{1, 2, ARR{3, 4}})
+	expectRun(t, `out = func(a, b, ...c) { return [a, b, c] }(1, [2, 3, 4]...)`, nil, ARR{1, 2, ARR{3, 4}})
+	expectRun(t, `out = func(a, b, ...c) { return [a, b, c] }(1, 2, 3, [4]...)`, nil, ARR{1, 2, ARR{3, 4}})
+	expectRun(t, `out = func(a, b, ...c) { return [a, b, c] }(1, 2, []...)`, nil, ARR{1, 2, ARR{}})
+	expectRun(t, `out = func(a, b) { return [a, b] }(1, [2]...)`, nil, ARR{1, 2})
+
+	// the variadic tail is a fresh array: the spread source is never shared with the callee
+	expectRun(t, `xs := [1, 2]; f := func(...a) { return a }; ys := f(xs...); xs.append_in_place(3); out = [ys, xs]`, nil,
+		ARR{ARR{1, 2}, ARR{1, 2, 3}})
+
+	// a spread is bounded by memory, not by the operand stack: its elements are never expanded onto it, for any
+	// callee and at any call depth
+	big := "xs := range(0, 5000).array()\n"
+	expectRun(t, big+`f := func(...a) { return a.len() }; out = f(xs...)`, nil, 5000)
+	expectRun(t, big+`f := func(a, b, ...c) { return a + b + c.len() }; out = f(xs...)`, nil, 4999)
+	expectRun(t, big+`out = [].append(xs...).len()`, nil, 5000)
+	expectRun(t, big+`out = min(xs...) == xs.min()`, nil, true)
+	expectRun(t, big+`p := [].append; out = p(xs...).len()`, nil, 5000)
+	expectRun(t, big+`f := func(n, ...r) { if n == 0 { return r.len() }; return f(n-1, r...) }; out = f(100, xs...)`, nil, 5000)
+	expectRun(t, big+`d := func(n) { if n == 0 { return [].append(xs...).len() }; return d(n-1) }; out = d(200)`, nil, 5000)
+
+	// a spread that does not match the callee is the callee's recoverable argument error, never a stack overflow
+	expectError(t, big+`func(a) {}(xs...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 5000")
+	expectError(t, big+`format(xs...)`, nil, "Runtime Error: wrong_num_arguments: (format) expected 1 or 2 argument(s), got 5000")
+	expectRun(t, big+`out = func() r { defer func() { r = recover().kind() }(); func(a) {}(xs...) }()`, nil, "wrong_num_arguments")
+	expectError(t, `func(a) {}(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
+	expectError(t, `[].append(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
 }
 
 func TestSliceIndex(t *testing.T) {
@@ -10351,43 +10381,27 @@ func TestSpread_MethodCall_NonArray(t *testing.T) {
 	expectError(t, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
 }
 
-// Spread expansion of a large array must raise a stack_overflow error (fatal
-// by kind), NOT a Go runtime panic. The compile-time MaxStack analyzer cannot
-// model the data-driven growth of `f(arr...)`, so the VM bounds-checks the
-// spread destination before expanding. (DefaultStackSize == 2048.)
-func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
+// A spread is never expanded on the operand stack, so a large array neither panics nor overflows the stack: it
+// reaches the callee, which accepts it or raises its own recoverable argument error. (DefaultStackSize == 2048.)
+func TestSpread_LargeArray_OpCall(t *testing.T) {
 	src := `
 		f := func(...args) { return len(args) }
 		big := []
 		for i := 0; i < 5000; i = i + 1 { big = big.append(i) }
 		out = f(big...)
 	`
-	expectError(t, src, nil, "stack_overflow")
+	expectRun(t, src, nil, 5000)
 }
 
-func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
-	// Stress CallMember's spread path. `d.keys` is a no-arg method, but the
-	// spread expansion happens before arg-count validation, so a huge array
-	// still trips the bounds check.
+func TestSpread_LargeArray_OpMethodCall(t *testing.T) {
+	// `d.keys` takes no argument: the callee refuses the 5000 spread elements, recoverably
 	src := `
 		big := []
 		for i := 0; i < 5000; i = i + 1 { big = big.append(i) }
-		d := {}
+		d := dict({})
 		out = len(d.keys(big...))
 	`
-	expectError(t, src, nil, "stack_overflow")
-}
-
-// Sanity: a reasonable spread (well under DefaultStackSize) works normally.
-// Pins down the boundary between rejected and accepted behavior.
-func TestSpread_SmallArray_OK(t *testing.T) {
-	src := `
-		f := func(...args) { return len(args) }
-		big := []
-		for i := 0; i < 500; i = i + 1 { big = big.append(i) }
-		out = f(big...)
-	`
-	expectRun(t, src, nil, 500)
+	expectError(t, src, nil, "wrong_num_arguments")
 }
 
 func TestSplice_HugeDeleteCountClamps(t *testing.T) {
@@ -11943,32 +11957,11 @@ func TestInPlaceTwinErrors(t *testing.T) {
 		"invalid_argument_type: (merge) argument 22nd expects type dict or record, got int")
 }
 
-// A member call carries its argument count in one byte: more than 255 literal arguments is a compile error, for
-// the call and the deferred call alike. A spread argument counts as one.
-func TestMemberCallArgumentLimit(t *testing.T) {
+// The language has one count limit, 255: the parameters a function declares, the literal arguments of any call
+// (plain or member, deferred or not) and the names of a destructuring assignment. Past it is a compile error. A
+// spread argument counts as one; its elements are not counted (see TestSpread).
+func TestCountLimits(t *testing.T) {
 	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
-	expectRun(t, `out = [].append(`+args(255)+`).len()`, nil, 255)
-	expectError(t, `out = [].append(`+args(256)+`)`, nil, "too many arguments in member call: 256 (max: 255)")
-	expectError(t, `func() { defer [].append(`+args(256)+`) }()`, nil, "too many arguments in member call: 256 (max: 255)")
-	expectRun(t, `xs := [`+args(300)+`]; out = [].append(xs...).len()`, nil, 300)
-}
-
-// Every count the compiler encodes into a narrow operand is checked before it is emitted: a plain call and a
-// deferred call carry their argument count in two bytes, a destructuring assignment its name count in one byte, a
-// closure its captured-variable count in two bytes. Past the width it is a compile error, never a truncated count.
-func TestOperandWidthLimits(t *testing.T) {
-	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
-	// the 65536-wide sources compile through the public API: the tracing harness is too slow at this size
-	compileError := func(src, expected string) {
-		t.Helper()
-		_, err := kavun.NewScript([]byte(src)).Compile()
-		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s", expected, err)
-	}
-	compileError(`f := func(...xs) {}; f(`+args(65536)+`)`, "too many arguments in function call: 65536 (max: 65535)")
-	compileError(`f := func(...xs) {}; func() { defer f(`+args(65536)+`) }()`,
-		"too many arguments in function call: 65536 (max: 65535)")
-
 	names := func(n int) string {
 		s := make([]string, n)
 		for i := range s {
@@ -11976,16 +11969,47 @@ func TestOperandWidthLimits(t *testing.T) {
 		}
 		return strings.Join(s, ", ")
 	}
+
+	expectRun(t, `f := func(`+names(255)+`) { return v254 }; out = f(`+args(255)+`)`, nil, 1)
+	expectRun(t, `f := func(`+names(255)+`) r { r = v254 }; out = f(`+args(255)+`)`, nil, 1)
+	expectRun(t, `f := func(`+names(254)+`, ...r) { return r.len() }; out = f(`+args(255)+`)`, nil, 1)
+	expectError(t, `f := func(`+names(256)+`) {}`, nil, "too many function parameters: 256 (max: 255)")
+	expectError(t, `f := func(`+names(255)+`, ...r) {}`, nil, "too many function parameters: 256 (max: 255)")
+
+	expectRun(t, `f := func(...xs) { return xs.len() }; out = f(`+args(255)+`)`, nil, 255)
+	expectError(t, `f := func(...xs) {}; f(`+args(256)+`)`, nil, "too many arguments in function call: 256 (max: 255)")
+	expectError(t, `f := func(...xs) {}; func() { defer f(`+args(256)+`) }()`, nil,
+		"too many arguments in function call: 256 (max: 255)")
+
+	expectRun(t, `out = [].append(`+args(255)+`).len()`, nil, 255)
+	expectError(t, `out = [].append(`+args(256)+`)`, nil, "too many arguments in member call: 256 (max: 255)")
+	expectError(t, `func() { defer [].append(`+args(256)+`) }()`, nil, "too many arguments in member call: 256 (max: 255)")
+
 	expectRun(t, names(255)+` := [`+args(255)+`]; out = v254`, nil, 1)
 	expectError(t, names(256)+` := [`+args(256)+`]`, nil, "too many names in destructuring assignment: 256 (max: 255)")
+}
 
+// A count the compiler encodes into an operand that is not a language count is checked against the operand's
+// width: a closure carries its captured-variable count in two bytes. Past it is a compile error, never a truncated
+// count.
+func TestOperandWidthLimits(t *testing.T) {
+	names := func(n int) string {
+		s := make([]string, n)
+		for i := range s {
+			s[i] = fmt.Sprintf("v%d", i)
+		}
+		return strings.Join(s, ", ")
+	}
 	var src strings.Builder
 	src.WriteString("f := func() {\n")
 	for i := range 65536 {
 		fmt.Fprintf(&src, "v%d := 0\n", i)
 	}
 	src.WriteString("return func() { return [" + names(65536) + "] }\n}")
-	compileError(src.String(), "too many captured variables: 65536 (max: 65535)")
+	// compiled through the public API: the tracing harness is too slow at this size
+	_, err := kavun.NewScript([]byte(src.String())).Compile()
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "too many captured variables: 65536 (max: 65535)"), "got: %s", err)
 }
 
 // The main function's stack budget is checked before it runs, as a call checks its callee's on entry: past the
@@ -11993,11 +12017,9 @@ func TestOperandWidthLimits(t *testing.T) {
 // never a contained Go panic.
 func TestMainFunctionStackBudget(t *testing.T) {
 	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
-	expectRun(t, `f := func(...xs) { return len(xs) }; out = f(`+args(2000)+`)`, nil, 2000)
-	expectError(t, `f := func(...xs) { return len(xs) }; out = f(`+args(3000)+`)`, nil, "stack_overflow: operand stack")
+	expectRun(t, `out = [`+args(2000)+`].len()`, nil, 2000)
 	expectError(t, `out = [`+args(3000)+`]`, nil, "stack_overflow: operand stack")
-	expectError(t, `f := func(...xs) { return len(xs) }; g := func() { return f(`+args(3000)+`) }; out = g()`, nil,
-		"stack_overflow: operand stack")
+	expectError(t, `g := func() { return [`+args(3000)+`] }; out = g()`, nil, "stack_overflow: operand stack")
 
 	// fatal: a root recover() does not catch it
 	expectError(t, `defer func() { recover() }(); out = [`+args(3000)+`]`, nil, "stack_overflow: operand stack")

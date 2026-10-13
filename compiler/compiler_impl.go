@@ -603,9 +603,6 @@ func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 		}
 		s := c.symbolTable.Define(rn)
 		s.LocalAssigned = true
-		if s.Index >= 127 {
-			return c.errorf(node, "named result slot index too large: %d", s.Index)
-		}
 		namedResult = s.Index + 1
 	}
 
@@ -688,8 +685,8 @@ func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 	}
 
 	l := len(node.Type.Params.List)
-	if l > 127 {
-		return c.errorf(node, "too many function parameters: %d (max: 127)", l)
+	if l > maxParams {
+		return c.errorf(node, "too many function parameters: %d (max: %d)", l, maxParams)
 	}
 	var cf core.CompiledFunction
 	cf.Set(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), l, namedResult, node.Type.Params.VarArgs)

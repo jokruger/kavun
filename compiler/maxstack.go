@@ -7,10 +7,6 @@ import (
 	"github.com/jokruger/kavun/core/bytecode/opcodes"
 )
 
-const (
-	spreadNet = 128 // Guess at the stack effect of a function call with a spread argument
-)
-
 // ComputeMaxStack returns the maximum operand-stack depth that the given bytecode instruction stream can reach during
 // execution.
 func ComputeMaxStack(instructions bc.Instructions) int {
@@ -155,21 +151,14 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 	case opcodes.Unpack:
 		e.net = int(ci.Op1) - 1
 
-	// Call function: 1 + N inputs, 1 output
+	// Call function: 1 + N inputs, 1 output; a spread argument is one of the N — the VM never expands it on the
+	// caller's stack
 	case opcodes.CallFunction:
-		if ci.Op1 != 0 {
-			e.net = spreadNet
-		} else {
-			e.net = -int(ci.Op2) // 1 - 1 - N
-		}
+		e.net = -int(ci.Op2) // 1 - 1 - N
 
-	// Call member: receiver + N inputs, 1 output; arg count in Op1
-	case opcodes.CallMember:
+	// Call member: receiver + N inputs, 1 output; arg count in Op1, a spread argument counted as one
+	case opcodes.CallMember, opcodes.CallMemberSpread:
 		e.net = -int(ci.Op1)
-
-	// Call member with a spread last argument: the expanded count is only known at runtime
-	case opcodes.CallMemberSpread:
-		e.net = spreadNet
 
 	// 1 input, 1 output
 	case opcodes.AccessProperty:

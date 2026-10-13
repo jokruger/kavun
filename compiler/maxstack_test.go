@@ -685,14 +685,14 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			3,
 		},
 		{
-			// receiver + spread array: the expanded count is unknown, so the reserve is the spread guess
-			"member call with spread -> reserves spread guess",
+			// receiver + spread array: the VM never expands the spread on the caller's stack
+			"member call with spread -> peak 2",
 			bc.Instructions{
 				compiler.NewLoadGlobal(0), // receiver
 				compiler.NewLoadGlobal(1), // array to spread
 				compiler.NewCallMember(1, member.Unknown, 0, true),
 			},
-			2 + 128,
+			2,
 		},
 		{
 			// defer fn(a, b): push fn, a, b; Defer pops all 3

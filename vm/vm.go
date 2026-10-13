@@ -220,6 +220,29 @@ func (v *VM) releaseFrameLocals(f *frame) {
 	}
 }
 
+// popSpread pops a call's spread argument and answers its elements, or sets v.err when it is not an array. The
+// elements are the array's own storage: read them, never keep or mutate them.
+func (v *VM) popSpread() []core.Value {
+	v.sp--
+	arg := v.stack[v.sp]
+	v.stack[v.sp] = core.Undefined
+	if arg.Type != value.Array {
+		v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+		return nil
+	}
+	return (*core.Array)(arg.Ptr).Elements
+}
+
+// callArgs answers the arguments of a call whose numArgs literal arguments are on top of the stack: that stack
+// window itself, or — with a spread — a fresh slice of them followed by the spread elements, so the spread array's
+// storage never reaches the callee.
+func (v *VM) callArgs(numArgs int, spread []core.Value, hasSpread bool) []core.Value {
+	if !hasSpread {
+		return v.stack[v.sp-numArgs : v.sp]
+	}
+	return slices.Concat(v.stack[v.sp-numArgs:v.sp], spread)
+}
+
 // Call calls a compiled function with the given arguments and returns the result.
 func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	if cfv.Type != value.CompiledFunction {
@@ -952,27 +975,16 @@ func (v *VM) run() {
 				return
 			}
 
-			if v.curInsts[v.ip].Op1 == 1 {
-				v.sp--
-				arg := v.stack[v.sp]
-				switch arg.Type {
-				case value.Array:
-					o := (*core.Array)(arg.Ptr)
-					// Bounds-check before expansion: spread is the one CallFunction case whose stack growth is data-driven
-					// and cannot be modeled by the compile-time MaxStack analyzer.
-					if v.sp+len(o.Elements) > len(v.stack) {
-						v.err = errs.NewStackOverflowError("spread argument expansion")
-						return
-					}
-					for _, item := range o.Elements {
-						v.stack[v.sp] = item
-						v.sp++
-					}
-					numArgs += len(o.Elements) - 1
-				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+			// A spread argument is never expanded on the operand stack: its elements are data, and the stack is not a
+			// data-sized resource. They reach the callee as a fresh argument slice, or — for a compiled function — as
+			// at most its parameter count of pushed values plus its variadic array.
+			var spread []core.Value
+			hasSpread := v.curInsts[v.ip].Op1 == 1
+			if hasSpread {
+				if spread = v.popSpread(); v.err != nil {
 					return
 				}
+				numArgs--
 			}
 
 			switch val.Type {
@@ -981,26 +993,36 @@ func (v *VM) run() {
 					return
 				}
 				callee := (*core.CompiledFunction)(val.Ptr)
-				if callee.VarArgs {
-					// if the closure is variadic, roll up all variadic parameters into an array
-					realArgs := int(callee.NumParameters) - 1
-					varArgs := numArgs - realArgs
-					if varArgs >= 0 {
-						numArgs = realArgs + 1
-						args := make([]core.Value, varArgs)
-						spStart := v.sp - varArgs
-						for i := spStart; i < v.sp; i++ {
-							args[i-spStart] = v.stack[i]
-						}
-						v.stack[spStart] = core.NewArrayValue(args, true)
-						v.sp = spStart + 1
+				total := numArgs + len(spread)
+				if callee.VarArgs && total >= callee.NumParameters-1 {
+					// roll up the variadic tail — the literal arguments past the fixed parameters, then the spread
+					// elements past them — into an array
+					realArgs := callee.NumParameters - 1
+					fill := max(realArgs-numArgs, 0) // spread elements that go to fixed parameters
+					if v.sp+fill+1 > len(v.stack) {
+						v.err = errs.NewStackOverflowError("operand stack")
+						return
 					}
-				}
-				if numArgs != int(callee.NumParameters) {
+					spStart := v.sp - max(numArgs-realArgs, 0)
+					args := make([]core.Value, total-realArgs)
+					n := copy(args, v.stack[spStart:v.sp])
+					copy(args[n:], spread[fill:])
+					v.sp = spStart + copy(v.stack[spStart:], spread[:fill])
+					v.stack[v.sp] = core.NewArrayValue(args, true)
+					v.sp++
+					numArgs = callee.NumParameters
+				} else if total == callee.NumParameters {
+					if v.sp+len(spread) > len(v.stack) {
+						v.err = errs.NewStackOverflowError("operand stack")
+						return
+					}
+					v.sp += copy(v.stack[v.sp:], spread)
+					numArgs = total
+				} else {
 					if callee.VarArgs {
-						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf(">=%d", callee.NumParameters-1), numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf(">=%d", callee.NumParameters-1), total)
 					} else {
-						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", callee.NumParameters), numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", callee.NumParameters), total)
 					}
 					return
 				}
@@ -1049,7 +1071,7 @@ func (v *VM) run() {
 				}
 
 			case value.BuiltinFunction: // fast track for built-in functions
-				res, err := core.BuiltinFunctions[val.Data].Func(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := core.BuiltinFunctions[val.Data].Func(v, v.callArgs(numArgs, spread, hasSpread))
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -1059,7 +1081,7 @@ func (v *VM) run() {
 				v.sp++
 
 			case value.BuiltinClosure: // fast track for built-in closure
-				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v, v.callArgs(numArgs, spread, hasSpread))
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -1069,7 +1091,7 @@ func (v *VM) run() {
 				v.sp++
 
 			default:
-				res, err := val.Call(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := val.Call(v, v.callArgs(numArgs, spread, hasSpread))
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -1094,28 +1116,13 @@ func (v *VM) run() {
 
 		case opcodes.CallMemberSpread:
 			ci := v.curInsts[v.ip]
-			numArgs := int(ci.Op1)
-			v.sp--
-			arg := v.stack[v.sp]
-			switch arg.Type {
-			case value.Array:
-				o := (*core.Array)(arg.Ptr)
-				// Bounds-check before expansion (see CallFunction for rationale).
-				if v.sp+len(o.Elements) > len(v.stack) {
-					v.err = errs.NewStackOverflowError("spread argument expansion")
-					return
-				}
-				for _, item := range o.Elements {
-					v.stack[v.sp] = item
-					v.sp++
-				}
-				numArgs += len(o.Elements) - 1
-			default:
-				v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+			numArgs := int(ci.Op1) - 1
+			spread := v.popSpread() // never expanded on the operand stack (see CallFunction)
+			if v.err != nil {
 				return
 			}
 			receiver := v.stack[v.sp-1-numArgs]
-			res, err := receiver.CallMember(v, member.ID(ci.Op2), v.static.Strings[ci.Op3], v.stack[v.sp-numArgs:v.sp])
+			res, err := receiver.CallMember(v, member.ID(ci.Op2), v.static.Strings[ci.Op3], v.callArgs(numArgs, spread, true))
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err

@@ -10,20 +10,21 @@ Each bytecode instruction has fixed size: 8 bytes total.
 ## Limits
 
 - Maximum number of opcodes is 256.
-- Maximum number of function parameters is 127.
-- Maximum number of literal arguments in one member call (`x.name(a, b, …)`, `defer x.name(…)`) is 255: the
-  member-call instructions carry the count in `Op1`, beside the member ID in `Op2` and the name's static string
-  index in `Op3`. More is a compile error; a spread argument (`x.name(xs...)`) counts as one.
-- Maximum number of literal arguments in one plain function call (`f(a, b, …)`, `defer f(…)`) is 65535: the
-  count rides in `Op2`. More is a compile error; a spread argument counts as one.
-- Maximum number of names in one destructuring assignment (`a, b, … := x`) is 255 (`Op1` of `Unpack`), and of
-  variables one closure captures is 65535 (`Op2` of `MakeClosure`). More is a compile error.
+- One count limit, 255, applies to every count a program writes out: the parameters of one function (a
+  variadic `...rest` counts as one), the literal arguments of one call — plain or member, deferred or not
+  (`f(a, b, …)`, `x.name(a, b, …)`, `defer f(…)`) — and the names of one destructuring assignment
+  (`a, b, … := x`). It fits `Op1`, the narrowest operand that carries one of these counts. More is a compile
+  error.
+- A spread argument (`f(xs...)`, `x.name(xs...)`) counts as one literal argument; its elements are not counted
+  and are bounded only by memory. They are never expanded on the operand stack: a builtin, a member or a host
+  callable receives them in a fresh argument slice, and a compiled function as its parameters, the rest in a fresh
+  variadic array, so a spread behaves the same at every call depth. A spread the callee does not accept raises
+  the callee's recoverable `wrong_num_arguments`. `defer` with a spread argument is a compile error.
+- Maximum number of variables one closure captures is 65535 (`Op2` of `MakeClosure`). More is a compile error.
 - The operand stack holds `vm.DefaultStackSize` (2048) values unless the host passes another size to `vm.NewVM`.
   Each function's maximum stack depth is computed at compile time and checked before the function runs — on
-  entry for a call, before the first instruction for the main function — so a body that needs more (a call with
-  thousands of literal arguments, a literal with thousands of elements) fails with the fatal
-  `stack_overflow: operand stack` before anything is pushed. The encoding limits above are therefore not the
-  practical ones: with the default stack, a call or literal past roughly 2000 literal values does not run.
+  entry for a call, before the first instruction for the main function — so a body that needs more (a literal
+  with thousands of elements) fails with the fatal `stack_overflow: operand stack` before anything is pushed.
 - An assignment target has no depth limit (`a.b[c].d… = x`): the chain is compiled as ordinary reads,
   left to right, and one `AssignProperty` or `AssignIndex` instruction performs the write.
 - Maximum length of a count-driven sequence allocation is `4294967296` elements. It bounds the

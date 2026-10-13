@@ -729,6 +729,10 @@ args = [3, 4]
 f(1, 2, args...)
 ```
 
+A function declares at most 255 parameters and a call passes at most 255 literal arguments (`docs/vm.md`
+§ Limits). A spread counts as one of them; the array's elements are not counted, so `min(xs...)` works for an
+array of any length.
+
 A function with no `return` statement returns `undefined`.
 
 Arguments follow the same shared-body rule as any other assignment (see "Builtin types overview" above): passing

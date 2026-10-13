@@ -9,13 +9,18 @@ import (
 	"github.com/jokruger/kavun/core/token"
 )
 
-// Operand-width limits: a count the compiler encodes into a narrow operand is checked against these before it is
-// emitted, so it can never be silently truncated (docs/vm.md).
+// maxCount is the language's one count limit (docs/vm.md § Limits): the parameters a function declares, the
+// literal arguments of any call, plain or member, deferred or not, and the names of a destructuring assignment.
+// It fits the narrowest operand that carries one of them (Op1), so no count can ever be silently truncated.
+const maxCount = math.MaxUint8
+
+// Count limits, checked before the instruction carrying the count is emitted.
 const (
-	maxMemberArgs  = math.MaxUint8  // CallMember, CallMemberSpread, DeferMember: Op1
-	maxCallArgs    = math.MaxUint16 // CallFunction, Defer: Op2
-	maxUnpackNames = math.MaxUint8  // Unpack: Op1
-	maxFreeVars    = math.MaxUint16 // MakeClosure: Op2
+	maxParams      = maxCount       // CompiledFunction.NumParameters
+	maxMemberArgs  = maxCount       // CallMember, CallMemberSpread, DeferMember: Op1
+	maxCallArgs    = maxCount       // CallFunction, Defer: Op2
+	maxUnpackNames = maxCount       // Unpack: Op1
+	maxFreeVars    = math.MaxUint16 // MakeClosure: Op2 — an operand width, not a language count
 )
 
 func NewAbortCheck() bc.Instruction {
