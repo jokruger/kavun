@@ -29,7 +29,7 @@ func TestStringMembersAgreeWithRunes(t *testing.T) {
 	atoms := []string{"a", "b", "c", " ", "\t", "\x00", " ", " ", "é", "€", "😀", "�",
 		"\xff", "\x80", "\xc3", "\xa9", "\xe2\x82", "\xed\xa0\x80", "\xf0\x9f\x98"}
 	rng := rand.New(rand.NewSource(7))
-	receivers := []string{"", "a", "ab", "abcabc", "  ab  ", " ab ", "ééé", "€a€"}
+	receivers := []string{"", "a", "ab", "abcabc", "  ab  ", " ab ", "ééé", "€a€", "₩", "a₩é"}
 	for i := 0; i < 500; i++ {
 		var b strings.Builder
 		for n := rng.Intn(7); n > 0; n-- {
@@ -45,6 +45,8 @@ func TestStringMembersAgreeWithRunes(t *testing.T) {
 	pool := []core.Value{
 		str(""), str("a"), str("ab"), str("abc"), str("é"), str(" "), str(" "), str("\xff"), str("\xe2\x82"), str("\xc3"), str("\xa9"), str("€"),
 		rns("ab"), rns("\xff"), rns("é"), bts("ab"), bts("\xa9"), bts("\xc3\xa9"), bts(""),
+		// runes whose escapes spell a valid sequence ("₩", "é"): as text they would read as one symbol
+		core.NewRunesValue([]rune{0xDCE2, 0xDC82, 0xDCA9}, false), core.NewRunesValue([]rune{0xDCC3, 0xDCA9}, false),
 		core.RuneValue('a'), core.RuneValue(' '), core.RuneValue(0), core.RuneValue(0xDCFF), core.RuneValue(0xDCA9), core.RuneValue('é'), core.RuneValue(0xFFFD),
 		core.ByteValue('a'), core.ByteValue(' '), core.ByteValue(0xff),
 		core.IntValue(97), core.IntValue(0xDCFF), core.IntValue(-1), core.IntValue(0x110000),

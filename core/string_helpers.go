@@ -101,6 +101,43 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 	return locatorAnswer(idx, dflt)
 }
 
+// textMatchArg is runesEncodeMatchArg's reading — text content, an element class (rune / ASCII byte / in-range
+// int) or a run class (string / runes / bytes) — answered as TEXT instead of symbols, for the members that read
+// the receiver in place. Same acceptance, same errors, byte for byte. A string argument costs nothing; a rune,
+// runes or bytes argument is encoded (an allocation the size of the ARGUMENT — never of the receiver).
+//
+// Reading this text symbol by symbol (text.TextFirst/TextLast) yields the symbols runesEncodeMatchArg answers,
+// with one exception the codec cannot avoid: a runes argument whose escapes spell a valid sequence once encoded
+// (the escapes for E2 82 A9 read as "₩"). Such a run of symbols can never occur in a string, so matchable is
+// false and the caller answers a miss without searching; for every other argument matchable is true.
+// PURE by contract.
+func textMatchArg(name string, a Value) (txt string, isElement bool, matchable bool, err error) {
+	switch a.Type {
+	case value.Rune:
+		return text.EncodeRuneText(rune(a.Data)), true, true, nil
+	case value.Byte:
+		if a.Data > 0x7F {
+			return "", false, false, text.ErrOctetNotSymbol(name, a.Data)
+		}
+		return text.EncodeRuneText(rune(a.Data)), true, true, nil // ASCII: one octet
+	case value.Int:
+		r, ok := a.AsRune()
+		if !ok {
+			return "", false, false, text.ErrIntNotSymbol(name, int64(a.Data))
+		}
+		return text.EncodeRuneText(r), true, true, nil
+	case value.String:
+		return *(*string)(a.Ptr), false, true, nil
+	case value.Runes:
+		rs := (*Runes)(a.Ptr).Elements
+		txt := text.EncodeText(rs)
+		return txt, false, text.RunesAreValid(rs) || text.TextSpellsRunes(txt, rs), nil
+	case value.Bytes:
+		return string((*Bytes)(a.Ptr).Elements), false, true, nil
+	}
+	return "", false, false, text.ErrNotTextContent(name, a.TypeName())
+}
+
 // ---------------------------------------------------------------------------
 // The structural members: the trim family, the anchored pair (has_/remove_ prefix/suffix), replace, and the pads.
 // Every argument is text content (runesEncodeMatchArg); none of them takes a predicate.

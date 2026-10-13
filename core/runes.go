@@ -193,13 +193,13 @@ func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
 		return []rune{rune(a.Data)}, true, nil
 	case value.Byte:
 		if a.Data > 0x7F {
-			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("(%s) an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", name, a.Data))
+			return nil, false, text.ErrOctetNotSymbol(name, a.Data)
 		}
 		return []rune{rune(a.Data)}, true, nil
 	case value.Int:
 		r, ok := a.AsRune()
 		if !ok {
-			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("(%s) an int reads as one symbol and must be a valid code point, got %d", name, int64(a.Data)))
+			return nil, false, text.ErrIntNotSymbol(name, int64(a.Data))
 		}
 		return []rune{r}, true, nil
 	case value.String, value.Runes:
@@ -209,7 +209,7 @@ func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
 		// TOTAL: an undecodable octet decodes to its escape rather than raising
 		return text.DecodeOctets((*Bytes)(a.Ptr).Elements), false, nil
 	}
-	return nil, false, errs.NewInvalidArgumentTypeError(name, "argument", "text content (symbols, octets, or text)", a.TypeName())
+	return nil, false, text.ErrNotTextContent(name, a.TypeName())
 }
 
 // PURE by contract
