@@ -790,6 +790,12 @@ func BenchmarkMemberCall(b *testing.B) {
 		{"len_builtin", `x = len(a)`},
 		{"arr_len", `x = a.len()`},
 		{"str_has_prefix", `x = s.has_prefix("ab")`},
+		{"str_remove_prefix", `x = s.remove_prefix("ab")`},
+		{"str_trim", `x = s.trim()`},
+		{"str_first", `x = s.first()`},
+		{"str_contains", `x = s.contains("cd")`},
+		{"str_index", `x = s.index("cd")`},
+		{"str_replace", `x = s.replace("cd", "x")`},
 	} {
 		src := "x := 0\nfor i := 0; i < N; i++ {\n\t" + sc.body + "\n}\nout = x\n"
 		compiled, err := kavun.NewScript([]byte(src), "out", "N", "a", "s").Compile()

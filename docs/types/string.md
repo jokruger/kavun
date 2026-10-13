@@ -29,6 +29,10 @@ several symbols:
 path: indexing and slicing are O(1) on pure-ASCII strings and O(n) worst case on multibyte content. For heavy
 positional work on non-ASCII text, convert to [`runes`](runes.md) first — `runes` is the O(1)-indexing,
 materialized form of the same text.
+Members whose answer depends on the ends of the text or on the argument alone — `first`/`last`, the anchored pair
+and their `remove_` twins, the `trim` family, the pads, and `contains`/`count`/`index`/`index_last`/`replace` —
+read the text in place and never decode the whole receiver; the members that visit or rebuild every symbol decode
+it once per call.
 
 **Immutability.** A `string` is immutable by construction. It is the only sequence type with no mutating
 member at all: no `_in_place` twins, and no `slice_view`/`chunk_view` (on an immutable value sharing is

@@ -2,7 +2,7 @@
 
 ## potential problems
 
-1. Stale docs: PROPOSAL-method-table.md and PROPOSAL-string-native-members.md still describe generic_seq.go, and kavun_test.go comments still carry old design ids (P4-002 and so on). I left your documents and the test comments alone.
+1. Stale test comments: `kavun_test.go` comments still carry old design ids (P4-002 and so on).
 2. **A plain call with too many arguments panics instead of raising.** `f(1, 1, …)` with more literal arguments
    than the VM operand stack holds (`DefaultStackSize = 2048`, `vm/constants.go`; ~2000 args works, 2100 fails)
    answers `internal: panic: runtime error: index out of range [2048] with length 2048` — a contained Go panic,
@@ -79,6 +79,19 @@
    against "one translation point per error family". Likely bug. Fix: the hook adds context only to raw errors, or
    `binaryCodecError` re-wraps a wrapped `*errs.Error` into one `*errs.Error`; check the other `DecodeBinary` hooks
    that call `Value.DecodeBinary` on nested values for the same shape. Pin with `err.(*errs.Error)` in a test.
+9. **The `q` format of an escape rune renders U+FFFD.** Found 2026-10-13. `f"{e:q}"` and `f"{0xDCFF:q}"` answer
+   `'�'` (`strconv.QuoteRune`), while `f"{s:q}"` on a string renders the same octet as `\xff` — and `c` renders it
+   as the octet. No rune literal spells an escape (`'\xff'` is U+00FF, `'\udcff'` is a parse error), so a quoted
+   form has no round-trip spelling: needs a ruling — raise `unsupported_format_spec`, or add a literal form for
+   escape runes. Sites: `core/rune.go` (`q`), `core/int.go` (`q`).
+10. **`coerceSepToBytes` (`core/tools.go`) has no caller** — dead code; delete it, or route a member through it.
+11. **`TestBuiltinFunctionBytes` says `bytes('8')` agrees with `'8'.bytes()`, but `rune` has no `bytes()`
+    member.** Either the comment is stale or the member is missing (`'8'.bytes()` raises `invalid_method`).
+12. **`kavun_test.go` cannot see a wrong cached symbol count in an all-literal script.** The harness compiles at O3,
+    the optimizer folds the call chain into a constant, and the static pool recounts the folded string — so `.len()`
+    is right even when a member stored a wrong count (found 2026-10-13: a pad mutant counting a fused result as its
+    width passed). A count pin must go through a user function (`f := func(s) { return s.m(...).len() }; out = f(x)`),
+    which the optimizer does not fold across. Option: run `expectRun` once more at O0.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
@@ -462,6 +475,11 @@
   contract, whether embedders may define new families or only join builtin ones, script visibility.
 
 ## Optimizations
+
+- `string`'s `any`/`all` could walk the symbols with `text.TextFirst`, and `keep`/`remove` build with a
+  `strings.Builder`, instead of decoding the receiver to `[]rune` per call — the way the structural and search
+  members already read the text in place (2026-10). Deferred when those went in; the differential test in
+  `core/string_test.go` (`TestStringMembersAgreeWithRunes`) is the harness to extend.
 
 - `copy()`'s deep-clone traversal could short-circuit at an already-immutable subtree — an immutable `Value` can
   never be mutated through any live alias, so cloning it during a deep `copy()`/`freeze()` is wasted work; the
