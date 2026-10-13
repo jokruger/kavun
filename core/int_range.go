@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 const intRangeTypeName = "range"
@@ -268,7 +269,7 @@ func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeM
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return intRangeMatch{}, errPredicateAmongMany(name)
+			return intRangeMatch{}, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return intRangeMatch{}, err
@@ -281,7 +282,7 @@ func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeM
 	for i, a := range args {
 		switch {
 		case a.IsCallable():
-			return intRangeMatch{}, errFunctionInSet(name)
+			return intRangeMatch{}, seq.ErrFunctionInSet(name)
 		case a.Type == value.Array || a.Type == value.IntRange:
 			if firstRun < 0 {
 				firstRun = i
@@ -293,7 +294,7 @@ func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeM
 		}
 	}
 	if firstRun >= 0 && m.elems != nil {
-		return intRangeMatch{}, errMixedSet(name)
+		return intRangeMatch{}, seq.ErrMixedSet(name)
 	}
 	if firstRun >= 0 {
 		if !allowRuns {
@@ -498,7 +499,7 @@ func intRangeTypeAccessIndex(v Value, index Value) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 	}
-	i, ok = NormalizeIndex(i, o.Len())
+	i, ok = seq.NormalizeIndex(i, o.Len())
 	if !ok {
 		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
 	}
@@ -562,11 +563,11 @@ func RangeFromComponents(m map[string]Value) (Value, error) {
 }
 
 // intRangeMaterialize expands the range's elements for members that need positional scans, holding the count to
-// MaxSequenceLen. The loop runs by count, not by comparing against Stop: the value after the last element may
+// seq.MaxSequenceLen. The loop runs by count, not by comparing against Stop: the value after the last element may
 // lie past int64 and wrap, which a `t < Stop` loop would read as more elements.
 func intRangeMaterialize(name string, v Value) ([]int64, error) {
 	o := (*IntRange)(v.Ptr)
-	n, err := SeqAllocLen(name, o.Len())
+	n, err := seq.AllocLen(name, o.Len())
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +587,7 @@ func intRangeMaterialize(name string, v Value) ([]int64, error) {
 // directly rather than through an []int64.
 func intRangeElements(name string, v Value) ([]Value, error) {
 	o := (*IntRange)(v.Ptr)
-	n, err := SeqAllocLen(name, o.Len())
+	n, err := seq.AllocLen(name, o.Len())
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +620,7 @@ func intRangeTypeAsIntRange(v Value) (IntRange, bool) {
 	return *(*IntRange)(v.Ptr), true
 }
 
-// intRangeTypeAsArray declines (false) a range past MaxSequenceLen: the hook has no error channel, so a caller
+// intRangeTypeAsArray declines (false) a range past seq.MaxSequenceLen: the hook has no error channel, so a caller
 // that converts a range must check ok rather than read an empty array.
 func intRangeTypeAsArray(v Value) ([]Value, bool) {
 	arr, err := intRangeElements("array", v)

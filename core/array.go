@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 const (
@@ -334,7 +335,7 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			}
 			src := l.Elements
 			sl := len(src)
-			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			total, terr := seq.RepeatTotal(op.String(), n, sl)
 			if terr != nil {
 				return Undefined, terr
 			}
@@ -483,7 +484,7 @@ func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, 
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return arrayMatch{}, errPredicateAmongMany(name)
+			return arrayMatch{}, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return arrayMatch{}, err
@@ -496,7 +497,7 @@ func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, 
 	for i, a := range args {
 		switch {
 		case a.IsCallable():
-			return arrayMatch{}, errFunctionInSet(name)
+			return arrayMatch{}, seq.ErrFunctionInSet(name)
 		case a.Type == value.Array:
 			if firstRun < 0 {
 				firstRun = i
@@ -507,7 +508,7 @@ func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, 
 		}
 	}
 	if m.runs != nil && m.elems != nil {
-		return arrayMatch{}, errMixedSet(name)
+		return arrayMatch{}, seq.ErrMixedSet(name)
 	}
 	if m.runs != nil && !allowRuns {
 		return arrayMatch{}, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a predicate (this member declares no run reading)", args[firstRun].TypeName())
@@ -536,7 +537,7 @@ func (m *arrayMatch) matches(vm VM, i int, e Value) (bool, error) {
 }
 
 // arrayRunLengthAt reports the length of the longest non-empty run in runs that matches elems at position i
-// (0 when none does) — runLengthAt with Value equality.
+// (0 when none does) — seq.RunLengthAt with Value equality.
 func arrayRunLengthAt(elems []Value, i int, runs [][]Value) int {
 	best := 0
 	for _, r := range runs {
@@ -700,7 +701,7 @@ func arrayLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	return locatorAnswer(idx, dflt)
 }
 
-// arrayIndexRun is indexRun with Value equality.
+// arrayIndexRun is seq.IndexRun with Value equality.
 func arrayIndexRun(elems []Value, run []Value, last bool) int {
 	n, m := len(elems), len(run)
 	if m == 0 || m > n {
@@ -757,7 +758,7 @@ func arrayReadRunSet(name string, args []Value, onFunction string) ([][]Value, e
 		}
 	}
 	if sawElement && sawRun {
-		return nil, errMixedSet(name)
+		return nil, seq.ErrMixedSet(name)
 	}
 	return runs, nil
 }
@@ -902,7 +903,7 @@ func arrayPadded(name string, v Value, args []Value, start bool) ([]Value, error
 	if n <= int64(len(elems)) {
 		return slices.Clone(elems), nil
 	}
-	width, err := SeqPadWidth(name, n)
+	width, err := seq.PadWidth(name, n)
 	if err != nil {
 		return nil, err
 	}

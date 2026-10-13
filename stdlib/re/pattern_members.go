@@ -7,6 +7,7 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 // re.pattern's members: one function per entry of TypePattern.Methods that is not a shared member. All are pure:
@@ -79,7 +80,7 @@ func patternFind(_ core.VM, v core.Value, id member.ID, args []core.Value) (core
 }
 
 // PURE by contract — replace(s, repl): every match replaced, $1 / ${name} expanding groups; a result past
-// core.MaxSequenceLen raises
+// seq.MaxSequenceLen raises
 func patternReplace(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError(patternContext(id), "2", len(args))
@@ -125,12 +126,12 @@ func patternSplit(_ core.VM, v core.Value, id member.ID, args []core.Value) (cor
 }
 
 // expandReplace expands every match of re in src with repl. It answers false when the result would grow past
-// core.MaxSequenceLen.
+// seq.MaxSequenceLen.
 //
 // The ceiling is needed because the result size is driven entirely by the script's own arguments: a template like
 // "$0$0$0…" against a long subject multiplies the subject's size by the number of group references, so a handful
 // of short strings can ask for terabytes. Every other count-driven allocation in Kavun checks the same ceiling
-// before allocating (see core.MaxSequenceLen); this one has to, for the same reason.
+// before allocating (see seq.MaxSequenceLen); this one has to, for the same reason.
 //
 // Two checks, because one is not enough on its own. The bound BEFORE the loop is arithmetic and conservative —
 // every reference in the template can at most reproduce the whole subject — so an abusive call is rejected
@@ -141,7 +142,7 @@ func expandReplace(re *regexp.Regexp, src, repl string) (string, bool) {
 
 	if n := len(matches); n > 0 {
 		perMatch := len(repl) + strings.Count(repl, "$")*len(src)
-		if perMatch > 0 && n > (core.MaxSequenceLen-len(src))/perMatch {
+		if perMatch > 0 && n > (seq.MaxSequenceLen-len(src))/perMatch {
 			return "", false
 		}
 	}
@@ -151,7 +152,7 @@ func expandReplace(re *regexp.Regexp, src, repl string) (string, bool) {
 	for _, m := range matches {
 		var exp []byte
 		exp = re.ExpandString(exp, repl, src, m)
-		if out.Len()+(m[0]-idx)+len(exp) > core.MaxSequenceLen {
+		if out.Len()+(m[0]-idx)+len(exp) > seq.MaxSequenceLen {
 			return "", false
 		}
 		out.WriteString(src[idx:m[0]])
@@ -159,7 +160,7 @@ func expandReplace(re *regexp.Regexp, src, repl string) (string, bool) {
 		idx = m[1]
 	}
 	if idx < len(src) {
-		if out.Len()+(len(src)-idx) > core.MaxSequenceLen {
+		if out.Len()+(len(src)-idx) > seq.MaxSequenceLen {
 			return "", false
 		}
 		out.WriteString(src[idx:])

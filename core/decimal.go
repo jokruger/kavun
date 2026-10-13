@@ -17,6 +17,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 const decimalTypeName = "decimal"
@@ -728,8 +729,8 @@ func decimalRatiosArg(name string, a Value) ([]dec128.Dec128, error) {
 	if len(elems) == 0 {
 		return nil, errs.NewInvalidValueError(fmt.Sprintf("(%s) ratios must not be empty", name))
 	}
-	if len(elems) > MaxSequenceLen {
-		return nil, errs.NewInvalidValueError(fmt.Sprintf("(%s) result would be %d elements, past the %d limit", name, len(elems), MaxSequenceLen))
+	if len(elems) > seq.MaxSequenceLen {
+		return nil, errs.NewInvalidValueError(fmt.Sprintf("(%s) result would be %d elements, past the %d limit", name, len(elems), seq.MaxSequenceLen))
 	}
 	ratios := make([]dec128.Dec128, len(elems))
 	allZero := true
@@ -761,8 +762,8 @@ func decimalSharesCountArg(name string, a Value) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if n > MaxSequenceLen {
-		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) result would be %d elements, past the %d limit", name, n, MaxSequenceLen))
+	if n > seq.MaxSequenceLen {
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) result would be %d elements, past the %d limit", name, n, seq.MaxSequenceLen))
 	}
 	return int(n), nil
 }

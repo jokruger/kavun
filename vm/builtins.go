@@ -17,6 +17,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 var BuiltinFunctions = make(map[string]core.Value)
@@ -659,7 +660,7 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 			case value.String:
 				specStr = *(*string)(refVal.Ptr)
 			case value.Runes:
-				specStr = core.EncodeText((*core.Runes)(refVal.Ptr).Elements)
+				specStr = text.EncodeText((*core.Runes)(refVal.Ptr).Elements)
 			case value.Bytes:
 				specStr = string((*core.Bytes)(refVal.Ptr).Elements)
 			default:
@@ -755,7 +756,7 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 		case value.String:
 			return src, true
 		case value.Byte:
-			s, ok := core.ByteSymbolString(byte(src.Data))
+			s, ok := text.ByteSymbolString(byte(src.Data))
 			return core.NewStringValue(s), ok
 		case value.Bytes:
 			// the UTF-8 decode is partial: invalid input declines
@@ -805,7 +806,7 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 		case value.Runes:
 			return ctorSameType(src)
 		case value.Byte:
-			s, ok := core.ByteSymbolString(byte(src.Data))
+			s, ok := text.ByteSymbolString(byte(src.Data))
 			return core.NewRunesValue([]rune(s), false), ok
 		case value.Bytes:
 			b, _ := src.AsBytes()

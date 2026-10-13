@@ -4,6 +4,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // error's members: one function per entry of TypeError.Methods that is not a shared member (MemberIsTrue,
@@ -101,5 +102,5 @@ func errorRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return ConvMember(id.String(), errorTypeName, args, true, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), errorTypeName, args, true, NewRunesValue(text.DecodeText(s), false))
 }

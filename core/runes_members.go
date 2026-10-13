@@ -7,6 +7,8 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // runes's members: one function per entry of TypeRunes.Methods that is not a shared member (MemberIsTrue,
@@ -45,7 +47,7 @@ func runesString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(o.Elements)), nil
+	return NewStringValue(text.EncodeText(o.Elements)), nil
 }
 
 // PURE by contract
@@ -69,7 +71,7 @@ func runesBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewBytesValue(EncodeOctets(o.Elements), false), nil
+	return NewBytesValue(text.EncodeOctets(o.Elements), false), nil
 }
 
 // PURE by contract
@@ -92,12 +94,12 @@ func runesDecimal(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func runesTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return textTimeMember(id.String(), runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
+	return textTimeMember(id.String(), runesTypeName, text.EncodeText((*Runes)(v.Ptr).Elements), args)
 }
 
 // PURE by contract
 func runesDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return textDateMember(id.String(), runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
+	return textDateMember(id.String(), runesTypeName, text.EncodeText((*Runes)(v.Ptr).Elements), args)
 }
 
 // PURE by contract
@@ -107,7 +109,7 @@ func runesIsValid(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(RunesAreValid(o.Elements)), nil
+	return BoolValue(text.RunesAreValid(o.Elements)), nil
 }
 
 // PURE by contract
@@ -116,7 +118,7 @@ func runesIsASCII(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(RunesAreASCII(o.Elements)), nil
+	return BoolValue(text.RunesAreASCII(o.Elements)), nil
 }
 
 // PURE by contract
@@ -236,7 +238,7 @@ func runesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			}
 		}
 		for i := range elems {
-			if runLengthAt(elems, i, m.runs) > 0 {
+			if seq.RunLengthAt(elems, i, m.runs) > 0 {
 				return True, nil
 			}
 		}
@@ -267,7 +269,7 @@ func runesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	n := int64(0)
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				n++
 				i += k
 			} else {
@@ -817,7 +819,7 @@ func runesCaseFold(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	out := make([]rune, len(o.Elements))
 	for i, r := range o.Elements {
-		out[i] = foldRuneCanonical(r)
+		out[i] = text.FoldRuneCanonical(r)
 	}
 	return NewRunesValue(out, false), nil
 }
@@ -830,7 +832,7 @@ func runesTitleCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(caseJoinTitle(caseSegmentWritten(o.Elements)), false), nil
+	return NewRunesValue(text.CaseJoinTitle(text.CaseSegmentWritten(o.Elements)), false), nil
 }
 
 // PURE by contract
@@ -839,7 +841,7 @@ func runesSnakeCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(caseJoinLower(caseSegmentWords(o.Elements), '_'), false), nil
+	return NewRunesValue(text.CaseJoinLower(text.CaseSegmentWords(o.Elements), '_'), false), nil
 }
 
 // PURE by contract
@@ -848,7 +850,7 @@ func runesKebabCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(caseJoinLower(caseSegmentWords(o.Elements), '-'), false), nil
+	return NewRunesValue(text.CaseJoinLower(text.CaseSegmentWords(o.Elements), '-'), false), nil
 }
 
 // PURE by contract
@@ -857,7 +859,7 @@ func runesCamelCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(caseJoinCapitalized(caseSegmentWords(o.Elements), true), false), nil
+	return NewRunesValue(text.CaseJoinCapitalized(text.CaseSegmentWords(o.Elements), true), false), nil
 }
 
 // PURE by contract
@@ -866,7 +868,7 @@ func runesPascalCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(caseJoinCapitalized(caseSegmentWords(o.Elements), false), false), nil
+	return NewRunesValue(text.CaseJoinCapitalized(text.CaseSegmentWords(o.Elements), false), false), nil
 }
 
 // runesReduce is reduce(acc, f): folds the symbols left to right.
@@ -895,7 +897,7 @@ func runesRepeat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	src := o.Elements
 	sl := len(src)
-	total, err := SeqRepeatTotal(name, n, sl)
+	total, err := seq.RepeatTotal(name, n, sl)
 	if err != nil {
 		return Undefined, err
 	}
@@ -920,7 +922,7 @@ func runesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		var pieces []Value
 		start := -1
 		for i, e := range elems {
-			if IsBlankRune(e) {
+			if text.IsBlankRune(e) {
 				if start >= 0 {
 					pieces = append(pieces, runesPiece(elems[start:i]))
 					start = -1
@@ -940,7 +942,7 @@ func runesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -968,7 +970,7 @@ func runesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	for i := 0; i < len(elems); {
-		if k := runLengthAt(elems, i, runs); k > 0 {
+		if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 			pieces = append(pieces, runesPiece(elems[start:i]))
 			i += k
 			start = i
@@ -987,10 +989,10 @@ func runesSplitLines(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Runes)(v.Ptr)
-	pieces := splitLinesString(EncodeText(o.Elements))
+	pieces := text.SplitLinesString(text.EncodeText(o.Elements))
 	arr := make([]Value, len(pieces))
 	for i, p := range pieces {
-		arr[i] = NewRunesValue(DecodeText(p), false)
+		arr[i] = NewRunesValue(text.DecodeText(p), false)
 	}
 	return NewArrayValue(arr, false), nil
 }
@@ -1007,9 +1009,9 @@ func runesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	switch {
 	case len(args) == 0:
 		for i, e := range elems {
-			if IsBlankRune(e) {
+			if text.IsBlankRune(e) {
 				found, n = i, 1
-				for found+n < len(elems) && IsBlankRune(elems[found+n]) {
+				for found+n < len(elems) && text.IsBlankRune(elems[found+n]) {
 					n++
 				}
 				break
@@ -1018,7 +1020,7 @@ func runesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	case args[0].IsCallable():
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -1044,7 +1046,7 @@ func runesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			return Undefined, err
 		}
 		for i := range elems {
-			if k := runLengthAt(elems, i, runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 				found, n = i, k
 				break
 			}

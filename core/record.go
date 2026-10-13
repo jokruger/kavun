@@ -13,6 +13,7 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const (
@@ -104,7 +105,7 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 	keys := o.sortedKeys()
 	len1 := len(keys) - 1
 	for idx, key := range keys {
-		b = EncodeString(b, key)
+		b = text.AppendJSONString(b, key)
 		b = append(b, ':')
 		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {

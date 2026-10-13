@@ -10,6 +10,8 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/conv"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // string's members: one function per entry of TypeString.Methods that is not a shared member (MemberIsTrue,
@@ -38,7 +40,7 @@ func stringRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(DecodeText(*o), false), nil
+	return NewRunesValue(text.DecodeText(*o), false), nil
 }
 
 // PURE by contract
@@ -91,7 +93,7 @@ func stringIsValid(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(TextIsValid(*o)), nil
+	return BoolValue(text.TextIsValid(*o)), nil
 }
 
 // PURE by contract
@@ -100,7 +102,7 @@ func stringIsASCII(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(IsASCIIText(*o)), nil
+	return BoolValue(text.IsASCIIText(*o)), nil
 }
 
 // PURE by contract
@@ -126,7 +128,7 @@ func stringLower(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToLower))), nil
+	return NewStringValue(text.EncodeText(text.MapRunesCase(text.DecodeText(*o), unicode.ToLower))), nil
 }
 
 // PURE by contract
@@ -135,7 +137,7 @@ func stringUpper(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToUpper))), nil
+	return NewStringValue(text.EncodeText(text.MapRunesCase(text.DecodeText(*o), unicode.ToUpper))), nil
 }
 
 // stringContains is contains(...): is there a match anywhere? The empty run is contained everywhere, the
@@ -146,7 +148,7 @@ func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 
 	if m.runs != nil {
 		for _, r := range m.runs {
@@ -155,7 +157,7 @@ func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			}
 		}
 		for i := range elems {
-			if runLengthAt(elems, i, m.runs) > 0 {
+			if seq.RunLengthAt(elems, i, m.runs) > 0 {
 				return True, nil
 			}
 		}
@@ -181,12 +183,12 @@ func stringCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 
 	n := int64(0)
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				n++
 				i += k
 			} else {
@@ -215,19 +217,19 @@ func stringKeep(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, 0, len(elems))
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				out = append(out, elems[i:i+k]...)
 				i += k
 			} else {
 				i++
 			}
 		}
-		return NewStringValue(EncodeText(out)), nil
+		return NewStringValue(text.EncodeText(out)), nil
 	}
 
 	for i, r := range elems {
@@ -239,7 +241,7 @@ func stringKeep(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			out = append(out, r)
 		}
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringRemove is remove(...): a new string without the matches, in order. With no argument remove drops the
@@ -250,28 +252,28 @@ func stringRemove(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, 0, len(elems))
 
 	if m.significant {
 		for _, r := range elems {
-			if !IsBlankRune(r) {
+			if !text.IsBlankRune(r) {
 				out = append(out, r)
 			}
 		}
-		return NewStringValue(EncodeText(out)), nil
+		return NewStringValue(text.EncodeText(out)), nil
 	}
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				i += k
 			} else {
 				out = append(out, elems[i])
 				i++
 			}
 		}
-		return NewStringValue(EncodeText(out)), nil
+		return NewStringValue(text.EncodeText(out)), nil
 	}
 
 	for i, r := range elems {
@@ -283,7 +285,7 @@ func stringRemove(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			out = append(out, r)
 		}
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringAny is any(...): does some symbol match? Symbols, a predicate, or nothing — never a run.
@@ -293,7 +295,7 @@ func stringAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	for i, r := range DecodeText(*(*string)(v.Ptr)) {
+	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
 		hit, err := m.matches(vm, i, r)
 		if err != nil {
 			return Undefined, err
@@ -313,7 +315,7 @@ func stringAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	for i, r := range DecodeText(*(*string)(v.Ptr)) {
+	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
 		hit, err := m.matches(vm, i, r)
 		if err != nil {
 			return Undefined, err
@@ -332,7 +334,7 @@ func stringAppend(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(*(*string)(v.Ptr) + EncodeText(items)), nil
+	return NewStringValue(*(*string)(v.Ptr) + text.EncodeText(items)), nil
 }
 
 // stringPrepend is prepend(...items): x.prepend(a, b) is a + b + x.
@@ -342,7 +344,7 @@ func stringPrepend(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(items) + *(*string)(v.Ptr)), nil
+	return NewStringValue(text.EncodeText(items) + *(*string)(v.Ptr)), nil
 }
 
 // stringPush is push(...items): the items — exactly one symbol each — appended.
@@ -352,7 +354,7 @@ func stringPush(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(*(*string)(v.Ptr) + EncodeText(items)), nil
+	return NewStringValue(*(*string)(v.Ptr) + text.EncodeText(items)), nil
 }
 
 // stringPushFirst is push_first(...items): the items — exactly one symbol each — in front, in argument order.
@@ -362,7 +364,7 @@ func stringPushFirst(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(items) + *(*string)(v.Ptr)), nil
+	return NewStringValue(text.EncodeText(items) + *(*string)(v.Ptr)), nil
 }
 
 // stringTrim is trim(...): without the leading and trailing elements of the set.
@@ -372,7 +374,7 @@ func stringTrim(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringTrimStart is trim_start(...): without the leading elements of the set.
@@ -382,7 +384,7 @@ func stringTrimStart(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringTrimEnd is trim_end(...): without the trailing elements of the set.
@@ -392,7 +394,7 @@ func stringTrimEnd(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringHasPrefix is has_prefix(...): does the receiver start with one of the runs?
@@ -422,7 +424,7 @@ func stringRemovePrefix(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringRemoveSuffix is remove_suffix(...): without the longest matching suffix, once.
@@ -432,7 +434,7 @@ func stringRemoveSuffix(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringReplace is replace(...): every occurrence of old replaced by new.
@@ -442,7 +444,7 @@ func stringReplace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringPadStart is pad_start(...): filled at the front up to n elements.
@@ -452,7 +454,7 @@ func stringPadStart(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringPadEnd is pad_end(...): filled at the end up to n elements.
@@ -462,7 +464,7 @@ func stringPadEnd(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // PURE by contract
@@ -471,9 +473,9 @@ func stringReverse(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	slices.Reverse(rs)
-	return NewStringValue(EncodeText(rs)), nil
+	return NewStringValue(text.EncodeText(rs)), nil
 }
 
 // PURE by contract
@@ -483,7 +485,7 @@ func stringFirst(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	if len(rs) == 0 {
 		// absence is data: undefined, or the optional trailing default
 		return emptySeqResult(name, args)
@@ -498,7 +500,7 @@ func stringLast(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	if len(rs) == 0 {
 		return emptySeqResult(name, args)
 	}
@@ -512,7 +514,7 @@ func stringMin(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	if len(rs) == 0 {
 		return emptySeqResult(name, args)
 	}
@@ -526,7 +528,7 @@ func stringMax(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	if len(rs) == 0 {
 		return emptySeqResult(name, args)
 	}
@@ -539,9 +541,9 @@ func stringSort(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	slices.Sort(rs)
-	return NewStringValue(EncodeText(rs)), nil
+	return NewStringValue(text.EncodeText(rs)), nil
 }
 
 // PURE by contract
@@ -550,14 +552,14 @@ func stringDedup(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	out := make([]rune, 0, len(rs))
 	for i, r := range rs {
 		if i == 0 || r != rs[i-1] {
 			out = append(out, r)
 		}
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // PURE by contract
@@ -566,7 +568,7 @@ func stringUnique(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	out := make([]rune, 0, len(rs))
 	seen := make(map[rune]struct{}, len(rs))
 	for _, r := range rs {
@@ -575,7 +577,7 @@ func stringUnique(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 			out = append(out, r)
 		}
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringChunk is chunk(size): the symbols in strings of size symbols (the last one shorter).
@@ -585,14 +587,14 @@ func stringChunk(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	step := len(elems)
 	if size < int64(step) {
 		step = int(size)
 	}
 	chunks := make([]Value, 0)
 	for start := 0; start < len(elems); start += step {
-		chunks = append(chunks, NewStringValue(EncodeText(elems[start:min(start+step, len(elems))])))
+		chunks = append(chunks, NewStringValue(text.EncodeText(elems[start:min(start+step, len(elems))])))
 	}
 	return NewArrayValue(chunks, false), nil
 }
@@ -602,7 +604,7 @@ func stringChunk(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringInsert(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "insert"
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	at, err := readEditPos(name, args, len(elems))
 	if err != nil {
 		return Undefined, err
@@ -611,14 +613,14 @@ func stringInsert(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(EncodeText(slices.Insert(elems, at, items...))), nil
+	return NewStringValue(text.EncodeText(slices.Insert(elems, at, items...))), nil
 }
 
 // stringSplice is splice([start[, count[, ...items]]]): a new string with count symbols at start replaced by the
 // items (read like append's operands).
 // PURE by contract
 func stringSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	start, end, err := readSpliceRange("splice", args, len(elems))
 	if err != nil {
 		return Undefined, err
@@ -633,7 +635,7 @@ func stringSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	out = append(out, elems[:start]...)
 	out = append(out, items...)
 	out = append(out, elems[end:]...)
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringMap is map(f): strictly 1:1, answering a string — each callback result must be exactly one symbol (an
@@ -645,7 +647,7 @@ func stringMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, len(elems))
 	for i, e := range elems {
 		res, err := callElem(vm, fn, i, RuneValue(e))
@@ -667,7 +669,7 @@ func stringMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		}
 		out[i] = enc[0]
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringFlatMap is flat_map(f): map, then concatenate — each callback result is text content appended as a run (a
@@ -679,7 +681,7 @@ func stringFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, 0, len(elems))
 	for i, e := range elems {
 		res, err := callElem(vm, fn, i, RuneValue(e))
@@ -695,7 +697,7 @@ func stringFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		}
 		out = append(out, enc...)
 	}
-	return NewStringValue(EncodeText(out)), nil
+	return NewStringValue(text.EncodeText(out)), nil
 }
 
 // stringReduce is reduce(acc, f): folds the symbols left to right.
@@ -705,7 +707,7 @@ func stringReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	for i, e := range DecodeText(*(*string)(v.Ptr)) {
+	for i, e := range text.DecodeText(*(*string)(v.Ptr)) {
 		acc, err = callReduce(vm, fn, acc, i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
@@ -720,11 +722,11 @@ func stringCaseFold(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	for i, r := range rs {
-		rs[i] = foldRuneCanonical(r)
+		rs[i] = text.FoldRuneCanonical(r)
 	}
-	return NewStringValue(EncodeText(rs)), nil
+	return NewStringValue(text.EncodeText(rs)), nil
 }
 
 // PURE by contract
@@ -735,7 +737,7 @@ func stringTitleCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(caseJoinTitle(caseSegmentWritten(DecodeText(*o))))), nil
+	return NewStringValue(text.EncodeText(text.CaseJoinTitle(text.CaseSegmentWritten(text.DecodeText(*o))))), nil
 }
 
 // PURE by contract
@@ -744,7 +746,7 @@ func stringSnakeCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(caseJoinLower(caseSegmentWords(DecodeText(*o)), '_'))), nil
+	return NewStringValue(text.EncodeText(text.CaseJoinLower(text.CaseSegmentWords(text.DecodeText(*o)), '_'))), nil
 }
 
 // PURE by contract
@@ -753,7 +755,7 @@ func stringKebabCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(caseJoinLower(caseSegmentWords(DecodeText(*o)), '-'))), nil
+	return NewStringValue(text.EncodeText(text.CaseJoinLower(text.CaseSegmentWords(text.DecodeText(*o)), '-'))), nil
 }
 
 // PURE by contract
@@ -762,7 +764,7 @@ func stringCamelCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(caseJoinCapitalized(caseSegmentWords(DecodeText(*o)), true))), nil
+	return NewStringValue(text.EncodeText(text.CaseJoinCapitalized(text.CaseSegmentWords(text.DecodeText(*o)), true))), nil
 }
 
 // PURE by contract
@@ -771,7 +773,7 @@ func stringPascalCase(_ VM, v Value, id member.ID, args []Value) (Value, error) 
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewStringValue(EncodeText(caseJoinCapitalized(caseSegmentWords(DecodeText(*o)), false))), nil
+	return NewStringValue(text.EncodeText(text.CaseJoinCapitalized(text.CaseSegmentWords(text.DecodeText(*o)), false))), nil
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
@@ -782,7 +784,7 @@ func stringForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	for i, r := range DecodeText(*(*string)(v.Ptr)) {
+	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
 		if _, err := callElem(vm, fn, i, RuneValue(r)); err != nil {
 			return Undefined, err
 		}
@@ -810,7 +812,7 @@ func stringRepeat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	if _, err := SeqRepeatTotal(name, n, len(*o)); err != nil {
+	if _, err := seq.RepeatTotal(name, n, len(*o)); err != nil {
 		return Undefined, err
 	}
 	return NewStringValue(strings.Repeat(*o, n)), nil
@@ -822,13 +824,13 @@ func stringRepeat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "split"
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 
 	if len(args) == 0 {
 		var pieces []Value
 		start := -1
 		for i, e := range elems {
-			if IsBlankRune(e) {
+			if text.IsBlankRune(e) {
 				if start >= 0 {
 					pieces = append(pieces, stringPiece(elems[start:i]))
 					start = -1
@@ -848,7 +850,7 @@ func stringSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -876,7 +878,7 @@ func stringSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	for i := 0; i < len(elems); {
-		if k := runLengthAt(elems, i, runs); k > 0 {
+		if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 			pieces = append(pieces, stringPiece(elems[start:i]))
 			i += k
 			start = i
@@ -894,15 +896,15 @@ func stringSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "partition"
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	found, n := -1, 0
 
 	switch {
 	case len(args) == 0:
 		for i, e := range elems {
-			if IsBlankRune(e) {
+			if text.IsBlankRune(e) {
 				found, n = i, 1
-				for found+n < len(elems) && IsBlankRune(elems[found+n]) {
+				for found+n < len(elems) && text.IsBlankRune(elems[found+n]) {
 					n++
 				}
 				break
@@ -911,7 +913,7 @@ func stringPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	case args[0].IsCallable():
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -937,7 +939,7 @@ func stringPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			return Undefined, err
 		}
 		for i := range elems {
-			if k := runLengthAt(elems, i, runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 				found, n = i, k
 				break
 			}
@@ -957,7 +959,7 @@ func stringSplitLines(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*string)(v.Ptr)
-	pieces := splitLinesString(*o)
+	pieces := text.SplitLinesString(*o)
 	arr := make([]Value, len(pieces))
 	for i, p := range pieces {
 		arr[i] = NewStringValue(p)

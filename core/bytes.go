@@ -17,6 +17,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const (
@@ -320,7 +322,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		if isCount {
 			src := o.Elements
 			sl := len(src)
-			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			total, terr := seq.RepeatTotal(op.String(), n, sl)
 			if terr != nil {
 				return Undefined, terr
 			}
@@ -563,7 +565,7 @@ func bytesEncodeMatchArg(name string, a Value) ([]byte, bool, error) {
 //
 // On a text receiver every accepted argument is TEXT CONTENT (bytesEncodeMatchArg), matched as a run of octets —
 // a single octet is just a run of one, and a multi-octet rune is a run:
-//   - no argument      the significant octets (not IsBlankByte)
+//   - no argument      the significant octets (not text.IsBlankByte)
 //   - a function       a predicate, f/1(octet) or f/2(index, octet)
 //   - text content     a run; several arguments form a set of runs
 //
@@ -589,7 +591,7 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return bytesMatch{}, errPredicateAmongMany(name)
+			return bytesMatch{}, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return bytesMatch{}, err
@@ -601,7 +603,7 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 	sawSymbol, sawText := false, false
 	for _, a := range args {
 		if a.IsCallable() {
-			return bytesMatch{}, errFunctionInSet(name)
+			return bytesMatch{}, seq.ErrFunctionInSet(name)
 		}
 		run, isSymbol, err := bytesEncodeMatchArg(name, a)
 		if err != nil {
@@ -615,7 +617,7 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 		runs = append(runs, run)
 	}
 	if sawSymbol && sawText {
-		return bytesMatch{}, errMixedSet(name)
+		return bytesMatch{}, seq.ErrMixedSet(name)
 	}
 
 	if !octets {
@@ -627,7 +629,7 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 	elems := make([]byte, 0, len(runs))
 	for _, r := range runs {
 		if len(r) != 1 {
-			return bytesMatch{}, errNotOneElement(name)
+			return bytesMatch{}, seq.ErrNotOneElement(name)
 		}
 		elems = append(elems, r[0])
 	}
@@ -638,7 +640,7 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 func (m *bytesMatch) matches(vm VM, i int, r byte) (bool, error) {
 	switch {
 	case m.significant:
-		return !IsBlankByte(r), nil
+		return !text.IsBlankByte(r), nil
 	case m.pred.IsCallable():
 		res, err := callElem(vm, m.pred, i, ByteValue(r))
 		if err != nil {
@@ -661,7 +663,7 @@ func bytesKept(vm VM, name string, v Value, args []Value) ([]byte, error) {
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				out = append(out, elems[i:i+k]...)
 				i += k
 			} else {
@@ -696,7 +698,7 @@ func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
 
 	if m.significant {
 		for _, r := range elems {
-			if !IsBlankByte(r) {
+			if !text.IsBlankByte(r) {
 				out = append(out, r)
 			}
 		}
@@ -705,7 +707,7 @@ func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				i += k
 			} else {
 				out = append(out, elems[i])
@@ -730,7 +732,7 @@ func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
 // counted in octets. The argument's type selects the reading:
-//   - no argument      the first / last significant octet (not IsBlankByte)
+//   - no argument      the first / last significant octet (not text.IsBlankByte)
 //   - a function       a predicate, f/1(octet) or f/2(index, octet)
 //   - text content     a contiguous run (string, runes or bytes)
 //   - anything else    one octet, compared with ==; a value that is not one octet raises
@@ -747,7 +749,7 @@ func bytesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	if len(args) == 0 {
 		idx := -1
 		for i, e := range elems {
-			if !IsBlankByte(e) {
+			if !text.IsBlankByte(e) {
 				idx = i
 				if !last {
 					break
@@ -796,7 +798,7 @@ func bytesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 		return Undefined, err
 	}
 	if !isElement || len(enc) != 1 {
-		return Undefined, errNotOneElement(name)
+		return Undefined, seq.ErrNotOneElement(name)
 	}
 	idx := -1
 	for i, e := range elems {
@@ -810,7 +812,7 @@ func bytesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	return locatorAnswer(idx, dflt)
 }
 
-// bytesIndexRun is indexRun on octets, through the standard library's searcher.
+// bytesIndexRun is seq.IndexRun on octets, through the standard library's searcher.
 func bytesIndexRun(elems, run []byte, last bool) int {
 	if len(run) == 0 || len(run) > len(elems) {
 		return -1
@@ -824,7 +826,7 @@ func bytesIndexRun(elems, run []byte, last bool) int {
 // ---------------------------------------------------------------------------
 // The structural members: the trim family, the anchored pair (has_/remove_ prefix/suffix), replace, and the pads.
 // Every argument is text content (bytesEncodeMatchArg); none of them takes a predicate.
-//   - trim*            a set of single octets, stripped repeat-while; no argument = the blank set (IsBlankByte)
+//   - trim*            a set of single octets, stripped repeat-while; no argument = the blank set (text.IsBlankByte)
 //   - *_prefix/suffix  a homogeneous set of runs; the longest anchored run wins; remove_* removes it once
 //   - replace(old, new) every occurrence of the run old, leftmost and non-overlapping; an empty old matches nothing
 //   - pad_*(n[, fill]) n counts octets; the fill is exactly one octet, the space by default
@@ -847,7 +849,7 @@ func bytesReadElementSet(name string, args []Value, refuse string) ([]byte, erro
 			return nil, errs.NewInvalidArgumentTypeError(name, "argument", refuse, a.TypeName())
 		}
 		if len(enc) != 1 {
-			return nil, errNotOneElement(name)
+			return nil, seq.ErrNotOneElement(name)
 		}
 		set = append(set, enc[0])
 	}
@@ -876,7 +878,7 @@ func bytesReadRunSet(name string, args []Value, onFunction string) ([][]byte, er
 		runs = append(runs, run)
 	}
 	if sawElement && sawText {
-		return nil, errMixedSet(name)
+		return nil, seq.ErrMixedSet(name)
 	}
 	return runs, nil
 }
@@ -890,7 +892,7 @@ func bytesTrimmed(name string, v Value, args []Value, start, end bool) ([]byte, 
 	}
 	inSet := func(e byte) bool {
 		if len(args) == 0 {
-			return IsBlankByte(e)
+			return text.IsBlankByte(e)
 		}
 		return slices.Contains(set, e)
 	}
@@ -1008,7 +1010,7 @@ func bytesPadded(name string, v Value, args []Value, start bool) ([]byte, error)
 	if n <= int64(len(elems)) {
 		return slices.Clone(elems), nil
 	}
-	width, err := SeqPadWidth(name, n)
+	width, err := seq.PadWidth(name, n)
 	if err != nil {
 		return nil, err
 	}
@@ -1021,7 +1023,7 @@ func bytesPadded(name string, v Value, args []Value, start bool) ([]byte, error)
 
 // ---------------------------------------------------------------------------
 // split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
-// of runs, a predicate on single octets, or — no argument — the blank set (IsBlankByte). Runs match leftmost-longest
+// of runs, a predicate on single octets, or — no argument — the blank set (text.IsBlankByte). Runs match leftmost-longest
 // and never overlap; an empty run matches nothing.
 // ---------------------------------------------------------------------------
 

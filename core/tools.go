@@ -1,17 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"maps"
 	"math"
-	"math/big"
-	"slices"
 	"sort"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/member"
@@ -19,117 +14,9 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
-
-// NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
-func NormalizeIndex(index int64, length int64) (int64, bool) {
-	if index < 0 {
-		index += length
-	}
-	if index < 0 || index >= length {
-		return index, false
-	}
-	return index, true
-}
-
-// NormalizeSliceBounds normalizes slice bounds (negative values count from the end, missing start defaults to 0,
-// missing end defaults to length) and clamps them to [0, length]. If start > end after normalization, start is set to
-// end.
-func NormalizeSliceBounds(start int64, hasStart bool, end int64, hasEnd bool, length int64) (int64, int64) {
-	if !hasStart {
-		start = 0
-	} else if start < 0 {
-		start += length
-	}
-
-	if !hasEnd {
-		end = length
-	} else if end < 0 {
-		end += length
-	}
-
-	if start < 0 {
-		start = 0
-	} else if start > length {
-		start = length
-	}
-
-	if end < 0 {
-		end = 0
-	} else if end > length {
-		end = length
-	}
-
-	if start > end {
-		start = end
-	}
-
-	return start, end
-}
-
-// NormalizeSliceBoundsStep returns the effective start and end for a step-based slice.
-// Caller must ensure step != 0. For step > 0 the iteration is start..end (exclusive).
-// For step < 0 the iteration is start..end (exclusive, with end possibly -1 to include index 0).
-func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, step int64, length int64) (int64, int64) {
-	var start, end int64
-	if step > 0 {
-		if !hasStart {
-			start = 0
-		} else {
-			start = si
-			if start < 0 {
-				start += length
-			}
-			if start < 0 {
-				start = 0
-			} else if start > length {
-				start = length
-			}
-		}
-		if !hasEnd {
-			end = length
-		} else {
-			end = ei
-			if end < 0 {
-				end += length
-			}
-			if end < 0 {
-				end = 0
-			} else if end > length {
-				end = length
-			}
-		}
-	} else {
-		// step < 0: lower bound is -1, upper bound is length-1
-		if !hasStart {
-			start = length - 1
-		} else {
-			start = si
-			if start < 0 {
-				start += length
-			}
-			if start < -1 {
-				start = -1
-			} else if start >= length {
-				start = length - 1
-			}
-		}
-		if !hasEnd {
-			end = -1
-		} else {
-			end = ei
-			if end < 0 {
-				end += length
-			}
-			if end < -1 {
-				end = -1
-			} else if end >= length {
-				end = length - 1
-			}
-		}
-	}
-	return start, end
-}
 
 // MutabilityNameHook answers a container's type name by its mutability: name for a mutable value, immutableName
 // for an immutable one ("array" / "immutable-array").
@@ -198,7 +85,7 @@ func resolveSliceBounds(name string, s, e Value, length int) (int, int, error) {
 			return 0, 0, errs.NewInvalidIndexTypeError(name, "int", e.TypeName())
 		}
 	}
-	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, int64(length))
+	si, ei = seq.NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, int64(length))
 	return int(si), int(ei), nil
 }
 
@@ -223,7 +110,7 @@ func resolveSliceStep(s, e, stepVal Value, length int) (int, int, int, error) {
 			return 0, 0, 0, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
-	si, ei = NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, int64(length))
+	si, ei = seq.NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, int64(length))
 	return int(si), int(ei), int(step), nil
 }
 
@@ -234,7 +121,7 @@ func resolveIndex(name string, index Value, length int) (int, error) {
 	if !ok {
 		return 0, errs.NewInvalidIndexTypeError(name, "int", index.TypeName())
 	}
-	if i, ok = NormalizeIndex(i, int64(length)); !ok {
+	if i, ok = seq.NormalizeIndex(i, int64(length)); !ok {
 		return 0, errs.NewIndexOutOfBoundsError(name, int(i), length)
 	}
 	return int(i), nil
@@ -258,29 +145,6 @@ func readEditPos(name string, args []Value, length int) (int, error) {
 		return 0, errs.NewIndexOutOfBoundsError(name, int(orig), length)
 	}
 	return int(i), nil
-}
-
-// argOrdinal names the argument at zero-based position i the way every argument error does ("first",
-// "second", …); past the tenth, where a variadic member can still be, it falls back to "11th", "22nd", ….
-// PURE by contract.
-func argOrdinal(i int) string {
-	words := [...]string{"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"}
-	if i >= 0 && i < len(words) {
-		return words[i]
-	}
-	n := i + 1
-	suffix := "th"
-	if n%100 < 11 || n%100 > 13 {
-		switch n % 10 {
-		case 1:
-			suffix = "st"
-		case 2:
-			suffix = "nd"
-		case 3:
-			suffix = "rd"
-		}
-	}
-	return fmt.Sprintf("%d%s", n, suffix)
 }
 
 // readSpliceRange reads splice's (start[, count]) against the length and answers the edited span [start, end).
@@ -390,20 +254,6 @@ func mergeMaps(a, b map[string]Value) map[string]Value {
 	return result
 }
 
-// decimalToExactRat converts d to its true exact value as ±coefficient/10^scale — never through a
-// lossy intermediate (no ToString()/parse, no float64) — for use in exact cross-type comparisons
-// against float, where dec128's own fixed ~34-digit precision can't hold an arbitrary float64's
-// exact decimal expansion but math/big.Rat, being arbitrary-precision, always can. Caller must
-// exclude NaN first — a NaN decimal has no coefficient/scale worth converting.
-func decimalToExactRat(d *dec128.Dec128) *big.Rat {
-	coef := d.Coefficient().BigInt()
-	if d.IsNegative() {
-		coef = new(big.Int).Neg(coef)
-	}
-	denom := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(d.Scale())), nil)
-	return new(big.Rat).SetFrac(coef, denom)
-}
-
 // parseIntArg reads an int-valued slot (a count, a width, an edit position): any numeric is accepted iff the
 // conversion is LOSSLESS — repeat(2.0) is repeat(2), repeat(1.5) raises rather than silently truncating —
 // and everything non-convertible is a type error.
@@ -439,40 +289,6 @@ func callElem(vm VM, fn Value, i int, e Value) (Value, error) {
 	return fn.Call(vm, []Value{e})
 }
 
-// runLengthAt reports the length of the longest non-empty run in runs that matches elems at position i (0 when
-// none does). Longest wins so that a set of runs is a true SET: the answer never depends on argument order.
-func runLengthAt[T comparable](elems []T, i int, runs [][]T) int {
-	best := 0
-	for _, r := range runs {
-		if len(r) <= best || i+len(r) > len(elems) {
-			continue
-		}
-		if slices.Equal(elems[i:i+len(r)], r) {
-			best = len(r)
-		}
-	}
-	return best
-}
-
-// indexRun answers the position of the first (or, with last, the final) occurrence of run in elems, or -1. The
-// empty run is never found: a locator needs a position, and "everywhere" is not one.
-func indexRun[T comparable](elems []T, run []T, last bool) int {
-	n, m := len(elems), len(run)
-	if m == 0 || m > n {
-		return -1
-	}
-	idx := -1
-	for i := 0; i+m <= n; i++ {
-		if slices.Equal(elems[i:i+m], run) {
-			idx = i
-			if !last {
-				break
-			}
-		}
-	}
-	return idx
-}
-
 // locatorAnswer is the uniform miss contract of the locators (index/index_last): a position answers itself;
 // absence (idx < 0) answers undefined — never an in-band sentinel like -1, which negative indexing would silently
 // accept — or the optional trailing default.
@@ -486,27 +302,6 @@ func locatorAnswer(idx int, dflt []Value) (Value, error) {
 	return Undefined, nil
 }
 
-// errPredicateAmongMany: a function was passed together with other arguments to a member that reads a single
-// function as a predicate.
-func errPredicateAmongMany(name string) error {
-	return errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
-}
-
-// errFunctionInSet: a function appeared later in a variadic set of values.
-func errFunctionInSet(name string) error {
-	return errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
-}
-
-// errMixedSet: a variadic set mixed elements and runs.
-func errMixedSet(name string) error {
-	return errs.NewInvalidArgumentTypeError(name, "arguments", "a HOMOGENEOUS set — every argument in one call must have the same reading (all elements, or all runs)", "mixed")
-}
-
-// errNotOneElement: a value that had to be exactly one element of the receiver encodes to more (or fewer).
-func errNotOneElement(name string) error {
-	return errs.NewInvalidValueError("(" + name + ") the value does not fit a single element of the receiver")
-}
-
 // emptySeqResult is the one answer for "this member has no value to give, because the sequence is empty":
 // first/last/min/max/sum/avg. It raises, like every other operation that cannot produce a valid value, unless the
 // caller supplied the member form's trailing default — the same opt-out the conversions use (`"bad".int(0)`).
@@ -517,45 +312,6 @@ func emptySeqResult(name string, args []Value) (Value, error) {
 		return args[0], nil
 	}
 	return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) empty sequence", name))
-}
-
-// MaxSequenceLen bounds every count-driven sequence allocation (`repeat`, the `*` operator, `pad_start` and
-// `pad_end`). Go's makeslice PANICS — not raises — for a length it cannot represent, and a Go panic escaping
-// into the host is exactly what the error model forbids, so the count is checked against this ceiling first
-// and answers a catchable error instead. The value is far past any real script and below makeslice's own
-// limit for every element type Kavun has (byte, rune, Value), which makes that panic unreachable through
-// these paths.
-const MaxSequenceLen = 1 << 32
-
-// SeqRepeatTotal computes len(receiver) * count for a repeat, raising rather than overflowing or panicking.
-// PURE by contract.
-func SeqRepeatTotal(name string, n, elems int) (int, error) {
-	if n != 0 && elems > MaxSequenceLen/n {
-		// argument validation must be catchable by recover()
-		return 0, errs.NewInvalidValueError(fmt.Sprintf(
-			"(%s) result would be %d × %d elements, past the %d limit", name, elems, n, MaxSequenceLen))
-	}
-	return n * elems, nil
-}
-
-// SeqPadWidth reads a pad's target WIDTH as an allocation size, raising rather than panicking. It is the same
-// ceiling as `repeat`'s, checked directly instead of as a product: a pad's width IS the resulting element
-// count. The caller must have handled the no-op case (a width at or below the length) first, so what reaches
-// here is always a real allocation. PURE by contract.
-func SeqPadWidth(name string, n int64) (int, error) {
-	return SeqAllocLen(name, n)
-}
-
-// SeqAllocLen reads an element count as an allocation size, raising rather than panicking in makeslice when it
-// is past MaxSequenceLen. It is the guard for every path that materialises a lazily-described sequence (a range's
-// elements) as well as for the pad width above. PURE by contract.
-func SeqAllocLen(name string, n int64) (int, error) {
-	if n > MaxSequenceLen {
-		// argument validation must be catchable by recover()
-		return 0, errs.NewInvalidValueError(fmt.Sprintf(
-			"(%s) result would be %d elements, past the %d limit", name, n, MaxSequenceLen))
-	}
-	return int(n), nil
 }
 
 // SeqRepeatOperand reads the right operand of a sequence's `*` as a repeat count, so `x * n` is exactly
@@ -664,31 +420,6 @@ func ElementsToEntries(elems []Value) (map[string]Value, bool) {
 	return m, true
 }
 
-// mapRunesCase applies a per-symbol case mapping, leaving the octet escapes alone — an octet that is not a
-// symbol has no case, and Go's strings.ToUpper/ToLower would replace it with U+FFFD on the way through.
-// PURE by contract.
-func mapRunesCase(rs []rune, f func(rune) rune) []rune {
-	out := make([]rune, len(rs))
-	for i, r := range rs {
-		if IsEscapeRune(r) {
-			out[i] = r
-			continue
-		}
-		out[i] = f(r)
-	}
-	return out
-}
-
-// ByteSymbolString is a byte's TEXT CONTENT — the one-octet text that holds it. TOTAL: below 0x80 that text
-// is the octet's ASCII symbol, and at or above it the text holds the octet itself, which reads back as the
-// octet's escape and converts back to this same byte. The old Latin-1 leak the partial version guarded against
-// (equality reading "\xFF" as "ÿ") cannot happen now: "\xFF" is one ESCAPE symbol, never U+00FF, so
-// b'\xff' == "\xff" is true and b'\xff' == "ÿ" is false, which is what both should be.
-// The RENDER of a byte stays its number (format(b) -> "65").
-func ByteSymbolString(b byte) (string, bool) {
-	return string([]byte{b}), true
-}
-
 // IsBlankElement reports whether e is "insignificant content" for a general container: undefined, or the
 // element type's own zero value. Match-taking members called with NO argument act on this set (count() counts
 // the significant elements, keep() answers exactly those, remove() drops the blanks, index() locates the first
@@ -697,7 +428,7 @@ func ByteSymbolString(b byte) (string, bool) {
 // blank), not one operation under two names. It is a DEFAULT, not a policy — the argument forms override it at
 // any call site, and a
 // script that means "zeros are data" passes its own set. The text triple uses whitespace sets instead
-// (IsBlankRune/IsBlankByte): these members are about separators and filler, and whitespace is text's filler.
+// (text.IsBlankRune/text.IsBlankByte): these members are about separators and filler, and whitespace is text's filler.
 func IsBlankElement(e Value) bool {
 	switch e.Type {
 	case value.Undefined:
@@ -727,24 +458,6 @@ func IsBlankElement(e Value) bool {
 		return o.Start == o.Stop
 	}
 	// callables and error have no zero value and are never blank
-	return false
-}
-
-// IsBlankRune: the symbol types' blank set — NUL plus Unicode whitespace. The blank set is one notion,
-// NUL ∪ whitespace, projected into each receiver's ELEMENT DOMAIN: symbols (string/runes) take the Unicode
-// White_Space class, octets (bytes) the ASCII subset — all the whitespace an octet can express — so the two
-// sets agree everywhere both domains overlap and neither type imports the other's limitation.
-func IsBlankRune(r rune) bool {
-	return r == 0 || unicode.IsSpace(r)
-}
-
-// IsBlankByte is the octet projection of the same notion: NUL plus ASCII whitespace, a fixed set of literal
-// octets — deciding anything wider would require decoding, which octets never get.
-func IsBlankByte(b byte) bool {
-	switch b {
-	case 0, ' ', '\t', '\n', '\r', '\v', '\f':
-		return true
-	}
 	return false
 }
 
@@ -818,77 +531,6 @@ func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	}
 }
 
-// splitBytesWhitespace splits bs on runs of ASCII whitespace, dropping empty
-// pieces. Equivalent to bytes.Fields.
-func splitBytesWhitespace(bs []byte) [][]byte {
-	return bytes.Fields(bs)
-}
-
-// splitLinesString splits s on \n, \r\n or \r. A trailing line terminator
-// does not produce an extra empty trailing element. Empty s yields nil.
-func splitLinesString(s string) []string {
-	if len(s) == 0 {
-		return nil
-	}
-	out := make([]string, 0, 8)
-	i := 0
-	start := 0
-	for i < len(s) {
-		c := s[i]
-		switch c {
-		case '\n':
-			out = append(out, s[start:i])
-			i++
-			start = i
-		case '\r':
-			out = append(out, s[start:i])
-			i++
-			if i < len(s) && s[i] == '\n' {
-				i++
-			}
-			start = i
-		default:
-			i++
-		}
-	}
-	if start < len(s) {
-		out = append(out, s[start:])
-	}
-	return out
-}
-
-// splitLinesBytes is the []byte counterpart of splitLinesString.
-func splitLinesBytes(bs []byte) [][]byte {
-	if len(bs) == 0 {
-		return nil
-	}
-	out := make([][]byte, 0, 8)
-	i := 0
-	start := 0
-	for i < len(bs) {
-		c := bs[i]
-		switch c {
-		case '\n':
-			out = append(out, bs[start:i])
-			i++
-			start = i
-		case '\r':
-			out = append(out, bs[start:i])
-			i++
-			if i < len(bs) && bs[i] == '\n' {
-				i++
-			}
-			start = i
-		default:
-			i++
-		}
-	}
-	if start < len(bs) {
-		out = append(out, bs[start:])
-	}
-	return out
-}
-
 // PURE by contract
 func defaultFormat(v Value, _ fspec.FormatSpec) (string, error) {
 	return "", errs.NewNoFormattingError(v.TypeName())
@@ -959,7 +601,7 @@ func MemberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 		case value.String:
 			f = *(*string)(a.Ptr)
 		case value.Runes:
-			f = EncodeText((*Runes)(a.Ptr).Elements)
+			f = text.EncodeText((*Runes)(a.Ptr).Elements)
 		case value.Bytes:
 			f = string((*Bytes)(a.Ptr).Elements)
 		default:
@@ -1078,336 +720,14 @@ func defaultAsRunes(v Value) ([]rune, bool) {
 	return []rune(s), true
 }
 
-// EncodeString encodes given string as JSON string according to
-// https://www.json.org/img/string.png
-// Implementation is inspired by https://github.com/json-iterator/go
-func EncodeString(b []byte, val string) []byte {
-	valLen := len(val)
-	buf := bytes.NewBuffer(b)
-	buf.WriteByte('"')
-
-	// write string, the fast path, without utf8 and escape support
-	i := 0
-	for ; i < valLen; i++ {
-		c := val[i]
-		if c > 31 && c != '"' && c != '\\' {
-			buf.WriteByte(c)
-		} else {
-			break
-		}
-	}
-	if i == valLen {
-		buf.WriteByte('"')
-		return buf.Bytes()
-	}
-	encodeStringSlowPath(buf, i, val, valLen)
-	buf.WriteByte('"')
-	return buf.Bytes()
-}
-
-// encodeStringSlowPath is ported from Go 1.14.2 encoding/json package.
-// U+2028 U+2029 JSONP security holes can be fixed with addition call to
-// json.html_escape() thus it is removed from the implementation below.
-// Note: Invalid runes are not checked as they are checked in original
-// implementation.
-func encodeStringSlowPath(buf *bytes.Buffer, i int, val string, valLen int) {
-	start := i
-	for i < valLen {
-		if b := val[i]; b < utf8.RuneSelf {
-			if safeSet[b] {
-				i++
-				continue
-			}
-			if start < i {
-				buf.WriteString(val[start:i])
-			}
-			buf.WriteByte('\\')
-			switch b {
-			case '\\', '"':
-				buf.WriteByte(b)
-			case '\n':
-				buf.WriteByte('n')
-			case '\r':
-				buf.WriteByte('r')
-			case '\t':
-				buf.WriteByte('t')
-			default:
-				// This encodes bytes < 0x20 except for \t, \n and \r.
-				// If escapeHTML is set, it also escapes <, >, and &
-				// because they can lead to security holes when
-				// user-controlled strings are rendered into JSON
-				// and served to some browsers.
-				buf.WriteString(`u00`)
-				buf.WriteByte(hex[b>>4])
-				buf.WriteByte(hex[b&0xF])
-			}
-			i++
-			start = i
-			continue
-		}
-		i++
-		continue
-	}
-	if start < valLen {
-		buf.WriteString(val[start:])
-	}
-}
-
-// safeSet holds the value true if the ASCII character with the given array position can be represented inside a JSON string without any further escaping.
-//
-// All values are true except for the ASCII control characters (0-31), the
-// double quote ("), and the backslash character ("\").
-var safeSet = [utf8.RuneSelf]bool{
-	' ':      true,
-	'!':      true,
-	'"':      false,
-	'#':      true,
-	'$':      true,
-	'%':      true,
-	'&':      true,
-	'\'':     true,
-	'(':      true,
-	')':      true,
-	'*':      true,
-	'+':      true,
-	',':      true,
-	'-':      true,
-	'.':      true,
-	'/':      true,
-	'0':      true,
-	'1':      true,
-	'2':      true,
-	'3':      true,
-	'4':      true,
-	'5':      true,
-	'6':      true,
-	'7':      true,
-	'8':      true,
-	'9':      true,
-	':':      true,
-	';':      true,
-	'<':      true,
-	'=':      true,
-	'>':      true,
-	'?':      true,
-	'@':      true,
-	'A':      true,
-	'B':      true,
-	'C':      true,
-	'D':      true,
-	'E':      true,
-	'F':      true,
-	'G':      true,
-	'H':      true,
-	'I':      true,
-	'J':      true,
-	'K':      true,
-	'L':      true,
-	'M':      true,
-	'N':      true,
-	'O':      true,
-	'P':      true,
-	'Q':      true,
-	'R':      true,
-	'S':      true,
-	'T':      true,
-	'U':      true,
-	'V':      true,
-	'W':      true,
-	'X':      true,
-	'Y':      true,
-	'Z':      true,
-	'[':      true,
-	'\\':     false,
-	']':      true,
-	'^':      true,
-	'_':      true,
-	'`':      true,
-	'a':      true,
-	'b':      true,
-	'c':      true,
-	'd':      true,
-	'e':      true,
-	'f':      true,
-	'g':      true,
-	'h':      true,
-	'i':      true,
-	'j':      true,
-	'k':      true,
-	'l':      true,
-	'm':      true,
-	'n':      true,
-	'o':      true,
-	'p':      true,
-	'q':      true,
-	'r':      true,
-	's':      true,
-	't':      true,
-	'u':      true,
-	'v':      true,
-	'w':      true,
-	'x':      true,
-	'y':      true,
-	'z':      true,
-	'{':      true,
-	'|':      true,
-	'}':      true,
-	'~':      true,
-	'\u007f': true,
-}
-
-var hex = "0123456789abcdef"
-
 // ---------------------------------------------------------------------------
 // The casing family: one word segmenter, five renderings. Symbol-class
 // operations, so they live on string/runes only — never on bytes.
 // ---------------------------------------------------------------------------
 
-// caseSegmentWritten splits text on the WRITTEN boundaries only — runs of whitespace, '_' and '-',
-// discarded, empty words dropped. The label rendering (title_case) segments with this: a label preserves the
-// author's emphasis, and that covers word boundaries the author did not write — case transitions stay inside
-// words ("iPhone" → "IPhone", "hELLO" → "HELLO"). The identifier renderings use the full segmenter below.
-func caseSegmentWritten(rs []rune) [][]rune {
-	var words [][]rune
-	var cur []rune
-	for _, r := range rs {
-		if unicode.IsSpace(r) || r == '_' || r == '-' {
-			if len(cur) > 0 {
-				words = append(words, cur)
-				cur = nil
-			}
-			continue
-		}
-		cur = append(cur, r)
-	}
-	if len(cur) > 0 {
-		words = append(words, cur)
-	}
-	return words
-}
-
-// caseSegmentWords splits text into words for the *_case members. The boundary set is CLOSED:
-//   - runs of whitespace, '_' and '-' delimit words and are discarded;
-//   - a lower→upper transition starts a word (helloWorld → hello|World);
-//   - in an upper run followed by a lower, the last upper starts the word
-//     (HTTPServer → HTTP|Server, parseXMLFile → parse|XML|File);
-//   - everything else — digits, apostrophes, periods — stays inside the word,
-//     which is what keeps "don't" one word (an OPEN boundary set is how Go's
-//     deprecated strings.Title produced "Don'T");
-//   - empty words are dropped.
-func caseSegmentWords(rs []rune) [][]rune {
-	var words [][]rune
-	var cur []rune
-	flush := func() {
-		if len(cur) > 0 {
-			words = append(words, cur)
-			cur = nil
-		}
-	}
-	for _, r := range rs {
-		if unicode.IsSpace(r) || r == '_' || r == '-' {
-			flush()
-			continue
-		}
-		if len(cur) > 0 {
-			prev := cur[len(cur)-1]
-			switch {
-			case unicode.IsLower(prev) && unicode.IsUpper(r):
-				flush()
-			case unicode.IsUpper(prev) && unicode.IsLower(r) && len(cur) >= 2 && unicode.IsUpper(cur[len(cur)-2]):
-				last := prev
-				cur = cur[:len(cur)-1]
-				flush()
-				cur = []rune{last}
-			}
-		}
-		cur = append(cur, r)
-	}
-	flush()
-	return words
-}
-
 // The case renderings come in two policies: the identifier renderings (snake/kebab/camel/pascal) NORMALISE the
 // interior — an identifier has a canonical case — while the label rendering (title_case) PRESERVES it, uppercasing
 // only each word's first symbol ("ATM fee" → "ATM Fee" as a title, "atm_fee" as an identifier).
-
-// caseJoinLower renders words lowercased and joined by sep: snake_case ('_') and kebab_case ('-').
-func caseJoinLower(words [][]rune, sep rune) []rune {
-	out := make([]rune, 0, 16)
-	for wi, w := range words {
-		if wi > 0 {
-			out = append(out, sep)
-		}
-		for _, r := range w {
-			out = append(out, unicode.ToLower(r))
-		}
-	}
-	return out
-}
-
-// caseJoinCapitalized renders words lowercased with each word's first symbol uppercased, joined with no
-// separator: pascal_case, and camel_case when firstLower keeps the very first symbol lowercase.
-func caseJoinCapitalized(words [][]rune, firstLower bool) []rune {
-	out := make([]rune, 0, 16)
-	for wi, w := range words {
-		for i, r := range w {
-			if i == 0 && !(firstLower && wi == 0) {
-				out = append(out, unicode.ToUpper(r))
-			} else {
-				out = append(out, unicode.ToLower(r))
-			}
-		}
-	}
-	return out
-}
-
-// caseJoinTitle renders words joined by spaces with each word's first symbol uppercased and the rest kept as
-// written: title_case.
-func caseJoinTitle(words [][]rune) []rune {
-	out := make([]rune, 0, 16)
-	for wi, w := range words {
-		if wi > 0 {
-			out = append(out, ' ')
-		}
-		for i, r := range w {
-			if i == 0 {
-				out = append(out, unicode.ToUpper(r))
-			} else {
-				out = append(out, r)
-			}
-		}
-	}
-	return out
-}
-
-// foldRuneCanonical maps a symbol to one canonical member of its simple case-folding orbit — the smallest
-// LOWERCASE member, or the smallest member when the orbit has none — so a.case_fold() == b.case_fold() answers
-// exactly Go's strings.EqualFold while the render reads like every mainstream casefold ("Hello" → "hello";
-// S/s/ſ all → s). The representative must come from INSIDE the orbit: naively lowercasing the minimum would
-// merge İ (an orbit of one) into i's orbit and break the equality. A TRANSFORM, which composes (a dict key, a
-// sort basis, a dedup argument) where a comparison predicate cannot; not the same as lowering — the fold
-// predicates differ from lower-comparison in both directions (ſ/s fold-equal but lower-unequal; İ/i the reverse).
-func foldRuneCanonical(r rune) rune {
-	minAll := r
-	minLower := rune(-1)
-	f := r
-	for {
-		if f < minAll {
-			minAll = f
-		}
-		if unicode.IsLower(f) && (minLower < 0 || f < minLower) {
-			minLower = f
-		}
-		f = unicode.SimpleFold(f)
-		if f == r {
-			break
-		}
-	}
-	if minLower >= 0 {
-		return minLower
-	}
-	return minAll
-}
 
 // ---------------------------------------------------------------------------
 // Operator-layer text operands. The receiver — the LEFT operand — decides the
@@ -1455,15 +775,6 @@ func textOperandOctets(a Value) ([]byte, bool, error) {
 		return []byte{byte(a.Data)}, true, nil
 	}
 	return nil, false, nil
-}
-
-// removeAllBytes is `-` on an octet receiver: every occurrence of the run, leftmost non-overlapping;
-// the empty run removes nothing.
-func removeAllBytes(l, r []byte) []byte {
-	if len(r) == 0 {
-		return slices.Clone(l)
-	}
-	return bytes.ReplaceAll(l, r, nil)
 }
 
 // mapContainsKey is the `in` operator on a map receiver: the KEY axis — a key is accepted iff its

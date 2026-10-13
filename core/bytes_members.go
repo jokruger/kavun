@@ -6,6 +6,8 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // bytes's members: one function per entry of TypeBytes.Methods that is not a shared member (MemberIsTrue,
@@ -52,7 +54,7 @@ func bytesArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func bytesString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	// TOTAL: the decode never fails and never loses an octet — an undecodable one becomes its
-	// reserved escape (see text_escape.go), so .string().bytes() returns these octets exactly.
+	// reserved escape (see internal/text/escape.go), so .string().bytes() returns these octets exactly.
 	// is_valid() is how a script asks whether any escape is in there
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
@@ -67,7 +69,7 @@ func bytesRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return NewRunesValue(DecodeOctets(o.Elements), false), nil
+	return NewRunesValue(text.DecodeOctets(o.Elements), false), nil
 }
 
 // PURE by contract
@@ -78,7 +80,7 @@ func bytesIsASCII(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(OctetsAreASCII(o.Elements)), nil
+	return BoolValue(text.OctetsAreASCII(o.Elements)), nil
 }
 
 // PURE by contract
@@ -170,7 +172,7 @@ func bytesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			}
 		}
 		for i := range elems {
-			if runLengthAt(elems, i, m.runs) > 0 {
+			if seq.RunLengthAt(elems, i, m.runs) > 0 {
 				return True, nil
 			}
 		}
@@ -201,7 +203,7 @@ func bytesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	n := int64(0)
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				n++
 				i += k
 			} else {
@@ -769,7 +771,7 @@ func bytesRepeat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	src := o.Elements
 	sl := len(src)
-	total, err := SeqRepeatTotal(name, n, sl)
+	total, err := seq.RepeatTotal(name, n, sl)
 	if err != nil {
 		return Undefined, err
 	}
@@ -794,7 +796,7 @@ func bytesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		var pieces []Value
 		start := -1
 		for i, e := range elems {
-			if IsBlankByte(e) {
+			if text.IsBlankByte(e) {
 				if start >= 0 {
 					pieces = append(pieces, bytesPiece(elems[start:i]))
 					start = -1
@@ -814,7 +816,7 @@ func bytesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -842,7 +844,7 @@ func bytesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	for i := 0; i < len(elems); {
-		if k := runLengthAt(elems, i, runs); k > 0 {
+		if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 			pieces = append(pieces, bytesPiece(elems[start:i]))
 			i += k
 			start = i
@@ -861,7 +863,7 @@ func bytesSplitLines(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Bytes)(v.Ptr)
-	pieces := splitLinesBytes(o.Elements)
+	pieces := text.SplitLinesBytes(o.Elements)
 	arr := make([]Value, len(pieces))
 	for i, p := range pieces {
 		buf := make([]byte, len(p))
@@ -883,9 +885,9 @@ func bytesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	switch {
 	case len(args) == 0:
 		for i, e := range elems {
-			if IsBlankByte(e) {
+			if text.IsBlankByte(e) {
 				found, n = i, 1
-				for found+n < len(elems) && IsBlankByte(elems[found+n]) {
+				for found+n < len(elems) && text.IsBlankByte(elems[found+n]) {
 					n++
 				}
 				break
@@ -894,7 +896,7 @@ func bytesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 
 	case args[0].IsCallable():
 		if len(args) > 1 {
-			return Undefined, errPredicateAmongMany(name)
+			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return Undefined, err
@@ -920,7 +922,7 @@ func bytesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 			return Undefined, err
 		}
 		for i := range elems {
-			if k := runLengthAt(elems, i, runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, runs); k > 0 {
 				found, n = i, k
 				break
 			}

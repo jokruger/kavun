@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 // array's members: one function per entry of TypeArray.Methods that is not a shared member (MemberIsTrue,
@@ -1019,7 +1020,7 @@ func arrayRepeat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	}
 	src := o.Elements
 	sl := len(src)
-	total, err := SeqRepeatTotal(name, n, sl)
+	total, err := seq.RepeatTotal(name, n, sl)
 	if err != nil {
 		return Undefined, err
 	}

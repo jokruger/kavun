@@ -19,6 +19,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const intTypeName = "int"
@@ -226,11 +227,11 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func intTypeAsRune(v Value) (rune, bool) {
-	// a rune is a Unicode scalar value OR one of the reserved octet escapes (see text_escape.go);
+	// a rune is a Unicode scalar value OR one of the reserved octet escapes (see internal/text/escape.go);
 	// negatives, values past MaxRune and the non-escape surrogates are excluded by the same domain
 	// rule, not as special cases. The domain is exactly the set that can be encoded back to octets
 	i := int64(v.Data)
-	if !IntInRuneDomain(i) {
+	if !text.IntInRuneDomain(i) {
 		return rune(i), false
 	}
 	return rune(i), true

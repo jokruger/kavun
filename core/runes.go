@@ -20,6 +20,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const (
@@ -51,40 +53,40 @@ func NewRunesValue(r []rune, immutable bool) Value {
 }
 
 var TypeRunes = ValueTypeDescr{
-	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                 // PURE by contract
-	String:              func(v Value) string { return "u" + strconv.Quote(EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
-	Format:              runesTypeFormat,                                                                           // PURE by contract
-	Interface:           func(v Value) any { return (*Runes)(v.Ptr).Elements },                                     // PURE by contract
-	EncodeJSON:          runesTypeEncodeJSON,                                                                       // PURE by contract
-	EncodeBinary:        runesTypeEncodeBinary,                                                                     // PURE by contract
-	DecodeBinary:        runesTypeDecodeBinary,                                                                     // IMPURE by contract (mutates target)
-	IsTrue:              func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil },             // PURE by contract
-	IsIterable:          ConstHook(true),                                                                           // PURE by contract
-	Iterator:            runesTypeIterator,                                                                         // PURE by contract (constructs fresh iterator)
-	Copy:                runesTypeCopy,                                                                             // PURE by contract
-	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                       // PURE by contract
-	Equal:               runesTypeEqual,                                                                            // PURE by contract
-	BinaryOp:            runesTypeBinaryOp,                                                                         // PURE by contract
-	AccessIndex:         runesTypeAccessIndex,                                                                      // PURE by contract
-	AccessNamedProperty: noNamedProperty,                                                                           // PURE by contract
-	AssignIndex:         runesTypeAssignIndex,                                                                      // IMPURE by contract
-	Append:              runesTypeAppend,                                                                           // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
-	Contains:            runesTypeContains,                                                                         // PURE by contract
-	Slice:               runesTypeSlice,                                                                            // PURE by contract
-	SliceStep:           runesTypeSliceStep,                                                                        // PURE by contract
-	AsBool:              runesTypeAsBool,                                                                           // PURE by contract
-	AsInt:               runesTypeAsInt,                                                                            // PURE by contract
-	AsFloat:             runesTypeAsFloat,                                                                          // PURE by contract
-	AsDecimal:           runesTypeAsDecimal,                                                                        // PURE by contract
-	AsTime:              runesTypeAsTime,                                                                           // PURE by contract
+	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                      // PURE by contract
+	String:              func(v Value) string { return "u" + strconv.Quote(text.EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
+	Format:              runesTypeFormat,                                                                                // PURE by contract
+	Interface:           func(v Value) any { return (*Runes)(v.Ptr).Elements },                                          // PURE by contract
+	EncodeJSON:          runesTypeEncodeJSON,                                                                            // PURE by contract
+	EncodeBinary:        runesTypeEncodeBinary,                                                                          // PURE by contract
+	DecodeBinary:        runesTypeDecodeBinary,                                                                          // IMPURE by contract (mutates target)
+	IsTrue:              func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil },                  // PURE by contract
+	IsIterable:          ConstHook(true),                                                                                // PURE by contract
+	Iterator:            runesTypeIterator,                                                                              // PURE by contract (constructs fresh iterator)
+	Copy:                runesTypeCopy,                                                                                  // PURE by contract
+	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                            // PURE by contract
+	Equal:               runesTypeEqual,                                                                                 // PURE by contract
+	BinaryOp:            runesTypeBinaryOp,                                                                              // PURE by contract
+	AccessIndex:         runesTypeAccessIndex,                                                                           // PURE by contract
+	AccessNamedProperty: noNamedProperty,                                                                                // PURE by contract
+	AssignIndex:         runesTypeAssignIndex,                                                                           // IMPURE by contract
+	Append:              runesTypeAppend,                                                                                // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
+	Contains:            runesTypeContains,                                                                              // PURE by contract
+	Slice:               runesTypeSlice,                                                                                 // PURE by contract
+	SliceStep:           runesTypeSliceStep,                                                                             // PURE by contract
+	AsBool:              runesTypeAsBool,                                                                                // PURE by contract
+	AsInt:               runesTypeAsInt,                                                                                 // PURE by contract
+	AsFloat:             runesTypeAsFloat,                                                                               // PURE by contract
+	AsDecimal:           runesTypeAsDecimal,                                                                             // PURE by contract
+	AsTime:              runesTypeAsTime,                                                                                // PURE by contract
 	AsDate: func(v Value) (civil.Date, bool) {
-		d, err := ParseDateText(EncodeText((*Runes)(v.Ptr).Elements))
+		d, err := ParseDateText(text.EncodeText((*Runes)(v.Ptr).Elements))
 		return d, err == nil
 	}, // PURE by contract
-	AsString: func(v Value) (string, bool) { return EncodeText((*Runes)(v.Ptr).Elements), true }, // PURE by contract
-	AsRunes:  func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },             // PURE by contract
-	AsBytes:  runesTypeAsBytes,                                                                   // PURE by contract
-	AsArray:  runesTypeAsArray,                                                                   // PURE by contract
+	AsString: func(v Value) (string, bool) { return text.EncodeText((*Runes)(v.Ptr).Elements), true }, // PURE by contract
+	AsRunes:  func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },                  // PURE by contract
+	AsBytes:  runesTypeAsBytes,                                                                        // PURE by contract
+	AsArray:  runesTypeAsArray,                                                                        // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
@@ -206,7 +208,7 @@ func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
 		return rs, false, nil
 	case value.Bytes:
 		// TOTAL: an undecodable octet decodes to its escape rather than raising
-		return DecodeOctets((*Bytes)(a.Ptr).Elements), false, nil
+		return text.DecodeOctets((*Bytes)(a.Ptr).Elements), false, nil
 	}
 	return nil, false, errs.NewInvalidArgumentTypeError(name, "argument", "text content (symbols, octets, or text)", a.TypeName())
 }
@@ -215,18 +217,18 @@ func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
 func runesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
 	// same boundary as string's: JSON text is UTF-8, so an escape has no representation here
-	if !RunesAreValid(o.Elements) {
+	if !text.RunesAreValid(o.Elements) {
 		return nil, errs.NewConversionError(v.TypeName(), "json", "the text holds octets that are not symbols — encode it as bytes, or repair it (is_valid() finds them)")
 	}
 	var b []byte
-	b = EncodeString(b, EncodeText(o.Elements))
+	b = text.AppendJSONString(b, text.EncodeText(o.Elements))
 	return b, nil
 }
 
 // PURE by contract
 func runesTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
-	s := EncodeText(o.Elements)
+	s := text.EncodeText(o.Elements)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(s); err != nil {
@@ -243,20 +245,20 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 	if err := dec.Decode(&s); err != nil {
 		return fmt.Errorf("runes: %w", err)
 	}
-	*v = NewRunesValue(DecodeText(s), v.Immutable)
+	*v = NewRunesValue(text.DecodeText(s), v.Immutable)
 	return nil
 }
 
 // PURE by contract
 func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return "u" + strconv.Quote(EncodeText((*Runes)(v.Ptr).Elements)), nil
+		return "u" + strconv.Quote(text.EncodeText((*Runes)(v.Ptr).Elements)), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	o := (*Runes)(v.Ptr)
-	return format.FormatStringLike("runes", sp, EncodeText(o.Elements), false)
+	return format.FormatStringLike("runes", sp, text.EncodeText(o.Elements), false)
 }
 
 // mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
@@ -307,8 +309,8 @@ func runesTypeEqual(v Value, other Value, final bool) bool {
 		t := (*Runes)(other.Ptr).Elements
 		return slices.Equal(o.Elements, t)
 	case value.String, value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
-		t, ok := other.AsString()                // identity for String, canonical text form for the rest
-		return ok && EncodeText(o.Elements) == t // no text form (a high octet) equals no text
+		t, ok := other.AsString()                     // identity for String, canonical text form for the rest
+		return ok && text.EncodeText(o.Elements) == t // no text form (a high octet) equals no text
 	}
 
 	// default to false if final
@@ -328,19 +330,19 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			switch op {
 			case tokens.Less:
 				l := *(*string)(other.Ptr)
-				r := EncodeText((*Runes)(v.Ptr).Elements)
+				r := text.EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l < r), nil
 			case tokens.LessEq:
 				l := *(*string)(other.Ptr)
-				r := EncodeText((*Runes)(v.Ptr).Elements)
+				r := text.EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l <= r), nil
 			case tokens.Greater:
 				l := *(*string)(other.Ptr)
-				r := EncodeText((*Runes)(v.Ptr).Elements)
+				r := text.EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l > r), nil
 			case tokens.GreaterEq:
 				l := *(*string)(other.Ptr)
-				r := EncodeText((*Runes)(v.Ptr).Elements)
+				r := text.EncodeText((*Runes)(v.Ptr).Elements)
 				return BoolValue(l >= r), nil
 			}
 
@@ -373,39 +375,39 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	case value.Runes:
 		switch op {
 		case tokens.Less:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
-			r := EncodeText((*Runes)(other.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
+			r := text.EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l < r), nil
 		case tokens.LessEq:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
-			r := EncodeText((*Runes)(other.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
+			r := text.EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l <= r), nil
 		case tokens.Greater:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
-			r := EncodeText((*Runes)(other.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
+			r := text.EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l > r), nil
 		case tokens.GreaterEq:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
-			r := EncodeText((*Runes)(other.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
+			r := text.EncodeText((*Runes)(other.Ptr).Elements)
 			return BoolValue(l >= r), nil
 		}
 
 	case value.String:
 		switch op {
 		case tokens.Less:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l < r), nil
 		case tokens.LessEq:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l <= r), nil
 		case tokens.Greater:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l > r), nil
 		case tokens.GreaterEq:
-			l := EncodeText((*Runes)(v.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
 			return BoolValue(l >= r), nil
 		}
@@ -423,7 +425,7 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		if isCount {
 			src := (*Runes)(v.Ptr).Elements
 			sl := len(src)
-			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			total, terr := seq.RepeatTotal(op.String(), n, sl)
 			if terr != nil {
 				return Undefined, terr
 			}
@@ -445,14 +447,14 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			return Undefined, err
 		}
 		if ok {
-			l := EncodeText((*Runes)(v.Ptr).Elements)
+			l := text.EncodeText((*Runes)(v.Ptr).Elements)
 			if op == tokens.Add {
-				return NewRunesValue(DecodeText(l+s), false), nil
+				return NewRunesValue(text.DecodeText(l+s), false), nil
 			}
 			if s == "" {
-				return NewRunesValue(DecodeText(l), false), nil
+				return NewRunesValue(text.DecodeText(l), false), nil
 			}
-			return NewRunesValue(DecodeText(strings.ReplaceAll(l, s, "")), false), nil
+			return NewRunesValue(text.DecodeText(strings.ReplaceAll(l, s, "")), false), nil
 		}
 	}
 
@@ -527,7 +529,7 @@ func runesTypeIterator(v Value) (Value, error) {
 // PURE by contract
 func runesTypeAsInt(v Value) (int64, bool) {
 	o := (*Runes)(v.Ptr)
-	i, err := strconv.ParseInt(EncodeText(o.Elements), 10, 64)
+	i, err := strconv.ParseInt(text.EncodeText(o.Elements), 10, 64)
 	if err == nil {
 		return i, true
 	}
@@ -537,7 +539,7 @@ func runesTypeAsInt(v Value) (int64, bool) {
 // PURE by contract
 func runesTypeAsFloat(v Value) (float64, bool) {
 	o := (*Runes)(v.Ptr)
-	f, err := strconv.ParseFloat(EncodeText(o.Elements), 64)
+	f, err := strconv.ParseFloat(text.EncodeText(o.Elements), 64)
 	if err == nil {
 		return f, true
 	}
@@ -547,25 +549,25 @@ func runesTypeAsFloat(v Value) (float64, bool) {
 // PURE by contract
 func runesTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	o := (*Runes)(v.Ptr)
-	d := dec128.FromString(EncodeText(o.Elements))
+	d := dec128.FromString(text.EncodeText(o.Elements))
 	return d, !d.IsNaN()
 }
 
 // PURE by contract
 func runesTypeAsBool(v Value) (bool, bool) {
 	o := (*Runes)(v.Ptr)
-	return conv.ParseBool(EncodeText(o.Elements))
+	return conv.ParseBool(text.EncodeText(o.Elements))
 }
 
 // PURE by contract
 func runesTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*Runes)(v.Ptr)
-	return EncodeOctets(o.Elements), true
+	return text.EncodeOctets(o.Elements), true
 }
 
 // PURE by contract
 func runesTypeAsTime(v Value) (time.Time, bool) {
-	return parseTimeText(EncodeText((*Runes)(v.Ptr).Elements))
+	return parseTimeText(text.EncodeText((*Runes)(v.Ptr).Elements))
 }
 
 // PURE by contract
@@ -584,7 +586,7 @@ func runesTypeAsArray(v Value) ([]Value, bool) {
 //
 // On a text receiver every accepted argument is TEXT CONTENT (runesEncodeMatchArg), matched as a run of symbols —
 // a single symbol is just a run of one:
-//   - no argument      the significant symbols (not IsBlankRune)
+//   - no argument      the significant symbols (not text.IsBlankRune)
 //   - a function       a predicate, f/1(symbol) or f/2(index, symbol)
 //   - text content     a run; several arguments form a set of runs
 //
@@ -610,7 +612,7 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return runesMatch{}, errPredicateAmongMany(name)
+			return runesMatch{}, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return runesMatch{}, err
@@ -622,7 +624,7 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 	sawSymbol, sawText := false, false
 	for _, a := range args {
 		if a.IsCallable() {
-			return runesMatch{}, errFunctionInSet(name)
+			return runesMatch{}, seq.ErrFunctionInSet(name)
 		}
 		run, isSymbol, err := runesEncodeMatchArg(name, a)
 		if err != nil {
@@ -636,7 +638,7 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 		runs = append(runs, run)
 	}
 	if sawSymbol && sawText {
-		return runesMatch{}, errMixedSet(name)
+		return runesMatch{}, seq.ErrMixedSet(name)
 	}
 
 	if !symbols {
@@ -648,7 +650,7 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 	elems := make([]rune, 0, len(runs))
 	for _, r := range runs {
 		if len(r) != 1 {
-			return runesMatch{}, errNotOneElement(name)
+			return runesMatch{}, seq.ErrNotOneElement(name)
 		}
 		elems = append(elems, r[0])
 	}
@@ -659,7 +661,7 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 func (m *runesMatch) matches(vm VM, i int, r rune) (bool, error) {
 	switch {
 	case m.significant:
-		return !IsBlankRune(r), nil
+		return !text.IsBlankRune(r), nil
 	case m.pred.IsCallable():
 		res, err := callElem(vm, m.pred, i, RuneValue(r))
 		if err != nil {
@@ -682,7 +684,7 @@ func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				out = append(out, elems[i:i+k]...)
 				i += k
 			} else {
@@ -717,7 +719,7 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 
 	if m.significant {
 		for _, r := range elems {
-			if !IsBlankRune(r) {
+			if !text.IsBlankRune(r) {
 				out = append(out, r)
 			}
 		}
@@ -726,7 +728,7 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 
 	if m.runs != nil {
 		for i := 0; i < len(elems); {
-			if k := runLengthAt(elems, i, m.runs); k > 0 {
+			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
 				i += k
 			} else {
 				out = append(out, elems[i])
@@ -751,7 +753,7 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
 // counted in symbols. The argument's type selects the reading:
-//   - no argument      the first / last significant symbol (not IsBlankRune)
+//   - no argument      the first / last significant symbol (not text.IsBlankRune)
 //   - a function       a predicate, f/1(symbol) or f/2(index, symbol)
 //   - text content     a contiguous run (string, runes or bytes)
 //   - anything else    one symbol, compared with ==; a value that is not one symbol raises
@@ -768,7 +770,7 @@ func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	if len(args) == 0 {
 		idx := -1
 		for i, e := range elems {
-			if !IsBlankRune(e) {
+			if !text.IsBlankRune(e) {
 				idx = i
 				if !last {
 					break
@@ -809,7 +811,7 @@ func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "text content", needle.TypeName())
 		}
-		return locatorAnswer(indexRun(elems, run, last), dflt)
+		return locatorAnswer(seq.IndexRun(elems, run, last), dflt)
 	}
 
 	enc, isElement, err := runesEncodeMatchArg(name, needle)
@@ -817,7 +819,7 @@ func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 		return Undefined, err
 	}
 	if !isElement || len(enc) != 1 {
-		return Undefined, errNotOneElement(name)
+		return Undefined, seq.ErrNotOneElement(name)
 	}
 	idx := -1
 	for i, e := range elems {
@@ -834,7 +836,7 @@ func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 // ---------------------------------------------------------------------------
 // The structural members: the trim family, the anchored pair (has_/remove_ prefix/suffix), replace, and the pads.
 // Every argument is text content (runesEncodeMatchArg); none of them takes a predicate.
-//   - trim*            a set of single symbols, stripped repeat-while; no argument = the blank set (IsBlankRune)
+//   - trim*            a set of single symbols, stripped repeat-while; no argument = the blank set (text.IsBlankRune)
 //   - *_prefix/suffix  a homogeneous set of runs; the longest anchored run wins; remove_* removes it once
 //   - replace(old, new) every occurrence of the run old, leftmost and non-overlapping; an empty old matches nothing
 //   - pad_*(n[, fill]) n counts symbols; the fill is exactly one symbol, the space by default
@@ -857,7 +859,7 @@ func runesReadElementSet(name string, args []Value, refuse string) ([]rune, erro
 			return nil, errs.NewInvalidArgumentTypeError(name, "argument", refuse, a.TypeName())
 		}
 		if len(enc) != 1 {
-			return nil, errNotOneElement(name)
+			return nil, seq.ErrNotOneElement(name)
 		}
 		set = append(set, enc[0])
 	}
@@ -886,7 +888,7 @@ func runesReadRunSet(name string, args []Value, onFunction string) ([][]rune, er
 		runs = append(runs, run)
 	}
 	if sawElement && sawText {
-		return nil, errMixedSet(name)
+		return nil, seq.ErrMixedSet(name)
 	}
 	return runs, nil
 }
@@ -900,7 +902,7 @@ func runesTrimmed(name string, v Value, args []Value, start, end bool) ([]rune, 
 	}
 	inSet := func(e rune) bool {
 		if len(args) == 0 {
-			return IsBlankRune(e)
+			return text.IsBlankRune(e)
 		}
 		return slices.Contains(set, e)
 	}
@@ -1018,7 +1020,7 @@ func runesPadded(name string, v Value, args []Value, start bool) ([]rune, error)
 	if n <= int64(len(elems)) {
 		return slices.Clone(elems), nil
 	}
-	width, err := SeqPadWidth(name, n)
+	width, err := seq.PadWidth(name, n)
 	if err != nil {
 		return nil, err
 	}
@@ -1031,7 +1033,7 @@ func runesPadded(name string, v Value, args []Value, start bool) ([]rune, error)
 
 // ---------------------------------------------------------------------------
 // split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
-// of runs, a predicate on single symbols, or — no argument — the blank set (IsBlankRune). Runs match leftmost-longest
+// of runs, a predicate on single symbols, or — no argument — the blank set (text.IsBlankRune). Runs match leftmost-longest
 // and never overlap; an empty run matches nothing.
 // ---------------------------------------------------------------------------
 
@@ -1106,5 +1108,5 @@ func runesTypeContains(v Value, e Value) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(EncodeText((*Runes)(v.Ptr).Elements), string(run)), nil
+	return strings.Contains(text.EncodeText((*Runes)(v.Ptr).Elements), string(run)), nil
 }

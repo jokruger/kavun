@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 // rand.generator's members: one function per entry of TypeGenerator.Methods that is not a shared member. The draws
@@ -122,8 +123,8 @@ func generatorBytes(_ core.VM, v core.Value, id member.ID, args []core.Value) (c
 	if err != nil {
 		return core.Undefined, err
 	}
-	if n <= 0 || n > core.MaxSequenceLen {
-		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 1 and %d, got %d", generatorContext(id), core.MaxSequenceLen, n))
+	if n <= 0 || n > seq.MaxSequenceLen {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 1 and %d, got %d", generatorContext(id), seq.MaxSequenceLen, n))
 	}
 	g := GeneratorOf(v)
 	b := make([]byte, n)
@@ -160,8 +161,8 @@ func generatorPerm(_ core.VM, v core.Value, id member.ID, args []core.Value) (co
 	if err != nil {
 		return core.Undefined, err
 	}
-	if n < 0 || n > core.MaxSequenceLen {
-		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 0 and %d, got %d", generatorContext(id), core.MaxSequenceLen, n))
+	if n < 0 || n > seq.MaxSequenceLen {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) count must be between 0 and %d, got %d", generatorContext(id), seq.MaxSequenceLen, n))
 	}
 	g := GeneratorOf(v)
 	out := make([]core.Value, n)

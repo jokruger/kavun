@@ -21,12 +21,14 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const stringTypeName = "string"
 
 func NewStaticStringValue(s *string) Value {
-	return Value{Type: value.String, Immutable: true, Data: uint64(TextRuneCount(*s)), Ptr: unsafe.Pointer(s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(text.TextRuneCount(*s)), Ptr: unsafe.Pointer(s)}
 }
 
 // NewStaticStringValueCounted is NewStaticStringValue with a precomputed rune count
@@ -35,7 +37,7 @@ func NewStaticStringValueCounted(s *string, runeLen int64) Value {
 }
 
 func NewStringValue(s string) Value {
-	return Value{Type: value.String, Immutable: true, Data: uint64(TextRuneCount(s)), Ptr: unsafe.Pointer(&s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(text.TextRuneCount(s)), Ptr: unsafe.Pointer(&s)}
 }
 
 // newStringValueCounted skips the rune recount where the caller already knows it (substring/slice paths).
@@ -48,7 +50,7 @@ func newStringValueCounted(s string, runeLen int64) Value {
 // undecodable octet also decodes to one symbol from one octet, so that test passes for text the fast path
 // would then read wrongly (it would answer rune(0xFF) where every other operation answers the escape).
 func stringASCIIFastPath(_ Value, s string) bool {
-	return IsASCIIText(s)
+	return text.IsASCIIText(s)
 }
 
 // TypeString is a string type descriptor.
@@ -78,7 +80,7 @@ var TypeString = ValueTypeDescr{
 	AsTime:              stringTypeAsTime,                                                                                      // PURE by contract
 	AsDate:              func(v Value) (civil.Date, bool) { d, err := ParseDateText(*(*string)(v.Ptr)); return d, err == nil }, // PURE by contract
 	AsString:            func(v Value) (string, bool) { return *(*string)(v.Ptr), true },                                       // PURE by contract
-	AsRunes:             func(v Value) ([]rune, bool) { return DecodeText(*(*string)(v.Ptr)), true },                           // PURE by contract
+	AsRunes:             func(v Value) ([]rune, bool) { return text.DecodeText(*(*string)(v.Ptr)), true },                      // PURE by contract
 	AsBytes:             func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },                               // PURE by contract
 	AsArray:             stringTypeAsArray,                                                                                     // PURE by contract
 
@@ -162,11 +164,11 @@ func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	// raises rather than emitting a byte no parser can read back or silently becoming U+FFFD: the
 	// conversions inside the language are total, the boundary OUT of the language is not, and a script
 	// asks with is_valid() before it encodes. bytes.json() carries arbitrary octets, as base64
-	if !TextIsValid(*o) {
+	if !text.TextIsValid(*o) {
 		return nil, errs.NewConversionError(v.TypeName(), "json", "the text holds octets that are not symbols — encode it as bytes, or repair it (is_valid() finds them)")
 	}
 	var b []byte
-	b = EncodeString(b, *o)
+	b = text.AppendJSONString(b, *o)
 	return b, nil
 }
 
@@ -227,7 +229,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		case value.Rune:
 			switch op {
 			case tokens.Add:
-				l := EncodeRuneText(rune(other.Data))
+				l := text.EncodeRuneText(rune(other.Data))
 				r := *(*string)(v.Ptr)
 				return NewStringValue(l + r), nil
 			}
@@ -238,7 +240,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 				if other.Data > 0x7F {
 					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
 				}
-				return NewStringValue(EncodeRuneText(rune(other.Data)) + *(*string)(v.Ptr)), nil
+				return NewStringValue(text.EncodeRuneText(rune(other.Data)) + *(*string)(v.Ptr)), nil
 			}
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
@@ -270,7 +272,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		}
 		if isCount {
 			src := *(*string)(v.Ptr)
-			if _, terr := SeqRepeatTotal(op.String(), n, len(src)); terr != nil {
+			if _, terr := seq.RepeatTotal(op.String(), n, len(src)); terr != nil {
 				return Undefined, terr
 			}
 			return NewStringValue(strings.Repeat(src, n)), nil
@@ -309,7 +311,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
 // counted in symbols. The argument's type selects the reading:
-//   - no argument      the first / last significant symbol (not IsBlankRune)
+//   - no argument      the first / last significant symbol (not text.IsBlankRune)
 //   - a function       a predicate, f/1(symbol) or f/2(index, symbol)
 //   - text content     a contiguous run (string, runes or bytes)
 //   - anything else    one symbol, compared with ==; a value that is not one symbol raises
@@ -321,12 +323,12 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 
 	if len(args) == 0 {
 		idx := -1
 		for i, e := range elems {
-			if !IsBlankRune(e) {
+			if !text.IsBlankRune(e) {
 				idx = i
 				if !last {
 					break
@@ -367,7 +369,7 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "text content", needle.TypeName())
 		}
-		return locatorAnswer(indexRun(elems, run, last), dflt)
+		return locatorAnswer(seq.IndexRun(elems, run, last), dflt)
 	}
 
 	enc, isElement, err := runesEncodeMatchArg(name, needle)
@@ -375,7 +377,7 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 		return Undefined, err
 	}
 	if !isElement || len(enc) != 1 {
-		return Undefined, errNotOneElement(name)
+		return Undefined, seq.ErrNotOneElement(name)
 	}
 	idx := -1
 	for i, e := range elems {
@@ -392,7 +394,7 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 // ---------------------------------------------------------------------------
 // The structural members: the trim family, the anchored pair (has_/remove_ prefix/suffix), replace, and the pads.
 // Every argument is text content (runesEncodeMatchArg); none of them takes a predicate.
-//   - trim*            a set of single symbols, stripped repeat-while; no argument = the blank set (IsBlankRune)
+//   - trim*            a set of single symbols, stripped repeat-while; no argument = the blank set (text.IsBlankRune)
 //   - *_prefix/suffix  a homogeneous set of runs; the longest anchored run wins; remove_* removes it once
 //   - replace(old, new) every occurrence of the run old, leftmost and non-overlapping; an empty old matches nothing
 //   - pad_*(n[, fill]) n counts symbols; the fill is exactly one symbol, the space by default
@@ -415,7 +417,7 @@ func stringReadElementSet(name string, args []Value, refuse string) ([]rune, err
 			return nil, errs.NewInvalidArgumentTypeError(name, "argument", refuse, a.TypeName())
 		}
 		if len(enc) != 1 {
-			return nil, errNotOneElement(name)
+			return nil, seq.ErrNotOneElement(name)
 		}
 		set = append(set, enc[0])
 	}
@@ -444,7 +446,7 @@ func stringReadRunSet(name string, args []Value, onFunction string) ([][]rune, e
 		runs = append(runs, run)
 	}
 	if sawElement && sawText {
-		return nil, errMixedSet(name)
+		return nil, seq.ErrMixedSet(name)
 	}
 	return runs, nil
 }
@@ -458,11 +460,11 @@ func stringTrimmed(name string, v Value, args []Value, start, end bool) ([]rune,
 	}
 	inSet := func(e rune) bool {
 		if len(args) == 0 {
-			return IsBlankRune(e)
+			return text.IsBlankRune(e)
 		}
 		return slices.Contains(set, e)
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	lo, hi := 0, len(elems)
 	if start {
 		for lo < hi && inSet(elems[lo]) {
@@ -488,7 +490,7 @@ func stringAnchoredRun(name string, v Value, args []Value, suffix bool) (int, er
 	if err != nil {
 		return 0, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	best := -1
 	for _, r := range runs {
 		if len(r) > len(elems) || len(r) <= best {
@@ -512,7 +514,7 @@ func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]r
 	if err != nil {
 		return nil, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	switch {
 	case best <= 0:
 		return (elems), nil
@@ -540,7 +542,7 @@ func stringReplaced(name string, v Value, args []Value) ([]rune, error) {
 	if err != nil {
 		return nil, err
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, 0, len(elems))
 	for i := 0; i < len(elems); {
 		if len(old) > 0 && i+len(old) <= len(elems) && slices.Equal(elems[i:i+len(old)], old) {
@@ -572,11 +574,11 @@ func stringPadded(name string, v Value, args []Value, start bool) ([]rune, error
 		}
 		fill = set[0]
 	}
-	elems := DecodeText(*(*string)(v.Ptr))
+	elems := text.DecodeText(*(*string)(v.Ptr))
 	if n <= int64(len(elems)) {
 		return (elems), nil
 	}
-	width, err := SeqPadWidth(name, n)
+	width, err := seq.PadWidth(name, n)
 	if err != nil {
 		return nil, err
 	}
@@ -589,13 +591,13 @@ func stringPadded(name string, v Value, args []Value, start bool) ([]rune, error
 
 // ---------------------------------------------------------------------------
 // split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
-// of runs, a predicate on single symbols, or — no argument — the blank set (IsBlankRune). Runs match leftmost-longest
+// of runs, a predicate on single symbols, or — no argument — the blank set (text.IsBlankRune). Runs match leftmost-longest
 // and never overlap; an empty run matches nothing.
 // ---------------------------------------------------------------------------
 
 // stringPiece is one piece of split/partition, as a string.
 func stringPiece(elems []rune) Value {
-	return NewStringValue(EncodeText(elems))
+	return NewStringValue(text.EncodeText(elems))
 }
 
 // ---------------------------------------------------------------------------
@@ -639,7 +641,7 @@ func stringTypeAccessIndex(v Value, index Value) (Value, error) {
 	}
 	s := *(*string)(v.Ptr)
 	rl := int64(v.Data)
-	i, ok = NormalizeIndex(i, rl)
+	i, ok = seq.NormalizeIndex(i, rl)
 	if !ok {
 		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 	}
@@ -652,7 +654,7 @@ func stringTypeAccessIndex(v Value, index Value) (Value, error) {
 	for k := 0; k < len(s); {
 		r, w := utf8.DecodeRuneInString(s[k:])
 		if r == utf8.RuneError && w <= 1 {
-			r, w = OctetEscapeRune(s[k]), 1
+			r, w = text.OctetEscapeRune(s[k]), 1
 		}
 		if j == i {
 			return RuneValue(r), nil
@@ -666,7 +668,7 @@ func stringTypeAccessIndex(v Value, index Value) (Value, error) {
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func stringTypeIterator(v Value) (Value, error) {
 	o := (*string)(v.Ptr)
-	return NewRunesIteratorValue(DecodeText(*o)), nil
+	return NewRunesIteratorValue(text.DecodeText(*o)), nil
 }
 
 // PURE by contract
@@ -704,7 +706,7 @@ func stringTypeAsTime(v Value) (time.Time, bool) {
 // PURE by contract
 func stringTypeAsArray(v Value) ([]Value, bool) {
 	o := (*string)(v.Ptr)
-	rs := DecodeText(*o)
+	rs := text.DecodeText(*o)
 	arr := make([]Value, len(rs))
 	for i, r := range rs {
 		arr[i] = RuneValue(r)
@@ -730,10 +732,10 @@ func stringTypeContains(v Value, e Value) (bool, error) {
 	// a valid run can match only on symbol boundaries, so the octet search answers contains's reading; a run holding
 	// an escape is compared symbol by symbol — its octets would also match inside a multi-octet symbol
 	// ("\xe2\x82" in "€"), and string(run) would render the escape as U+FFFD
-	if RunesAreValid(run) {
+	if text.RunesAreValid(run) {
 		return strings.Contains(str, string(run)), nil
 	}
-	return indexRun(DecodeText(str), run, false) >= 0, nil
+	return seq.IndexRun(text.DecodeText(str), run, false) >= 0, nil
 }
 
 // PURE by contract
@@ -759,7 +761,7 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 		}
 	}
 
-	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
+	si, ei = seq.NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
 	// bounds are SYMBOL offsets: translate to byte offsets before slicing, so the result can never split a
 	// multi-byte rune / be invalid UTF-8
 	bs, be := runeSpanToByteSpan(v, str, si, ei)
@@ -816,7 +818,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 		}
 	}
 
-	start, end := NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
+	start, end := seq.NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
 	// stepping selects SYMBOLS — a byte-wise loop could slice a multi-byte rune apart and emit invalid UTF-8
 	if stringASCIIFastPath(v, str) {
 		bs := []byte(str)
@@ -832,7 +834,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 		}
 		return newStringValueCounted(string(result), int64(len(result))), nil
 	}
-	rs := DecodeText(str)
+	rs := text.DecodeText(str)
 	result := make([]rune, 0, len(rs))
 	if step > 0 {
 		for i := start; i < end; i += step {
@@ -843,5 +845,5 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 			result = append(result, rs[i])
 		}
 	}
-	return newStringValueCounted(EncodeText(result), int64(len(result))), nil
+	return newStringValueCounted(text.EncodeText(result), int64(len(result))), nil
 }

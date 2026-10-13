@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // bool's members: one function per entry of TypeBool.Methods that is not a shared member (MemberIsTrue,
@@ -20,7 +21,7 @@ func boolString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func boolRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return ConvMember(id.String(), boolTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), boolTypeName, args, ok, NewRunesValue(text.DecodeText(s), false))
 }
 
 // PURE by contract

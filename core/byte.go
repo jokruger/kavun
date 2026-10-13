@@ -12,6 +12,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const byteTypeName = "byte"
@@ -41,10 +42,10 @@ var TypeByte = ValueTypeDescr{
 	// A byte's canonical TEXT is its ASCII symbol, matching .string() — so a byte dict key stores under "A",
 	// join renders the symbol, and a high octet (0x80-0xFF) has no text form and declines (the consumer raises).
 	// Display renders stay numeric: String (byte(65)), Format, EncodeJSON.
-	AsString: func(v Value) (string, bool) { return ByteSymbolString(byte(v.Data)) }, // PURE by contract
-	AsInt:    func(v Value) (int64, bool) { return int64(v.Data), true },             // PURE by contract
-	AsRune:   byteTypeAsRune,                                                         // PURE by contract
-	AsByte:   func(v Value) (byte, bool) { return byte(v.Data), true },               // PURE by contract
+	AsString: func(v Value) (string, bool) { return text.ByteSymbolString(byte(v.Data)) }, // PURE by contract
+	AsInt:    func(v Value) (int64, bool) { return int64(v.Data), true },                  // PURE by contract
+	AsRune:   byteTypeAsRune,                                                              // PURE by contract
+	AsByte:   func(v Value) (byte, bool) { return byte(v.Data), true },                    // PURE by contract
 
 	Methods: []Method{
 		members.IsTrue:  NewPureMethod(MemberIsTrue, 0, Fixed),

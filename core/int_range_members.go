@@ -5,6 +5,8 @@ import (
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // int_range's members: one function per entry of TypeIntRange.Methods that is not a shared member (MemberIsTrue,
@@ -69,7 +71,7 @@ func intRangeString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return ConvMember(name, intRangeTypeName, args, ok, NewStringValue(EncodeText(rs)))
+	return ConvMember(name, intRangeTypeName, args, ok, NewStringValue(text.EncodeText(rs)))
 }
 
 // PURE by contract
@@ -435,7 +437,7 @@ func intRangeSlice(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 			return Undefined, errs.NewInvalidIndexTypeError(name, "int", e.TypeName())
 		}
 	}
-	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, o.Len())
+	si, ei = seq.NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, o.Len())
 	return intRangeSub(o, si, ei-si), nil
 }
 
@@ -459,7 +461,7 @@ func intRangeChunk(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if n%size != 0 {
 		count++
 	}
-	if _, err := SeqAllocLen(name, count); err != nil {
+	if _, err := seq.AllocLen(name, count); err != nil {
 		return Undefined, err
 	}
 	chunks := make([]Value, 0, count)

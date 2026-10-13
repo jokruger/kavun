@@ -14,6 +14,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const (
@@ -141,7 +143,7 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 	keys := o.sortedKeys()
 	len1 := len(keys) - 1
 	for idx, key := range keys {
-		b = EncodeString(b, key)
+		b = text.AppendJSONString(b, key)
 		b = append(b, ':')
 		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {
@@ -399,7 +401,7 @@ func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return dictMatch{}, errPredicateAmongMany(name)
+			return dictMatch{}, seq.ErrPredicateAmongMany(name)
 		}
 		if err := checkElemCallback(name, args[0]); err != nil {
 			return dictMatch{}, err
@@ -410,7 +412,7 @@ func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
 	keys := make(map[string]struct{}, len(args))
 	for _, a := range args {
 		if a.IsCallable() {
-			return dictMatch{}, errFunctionInSet(name)
+			return dictMatch{}, seq.ErrFunctionInSet(name)
 		}
 		if a.Type == value.Dict || a.Type == value.Record {
 			return dictMatch{}, errs.NewNotImplementedError("(" + name + ") the submap reading is deferred; match keys, or compare entries with a predicate")
@@ -547,7 +549,7 @@ func dictTypeMerge(v Value, args []Value, mutate bool) (Value, error) {
 	for i, a := range args {
 		m, ok := a.AsDict()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, argOrdinal(i), "dict or record", a.TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, seq.ArgOrdinal(i), "dict or record", a.TypeName())
 		}
 		maps = append(maps, m)
 	}

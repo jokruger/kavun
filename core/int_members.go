@@ -6,6 +6,7 @@ import (
 
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // int's members: one function per entry of TypeInt.Methods that is not a shared member (MemberIsTrue,
@@ -56,7 +57,7 @@ func intString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func intRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return ConvMember(id.String(), intTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), intTypeName, args, ok, NewRunesValue(text.DecodeText(s), false))
 
 	// The int -> time family. In conversion context an int is a unix timestamp, never a duration
 	// (that reading belongs to operator context — `t + n` is nanoseconds; see docs/types/time.md).

@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // byte's members: one function per entry of TypeByte.Methods that is not a shared member (MemberIsTrue,
@@ -34,7 +35,7 @@ func byteString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func byteRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	return ConvMember(id.String(), byteTypeName, args, true, NewRunesValue(DecodeOctets([]byte{byte(v.Data)}), false))
+	return ConvMember(id.String(), byteTypeName, args, true, NewRunesValue(text.DecodeOctets([]byte{byte(v.Data)}), false))
 }
 
 // PURE by contract

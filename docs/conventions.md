@@ -83,7 +83,7 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would
   need anything varied per type stays per type.
 - **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,
-  `callElem`), bounds, allocation guards (`core/tools.go`), and error builders, so duplicated code still raises
+  `callElem`), bounds and allocation guards (`core/tools.go` for the core-bound ones, `internal/seq` for the generic ones), and error builders, so duplicated code still raises
   byte-identical messages.
 
 ## Kavun Language Conventions

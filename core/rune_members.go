@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // rune's members: one function per entry of TypeRune.Methods that is not a shared member (MemberIsTrue,
@@ -28,7 +29,7 @@ func runeByte(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 func runeString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// total — the default slot never fires, but every conversion carries it. An escape rune
 	// answers the single octet it stands for, so it round-trips back to the data it came from
-	return ConvMember(id.String(), runeTypeName, args, true, NewStringValue(EncodeRuneText(rune(v.Data))))
+	return ConvMember(id.String(), runeTypeName, args, true, NewStringValue(text.EncodeRuneText(rune(v.Data))))
 }
 
 // PURE by contract
@@ -43,7 +44,7 @@ func runeIsValid(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
 	}
-	return BoolValue(RuneIsValid(rune(v.Data))), nil
+	return BoolValue(text.RuneIsValid(rune(v.Data))), nil
 }
 
 // PURE by contract

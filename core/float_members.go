@@ -12,6 +12,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // float's members: one function per entry of TypeFloat.Methods that is not a shared member (MemberIsTrue,
@@ -68,7 +69,7 @@ func floatString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func floatRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	s, ok := v.AsString()
-	return ConvMember(id.String(), floatTypeName, args, ok, NewRunesValue(DecodeText(s), false))
+	return ConvMember(id.String(), floatTypeName, args, ok, NewRunesValue(text.DecodeText(s), false))
 }
 
 // PURE by contract

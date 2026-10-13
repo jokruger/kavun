@@ -7,6 +7,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // date's members: one function per entry of TypeDate.Methods that is not a shared member (MemberIsTrue,
@@ -32,7 +33,7 @@ func dateString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func dateRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	d := DateOf(v)
-	return ConvMember(id.String(), dateTypeName, args, true, NewRunesValue(DecodeText(d.String()), false))
+	return ConvMember(id.String(), dateTypeName, args, true, NewRunesValue(text.DecodeText(d.String()), false))
 }
 
 // PURE by contract

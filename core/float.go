@@ -18,6 +18,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/num"
 )
 
 const floatTypeName = "float"
@@ -418,7 +419,7 @@ func compareDecimalAndFloat(d *dec128.Dec128, f float64) int {
 		}
 		return -1 // decimal NaN is the unique minimum, less than any real float (finite or ±Inf)
 	}
-	return compareExactAndFloat(decimalToExactRat(d), f)
+	return compareExactAndFloat(num.DecimalToExactRat(d), f)
 }
 
 // compareFloatTotalOrder implements the resolved NaN total-order convention for float's own
@@ -505,7 +506,7 @@ func floatTypeEqual(v Value, other Value, final bool) bool {
 			return false
 		}
 		fr := new(big.Rat).SetFloat64(f)
-		return fr.Cmp(decimalToExactRat(d)) == 0
+		return fr.Cmp(num.DecimalToExactRat(d)) == 0
 	}
 
 	// default to false if final
