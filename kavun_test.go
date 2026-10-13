@@ -10351,8 +10351,8 @@ func TestSpread_MethodCall_NonArray(t *testing.T) {
 	expectError(t, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
 }
 
-// Spread expansion of a large array must raise a recoverable stack_overflow
-// error, NOT a Go runtime panic. The compile-time MaxStack analyzer cannot
+// Spread expansion of a large array must raise a stack_overflow error (fatal
+// by kind), NOT a Go runtime panic. The compile-time MaxStack analyzer cannot
 // model the data-driven growth of `f(arr...)`, so the VM bounds-checks the
 // spread destination before expanding. (DefaultStackSize == 2048.)
 func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
@@ -11951,6 +11951,56 @@ func TestMemberCallArgumentLimit(t *testing.T) {
 	expectError(t, `out = [].append(`+args(256)+`)`, nil, "too many arguments in member call: 256 (max: 255)")
 	expectError(t, `func() { defer [].append(`+args(256)+`) }()`, nil, "too many arguments in member call: 256 (max: 255)")
 	expectRun(t, `xs := [`+args(300)+`]; out = [].append(xs...).len()`, nil, 300)
+}
+
+// Every count the compiler encodes into a narrow operand is checked before it is emitted: a plain call and a
+// deferred call carry their argument count in two bytes, a destructuring assignment its name count in one byte, a
+// closure its captured-variable count in two bytes. Past the width it is a compile error, never a truncated count.
+func TestOperandWidthLimits(t *testing.T) {
+	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
+	// the 65536-wide sources compile through the public API: the tracing harness is too slow at this size
+	compileError := func(src, expected string) {
+		t.Helper()
+		_, err := kavun.NewScript([]byte(src)).Compile()
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s", expected, err)
+	}
+	compileError(`f := func(...xs) {}; f(`+args(65536)+`)`, "too many arguments in function call: 65536 (max: 65535)")
+	compileError(`f := func(...xs) {}; func() { defer f(`+args(65536)+`) }()`,
+		"too many arguments in function call: 65536 (max: 65535)")
+
+	names := func(n int) string {
+		s := make([]string, n)
+		for i := range s {
+			s[i] = fmt.Sprintf("v%d", i)
+		}
+		return strings.Join(s, ", ")
+	}
+	expectRun(t, names(255)+` := [`+args(255)+`]; out = v254`, nil, 1)
+	expectError(t, names(256)+` := [`+args(256)+`]`, nil, "too many names in destructuring assignment: 256 (max: 255)")
+
+	var src strings.Builder
+	src.WriteString("f := func() {\n")
+	for i := range 65536 {
+		fmt.Fprintf(&src, "v%d := 0\n", i)
+	}
+	src.WriteString("return func() { return [" + names(65536) + "] }\n}")
+	compileError(src.String(), "too many captured variables: 65536 (max: 65535)")
+}
+
+// The main function's stack budget is checked before it runs, as a call checks its callee's on entry: past the
+// VM's operand stack, the script fails with the same fatal stack_overflow at the top level as inside a function —
+// never a contained Go panic.
+func TestMainFunctionStackBudget(t *testing.T) {
+	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
+	expectRun(t, `f := func(...xs) { return len(xs) }; out = f(`+args(2000)+`)`, nil, 2000)
+	expectError(t, `f := func(...xs) { return len(xs) }; out = f(`+args(3000)+`)`, nil, "stack_overflow: operand stack")
+	expectError(t, `out = [`+args(3000)+`]`, nil, "stack_overflow: operand stack")
+	expectError(t, `f := func(...xs) { return len(xs) }; g := func() { return f(`+args(3000)+`) }; out = g()`, nil,
+		"stack_overflow: operand stack")
+
+	// fatal: a root recover() does not catch it
+	expectError(t, `defer func() { recover() }(); out = [`+args(3000)+`]`, nil, "stack_overflow: operand stack")
 }
 
 // An assignment evaluates its right-hand side first, then its target chain left to right, then writes once.

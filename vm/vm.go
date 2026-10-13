@@ -382,6 +382,13 @@ func (v *VM) Run() (err error) {
 	v.frames[0].deferredFor = nil
 	atomic.StoreInt64(&v.abort, 0)
 
+	// A call checks its callee's stack budget on entry; the main function has no caller, so its budget is checked
+	// here, before anything is pushed.
+	if main := v.curFrame.fn; main.NumLocals+main.MaxStack > len(v.stack) {
+		v.err = errs.NewStackOverflowError("operand stack")
+		return v.runError()
+	}
+
 	v.runUntilSuspend(1)
 
 	// The main function lives in frames[0], which runUntilSuspend never walks, so its defers are run here.

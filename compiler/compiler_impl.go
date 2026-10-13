@@ -220,6 +220,9 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 				return err
 			}
 		}
+		if len(node.Args) > maxCallArgs {
+			return c.errorf(node, "too many arguments in function call: %d (max: %d)", len(node.Args), maxCallArgs)
+		}
 		_, err = c.emit(node, NewCallFunction(len(node.Args), node.Ellipsis.IsValid()))
 		if err != nil {
 			return err
@@ -234,8 +237,8 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 				return err
 			}
 		}
-		if len(node.Args) > 255 {
-			return c.errorf(node, "too many arguments in member call: %d (max: 255)", len(node.Args))
+		if len(node.Args) > maxMemberArgs {
+			return c.errorf(node, "too many arguments in member call: %d (max: %d)", len(node.Args), maxMemberArgs)
 		}
 		i := c.addStaticString(node.MethodName)
 		_, err = c.emit(node, NewCallMember(len(node.Args), member.Lookup(node.MethodName), i, node.Ellipsis.IsValid()))
@@ -690,6 +693,9 @@ func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 	}
 	var cf core.CompiledFunction
 	cf.Set(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), l, namedResult, node.Type.Params.VarArgs)
+	if len(freeSymbols) > maxFreeVars {
+		return c.errorf(node, "too many captured variables: %d (max: %d)", len(freeSymbols), maxFreeVars)
+	}
 	if len(freeSymbols) > 0 {
 		i := c.addStaticCompiledFunction(cf)
 		_, err = c.emit(node, NewMakeClosure(i, len(freeSymbols)))
@@ -1183,6 +1189,9 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 		if call.Ellipsis.IsValid() {
 			return c.errorf(node, "defer with spread argument is not supported")
 		}
+		if len(call.Args) > maxCallArgs {
+			return c.errorf(node, "too many arguments in function call: %d (max: %d)", len(call.Args), maxCallArgs)
+		}
 		_, err = c.emit(node, NewDefer(len(call.Args)))
 		if err != nil {
 			return err
@@ -1199,8 +1208,8 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 		if call.Ellipsis.IsValid() {
 			return c.errorf(node, "defer with spread argument is not supported")
 		}
-		if len(call.Args) > 255 {
-			return c.errorf(node, "too many arguments in member call: %d (max: 255)", len(call.Args))
+		if len(call.Args) > maxMemberArgs {
+			return c.errorf(node, "too many arguments in member call: %d (max: %d)", len(call.Args), maxMemberArgs)
 		}
 		i := c.addStaticString(call.MethodName)
 		_, err = c.emit(node, NewDeferMember(len(call.Args), member.Lookup(call.MethodName), i))
@@ -1414,6 +1423,9 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	}
 	if op != tokens.Define && op != tokens.Assign {
 		return c.errorf(node, "destructuring assignment does not support operator '%s'", op.String())
+	}
+	if len(lhs) > maxUnpackNames {
+		return c.errorf(node, "too many names in destructuring assignment: %d (max: %d)", len(lhs), maxUnpackNames)
 	}
 
 	names := make([]string, len(lhs))

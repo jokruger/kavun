@@ -13,8 +13,17 @@ Each bytecode instruction has fixed size: 8 bytes total.
 - Maximum number of function parameters is 127.
 - Maximum number of literal arguments in one member call (`x.name(a, b, …)`, `defer x.name(…)`) is 255: the
   member-call instructions carry the count in `Op1`, beside the member ID in `Op2` and the name's static string
-  index in `Op3`. More is a compile error; a spread argument (`x.name(xs...)`) counts as one. A plain function
-  call (`f(…)`) carries its count in `Op2` and is not limited this way.
+  index in `Op3`. More is a compile error; a spread argument (`x.name(xs...)`) counts as one.
+- Maximum number of literal arguments in one plain function call (`f(a, b, …)`, `defer f(…)`) is 65535: the
+  count rides in `Op2`. More is a compile error; a spread argument counts as one.
+- Maximum number of names in one destructuring assignment (`a, b, … := x`) is 255 (`Op1` of `Unpack`), and of
+  variables one closure captures is 65535 (`Op2` of `MakeClosure`). More is a compile error.
+- The operand stack holds `vm.DefaultStackSize` (2048) values unless the host passes another size to `vm.NewVM`.
+  Each function's maximum stack depth is computed at compile time and checked before the function runs — on
+  entry for a call, before the first instruction for the main function — so a body that needs more (a call with
+  thousands of literal arguments, a literal with thousands of elements) fails with the fatal
+  `stack_overflow: operand stack` before anything is pushed. The encoding limits above are therefore not the
+  practical ones: with the default stack, a call or literal past roughly 2000 literal values does not run.
 - An assignment target has no depth limit (`a.b[c].d… = x`): the chain is compiled as ordinary reads,
   left to right, and one `AssignProperty` or `AssignIndex` instruction performs the write.
 - Maximum length of a count-driven sequence allocation is `4294967296` elements. It bounds the

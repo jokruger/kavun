@@ -1,10 +1,21 @@
 package compiler
 
 import (
+	"math"
+
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
+)
+
+// Operand-width limits: a count the compiler encodes into a narrow operand is checked against these before it is
+// emitted, so it can never be silently truncated (docs/vm.md).
+const (
+	maxMemberArgs  = math.MaxUint8  // CallMember, CallMemberSpread, DeferMember: Op1
+	maxCallArgs    = math.MaxUint16 // CallFunction, Defer: Op2
+	maxUnpackNames = math.MaxUint8  // Unpack: Op1
+	maxFreeVars    = math.MaxUint16 // MakeClosure: Op2
 )
 
 func NewAbortCheck() bc.Instruction {
@@ -164,7 +175,7 @@ func NewCallFunction(numArgs int, isSpread bool) bc.Instruction {
 	return bc.Instruction{Op: opcodes.CallFunction, Op2: uint16(numArgs), Op1: 0}
 }
 
-// NewCallMember emits x.name(args): nargs ≤ 255 (the compiler checks), id the bound member ID or member.Unknown,
+// NewCallMember emits x.name(args): nargs ≤ maxMemberArgs (the compiler checks), id the bound member ID or member.Unknown,
 // nameIndex the static string index of the name — the name is authoritative, id only a hint.
 func NewCallMember(numArgs int, id member.ID, nameIndex int, isSpread bool) bc.Instruction {
 	var op bc.Opcode = opcodes.CallMember
