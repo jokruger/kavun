@@ -3414,6 +3414,18 @@ func TestRange(t *testing.T) {
 	expectError(t, `out = range(-2, 0).string()`, nil, "cannot convert range to string")
 	expectError(t, `out = range(-2, 0).runes()`, nil, "cannot convert range to runes")
 	expectError(t, `out = range(0xD800, 0xD802).runes()`, nil, "cannot convert range to runes")
+	// the domain is the rune domain, shared with array: an octet escape (U+DC80–U+DCFF) is an element, the rest of the
+	// surrogate block is not
+	expectRun(t, `out = range(0xDCFE, 0xDD00).string().bytes()`, nil, []byte{0xFE, 0xFF})
+	expectRun(t, `out = range(0xDCFE, 0xDD00).runes()`, nil, []rune{0xDCFE, 0xDCFF})
+	expectRun(t, `out = range(0xDCC3, 0xDCA8, 0x1A).string()`, nil, "é") // escapes join as octets: C3 A9
+	expectError(t, `out = range(0xDC7F, 0xDC81).string()`, nil, "cannot convert range to string")
+	expectError(t, `out = range(0xDCFF, 0xDD01).runes()`, nil, "cannot convert range to runes")
+	for _, src := range []string{`range(0xDCFE, 0xDD00)`, `range(0xDC7F, 0xDC81)`, `range(0xDCFF, 0xDD01)`, `range(0xD7FE, 0xD800)`} {
+		expectRun(t, `try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e.kind() } }(); result = f() }
+			f := func(x, m) { return try(func() { return m == "string" ? x.string().bytes() : x.runes() }) }
+			r := `+src+`; out = [f(r, "string") == f(r.array(), "string"), f(r, "runes") == f(r.array(), "runes")]`, nil, ARR{true, true})
+	}
 	expectRun(t, `out = range(-2, 0).string("none")`, nil, "none")
 	expectRun(t, `out = range(-2, 0).runes(undefined)`, nil, nil)
 	expectRun(t, `out = range(-2, 0).runes(u"none").string()`, nil, "none")

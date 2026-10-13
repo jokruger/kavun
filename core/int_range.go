@@ -16,6 +16,7 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 const intRangeTypeName = "range"
@@ -477,8 +478,8 @@ func intRangeProgressionSum(n, first, last int64) (int64, error) {
 }
 
 // intRangeCodePoints reads the elements as code points for string()/runes(): element-wise and all-or-nothing, each
-// must be a valid code point (surrogates excluded) — a failing element fails the whole conversion (ok false), never a
-// silent U+FFFD.
+// must be in the rune domain (a scalar value or an octet escape — the int → rune conversion's rule, which array
+// shares) — a failing element fails the whole conversion (ok false), never a silent U+FFFD.
 func intRangeCodePoints(name string, v Value) ([]rune, bool, error) {
 	elems, err := intRangeMaterialize(name, v)
 	if err != nil {
@@ -486,7 +487,7 @@ func intRangeCodePoints(name string, v Value) ([]rune, bool, error) {
 	}
 	rs := make([]rune, len(elems))
 	for i, t := range elems {
-		if t < 0 || t > 0x10FFFF || (t >= 0xD800 && t <= 0xDFFF) {
+		if !text.IntInRuneDomain(t) {
 			return nil, false, nil
 		}
 		rs[i] = rune(t)

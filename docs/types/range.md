@@ -439,13 +439,17 @@ range(1, 4).array().map(func(x) { return x * x })   // [1, 4, 9]
 
 #### `string()` / `runes()` / `bytes()`
 
-Read the elements as text content: `string()`/`runes()` take each element as a Unicode code point,
-`bytes()` takes each element as an octet (0–255). Keep the elements inside the target's domain.
+Read the elements as text content: `string()`/`runes()` take each element as a [`rune`](rune.md) — a Unicode
+code point or an [octet escape](string.md#undecodable-octets), exactly as `rune(n)` does — and `bytes()` takes each
+element as an octet (0–255). All or nothing: one element outside the target's domain raises (or answers the
+trailing default), and the result is the same as going through `array()` first.
 
 ```go
-range(65, 68).string()   // "ABC"
-range(65, 68).runes()    // u"ABC"
-range(65, 68).bytes()    // bytes([65, 66, 67])
+range(65, 68).string()                   // "ABC"
+range(65, 68).runes()                    // u"ABC"
+range(65, 68).bytes()                    // bytes([65, 66, 67])
+range(0xDCFE, 0xDD00).string().bytes()   // bytes([254, 255]) — escapes are their octets
+range(0xD800, 0xD802).string()           // raises — a surrogate outside the escape range is not a rune
 ```
 
 #### `components()`
