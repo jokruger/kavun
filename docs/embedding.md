@@ -331,6 +331,13 @@ One run at a time, though: a `VM` must never be shared between goroutines (see [
 Cancellation is the one outcome that is not an error the script could have seen: `RunContext` answers `ctx.Err()`,
 and the script's deferred calls — top-level ones included — do **not** run.
 
+`VM.Abort` (which `RunContext` calls when the context ends) takes effect at the script's next loop iteration or
+function call, and between the callbacks of a callback member (`map`, `for_each`, `reduce`, …) — a member over a
+million elements stops within one element. Nothing after that point runs: no callback answers a result, no
+statement after the member executes. A host builtin that calls a script function through `VM.Call` gets an error
+back when the VM is aborted; it must return that error unchanged, like any other, so the run can stop. The abort
+stays in force until the next `Reset`: a `VM.Call` made in between answers the same error.
+
 ## Concurrency
 
 `Script`, `Compiled`, and `VM` are **not thread-safe**. For parallel execution:

@@ -23,15 +23,15 @@ import (
 
 // stringMatch is a match member's argument list after reading, as text; exactly one reading is set.
 type stringMatch struct {
-	significant bool     // no argument
-	pred        Value    // a predicate
-	runs        []string // contains/count: a set of runs, as text
+	significant bool          // no argument
+	pred        *ElemCallback // a predicate
+	runs        []string      // contains/count: a set of runs, as text
 }
 
 // stringReadMatchArgs reads contains's and count's arguments — runesReadMatchArgs's run reading, answered as text
 // (the symbol-set reading is any's/all's, which stay on runesReadMatchArgs).
 // PURE by contract.
-func stringReadMatchArgs(name string, args []Value) (stringMatch, error) {
+func stringReadMatchArgs(vm VM, name string, args []Value) (stringMatch, error) {
 	if len(args) == 0 {
 		return stringMatch{significant: true}, nil
 	}
@@ -40,10 +40,11 @@ func stringReadMatchArgs(name string, args []Value) (stringMatch, error) {
 		if len(args) > 1 {
 			return stringMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return stringMatch{}, err
 		}
-		return stringMatch{pred: args[0]}, nil
+		return stringMatch{pred: cb}, nil
 	}
 
 	runs := make([]string, 0, len(args))
@@ -72,11 +73,11 @@ func stringReadMatchArgs(name string, args []Value) (stringMatch, error) {
 }
 
 // matches reports whether symbol r at index i matches the element-wise reading (significant or predicate).
-func (m *stringMatch) matches(vm VM, i int, r rune) (bool, error) {
+func (m *stringMatch) matches(i int, r rune) (bool, error) {
 	if m.significant {
 		return !text.IsBlankRune(r), nil
 	}
-	res, err := callElem(vm, m.pred, i, RuneValue(r))
+	res, err := m.pred.Call(i, RuneValue(r))
 	if err != nil {
 		return false, err
 	}
@@ -121,14 +122,15 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 	needle, dflt := args[0], args[1:]
 
 	if needle.IsCallable() {
-		if err := checkElemCallback(name, needle); err != nil {
+		cb, err := newElemCallback(vm, name, needle)
+		if err != nil {
 			return Undefined, err
 		}
 		idx := -1
 		for off, i := 0, 0; off < len(s); i++ {
 			r, w := text.TextFirst(s[off:])
 			off += w
-			res, err := callElem(vm, needle, i, RuneValue(r))
+			res, err := cb.Call(i, RuneValue(r))
 			if err != nil {
 				return Undefined, err
 			}

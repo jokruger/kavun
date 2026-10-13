@@ -42,6 +42,15 @@ encodings of bound members and module values. A builtin module's grant is checke
 Embedders can choose a different stack size and frame limit with `vm.NewVM(maxFrames, maxStack)`, and can pass custom
 global storage to `VM.Reset`.
 
+A call from Go back into the script — a callback member (`map`, `for_each`, `reduce`, …) calling its function, a
+host builtin calling `VM.Call`, a deferred call — takes two frames: the callee's, and one beneath it whose only
+instruction hands control back to Go. Nested callback members (`a.map(e => b.map(f))`, or a function that maps
+with itself) therefore reach the frame limit at about half the depth of plain calls; running out raises a fatal
+`stack_overflow: native callback frames`. The boundary bounds error handling the way a function call does: a
+callback's own deferred `recover()` catches its own raise and the member continues; an error the callback does
+not recover leaves the member as the member's error; `recover()` in a function that a deferred body calls through
+a member answers `undefined`, as in any function that is not itself deferred.
+
 ## Static data pools
 
 Compiled constants live in per-kind pools on `core.Static` (strings, decimals, format specs, compiled functions,

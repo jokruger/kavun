@@ -183,43 +183,64 @@ func readSpliceRange(name string, args []Value, length int) (int, int, error) {
 
 // readElemCallback reads the single callback argument of a per-element member (map, flat_map, for_each): one
 // function taking the element (f/1) or the (index, element) pair (f/2).
-func readElemCallback(name string, args []Value) (Value, error) {
+func readElemCallback(vm VM, name string, args []Value) (*ElemCallback, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return nil, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
 	fn := args[0]
 	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "function", fn.TypeName())
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "function", fn.TypeName())
 	}
-	if err := checkElemCallback(name, fn); err != nil {
-		return Undefined, err
-	}
-	return fn, nil
+	return newElemCallback(vm, name, fn)
 }
 
 // readReduceArgs reads reduce(acc, f): the initial accumulator and a function taking (acc, element) (f/2) or
 // (acc, index, element) (f/3).
-func readReduceArgs(args []Value) (Value, Value, error) {
+func readReduceArgs(vm VM, args []Value) (Value, *ReduceCallback, error) {
 	if len(args) != 2 {
-		return Undefined, Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
+		return Undefined, nil, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
 	}
 	acc, fn := args[0], args[1]
 	if !fn.IsCallable() {
-		return Undefined, Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "function", fn.TypeName())
+		return Undefined, nil, errs.NewInvalidArgumentTypeError("reduce", "second", "function", fn.TypeName())
 	}
-	if arity := fn.Arity(); arity != 2 && arity != 3 {
-		return Undefined, Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
+	arity := fn.Arity()
+	if arity != 2 && arity != 3 {
+		return Undefined, nil, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
-	return acc, fn, nil
+	return acc, &ReduceCallback{vm: vm, fn: fn, arity: arity}, nil
 }
 
-// callReduce calls a reduce callback already checked by readReduceArgs: f/2 receives (acc, element), f/3
-// receives (acc, index, element).
-func callReduce(vm VM, fn Value, acc Value, i int, e Value) (Value, error) {
-	if fn.Arity() == 3 {
-		return fn.Call(vm, []Value{acc, IntValue(int64(i)), e})
+// ReduceCallback is a reduce callback read once per member call by readReduceArgs. Like ElemCallback it reuses
+// one argument buffer for every call.
+type ReduceCallback struct {
+	vm    VM
+	fn    Value
+	arity int      // 2 or 3
+	buf   [3]Value // the callee never retains or mutates its arguments
+}
+
+// Call calls the callback for the element e at index i: f/2 receives (acc, element), f/3 (acc, index, element).
+func (c *ReduceCallback) Call(acc Value, i int, e Value) (Value, error) {
+	c.buf[0] = acc
+	if c.arity == 3 {
+		c.buf[1] = IntValue(int64(i))
+		c.buf[2] = e
+		return c.fn.Call(c.vm, c.buf[:3])
 	}
-	return fn.Call(vm, []Value{acc, e})
+	c.buf[1] = e
+	return c.fn.Call(c.vm, c.buf[:2])
+}
+
+// CallEntry is Call for a map, whose element is its key: f/2 receives (acc, key), f/3 (acc, key, value).
+func (c *ReduceCallback) CallEntry(acc Value, k Value, val Value) (Value, error) {
+	c.buf[0] = acc
+	c.buf[1] = k
+	if c.arity == 3 {
+		c.buf[2] = val
+		return c.fn.Call(c.vm, c.buf[:3])
+	}
+	return c.fn.Call(c.vm, c.buf[:2])
 }
 
 // mapsEqual checks if two maps of string to Value are equal, using Value.Equal for value comparison.
@@ -271,22 +292,45 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 	return i, nil
 }
 
-// checkElemCallback validates a per-element callback argument: it must take the element (f/1) or the
-// (index, element) pair (f/2).
-func checkElemCallback(name string, fn Value) error {
-	if arity := fn.Arity(); arity != 1 && arity != 2 {
-		return errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
-	}
-	return nil
+// ElemCallback is a per-element callback read once per member call (readElemCallback, newElemCallback): f/1
+// receives the element, f/2 the (index, element) pair. It reuses one argument buffer for every call, which is
+// sound because a callee never retains or mutates its arguments (docs/conventions.md).
+type ElemCallback struct {
+	vm    VM
+	fn    Value
+	arity int      // 1 or 2
+	buf   [2]Value // the argument buffer
 }
 
-// callElem calls a per-element callback already checked by checkElemCallback: f/1 receives the element, f/2
-// receives (index, element).
-func callElem(vm VM, fn Value, i int, e Value) (Value, error) {
-	if fn.Arity() == 2 {
-		return fn.Call(vm, []Value{IntValue(int64(i)), e})
+// newElemCallback validates a per-element callback argument fn, already known to be callable: it must take the
+// element (f/1) or the (index, element) pair (f/2).
+func newElemCallback(vm VM, name string, fn Value) (*ElemCallback, error) {
+	arity := fn.Arity()
+	if arity != 1 && arity != 2 {
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
 	}
-	return fn.Call(vm, []Value{e})
+	return &ElemCallback{vm: vm, fn: fn, arity: arity}, nil
+}
+
+// Call calls the callback for the element e at index i: f/1 receives the element, f/2 (index, element).
+func (c *ElemCallback) Call(i int, e Value) (Value, error) {
+	if c.arity == 2 {
+		c.buf[0] = IntValue(int64(i))
+		c.buf[1] = e
+		return c.fn.Call(c.vm, c.buf[:2])
+	}
+	c.buf[0] = e
+	return c.fn.Call(c.vm, c.buf[:1])
+}
+
+// CallEntry is Call for a map, whose element is its key: f/1 receives the key, f/2 (key, value).
+func (c *ElemCallback) CallEntry(k Value, val Value) (Value, error) {
+	c.buf[0] = k
+	if c.arity == 2 {
+		c.buf[1] = val
+		return c.fn.Call(c.vm, c.buf[:2])
+	}
+	return c.fn.Call(c.vm, c.buf[:1])
 }
 
 // locatorAnswer is the uniform miss contract of the locators (index/index_last): a position answers itself;

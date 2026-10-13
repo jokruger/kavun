@@ -15,6 +15,11 @@ end of the stack array. If a callee appends to `args`, it corrupts subsequent st
 Functions should not have side effects on caller state beyond their explicit return values. Mutating arguments violates
 this principle.
 
+The contract also covers *keeping* the slice: a callback member fills one argument buffer per member call and
+passes it to every callback (`ElemCallback`/`ReduceCallback` in `core/tools.go`), so a callee that stored `args`
+— or a variadic roll-up that built its rest array over it — would see the next element's values. Copy what you
+keep.
+
 ### Value model: scalars vs. containers
 
 Every `core.Value` is a fixed-size header — `Type`, `Immutable`, a `Data` word, and a `Ptr` (`core/value.go`).
@@ -83,7 +88,7 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would
   need anything varied per type stays per type.
 - **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,
-  `callElem`), bounds and allocation guards (`core/tools.go` for the core-bound ones, `internal/seq` for the generic ones), and error builders, so duplicated code still raises
+  `readElemCallback`), bounds and allocation guards (`core/tools.go` for the core-bound ones, `internal/seq` for the generic ones), and error builders, so duplicated code still raises
   byte-identical messages.
 
 ## Kavun Language Conventions

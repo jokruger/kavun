@@ -144,7 +144,7 @@ func stringUpper(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // same answer `in` gives.
 // PURE by contract
 func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := stringReadMatchArgs("contains", args)
+	m, err := stringReadMatchArgs(vm, "contains", args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -172,7 +172,7 @@ func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	for off, i := 0, 0; off < len(s); i++ {
 		r, w := text.TextFirst(s[off:])
 		off += w
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -186,7 +186,7 @@ func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringCount is count(...): how many matches. Runs count non-overlapping occurrences.
 // PURE by contract
 func stringCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := stringReadMatchArgs("count", args)
+	m, err := stringReadMatchArgs(vm, "count", args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -212,7 +212,7 @@ func stringCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	for off, i := 0, 0; off < len(s); i++ {
 		r, w := text.TextFirst(s[off:])
 		off += w
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -226,7 +226,7 @@ func stringCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringKeep is keep(...): a new string of the matches, in order.
 // PURE by contract
 func stringKeep(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("keep", args, false)
+	m, err := runesReadMatchArgs(vm, "keep", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -246,7 +246,7 @@ func stringKeep(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -261,7 +261,7 @@ func stringKeep(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // BLANK symbols — so it keeps the significant ones, landing on keep()'s answer by the opposite action.
 // PURE by contract
 func stringRemove(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("remove", args, false)
+	m, err := runesReadMatchArgs(vm, "remove", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -290,7 +290,7 @@ func stringRemove(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -304,12 +304,12 @@ func stringRemove(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringAny is any(...): does some symbol match? Symbols, a predicate, or nothing — never a run.
 // PURE by contract
 func stringAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("any", args, true)
+	m, err := runesReadMatchArgs(vm, "any", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -324,12 +324,12 @@ func stringAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // string.
 // PURE by contract
 func stringAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("all", args, true)
+	m, err := runesReadMatchArgs(vm, "all", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -624,14 +624,14 @@ func stringSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
+		res, err := cb.Call(i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -658,14 +658,14 @@ func stringMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "flat_map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := text.DecodeText(*(*string)(v.Ptr))
 	out := make([]rune, 0, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
+		res, err := cb.Call(i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -684,12 +684,12 @@ func stringFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringReduce is reduce(acc, f): folds the symbols left to right.
 // PURE by contract
 func stringReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
+	acc, cb, err := readReduceArgs(vm, args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range text.DecodeText(*(*string)(v.Ptr)) {
-		acc, err = callReduce(vm, fn, acc, i, RuneValue(e))
+		acc, err = cb.Call(acc, i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -761,12 +761,12 @@ func stringPascalCase(_ VM, v Value, id member.ID, args []Value) (Value, error) 
 //
 // stringForEach is for_each(f): a full pass whose callback result is ignored; returns the receiver, so it chains.
 func stringForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range text.DecodeText(*(*string)(v.Ptr)) {
-		if _, err := callElem(vm, fn, i, RuneValue(r)); err != nil {
+		if _, err := cb.Call(i, RuneValue(r)); err != nil {
 			return Undefined, err
 		}
 	}
@@ -833,11 +833,12 @@ func stringSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
+			res, err := cb.Call(i, RuneValue(e))
 			if err != nil {
 				return Undefined, err
 			}
@@ -896,11 +897,12 @@ func stringPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
+			res, err := cb.Call(i, RuneValue(e))
 			if err != nil {
 				return Undefined, err
 			}

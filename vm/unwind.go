@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/value"
@@ -157,6 +158,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 
 	cfn := (*core.CompiledFunction)(callee.Ptr)
 
+	// an aborted VM runs no further script code, deferred bodies included
+	if atomic.LoadInt64(&v.abort) != 0 {
+		v.err = errAborted
+		return
+	}
+
 	// Capacity checks.
 	if v.framesIndex+2 > len(v.frames) {
 		v.err = errs.NewStackOverflowError("deferred call frames")
@@ -234,6 +241,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
 	// Errors that escape past the trampoline land in v.err and we report them to the outer unwinder.
 	v.runUntilSuspend(trampolineIdx)
+
+	// a frame still above the trampoline means run() left on an abort check inside the deferred body: report it, or
+	// the owner would carry on as if the defer had completed
+	if v.err == nil && v.framesIndex > trampolineIdx+1 {
+		v.err = errAborted
+	}
 
 	// Restore the outer dispatch state regardless of how the inner run exited.
 	// Trampoline + any remaining frames above are dropped.

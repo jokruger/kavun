@@ -469,15 +469,15 @@ func arrayTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 
 // arrayMatch is a match member's argument list after reading; exactly one reading is set.
 type arrayMatch struct {
-	significant bool      // no argument
-	pred        Value     // a predicate
-	elems       []Value   // a set of elements
-	runs        [][]Value // a set of runs
+	significant bool          // no argument
+	pred        *ElemCallback // a predicate
+	elems       []Value       // a set of elements
+	runs        [][]Value     // a set of runs
 }
 
 // arrayReadMatchArgs reads a match member's arguments. allowRuns is false for any/all: "some element is this
 // subsequence" is contains' question, not theirs.
-func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, error) {
+func arrayReadMatchArgs(vm VM, name string, args []Value, allowRuns bool) (arrayMatch, error) {
 	if len(args) == 0 {
 		return arrayMatch{significant: true}, nil
 	}
@@ -486,10 +486,11 @@ func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, 
 		if len(args) > 1 {
 			return arrayMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return arrayMatch{}, err
 		}
-		return arrayMatch{pred: args[0]}, nil
+		return arrayMatch{pred: cb}, nil
 	}
 
 	var m arrayMatch
@@ -517,12 +518,12 @@ func arrayReadMatchArgs(name string, args []Value, allowRuns bool) (arrayMatch, 
 }
 
 // matches reports whether element e at index i matches an element-wise reading (anything but runs).
-func (m *arrayMatch) matches(vm VM, i int, e Value) (bool, error) {
+func (m *arrayMatch) matches(i int, e Value) (bool, error) {
 	switch {
 	case m.significant:
 		return !IsBlankElement(e), nil
-	case m.pred.IsCallable():
-		res, err := callElem(vm, m.pred, i, e)
+	case m.pred != nil:
+		res, err := m.pred.Call(i, e)
 		if err != nil {
 			return false, err
 		}
@@ -554,7 +555,7 @@ func arrayRunLengthAt(elems []Value, i int, runs [][]Value) int {
 // arrayKept answers the elements keep(...) keeps: the matches, in order. Shared by keep and keep_in_place; name
 // is the member called, for the errors.
 func arrayKept(vm VM, name string, v Value, args []Value) ([]Value, error) {
-	m, err := arrayReadMatchArgs(name, args, true)
+	m, err := arrayReadMatchArgs(vm, name, args, true)
 	if err != nil {
 		return nil, err
 	}
@@ -574,7 +575,7 @@ func arrayKept(vm VM, name string, v Value, args []Value) ([]Value, error) {
 	}
 
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return nil, err
 		}
@@ -589,7 +590,7 @@ func arrayKept(vm VM, name string, v Value, args []Value) ([]Value, error) {
 // remove drops the BLANK elements — so it keeps the significant ones, landing on keep()'s answer by the opposite
 // action. Shared by remove and remove_in_place; name is the member called, for the errors.
 func arrayRemaining(vm VM, name string, v Value, args []Value) ([]Value, error) {
-	m, err := arrayReadMatchArgs(name, args, true)
+	m, err := arrayReadMatchArgs(vm, name, args, true)
 	if err != nil {
 		return nil, err
 	}
@@ -618,7 +619,7 @@ func arrayRemaining(vm VM, name string, v Value, args []Value) ([]Value, error) 
 	}
 
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return nil, err
 		}
@@ -662,12 +663,13 @@ func arrayLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	needle, dflt := args[0], args[1:]
 
 	if needle.IsCallable() {
-		if err := checkElemCallback(name, needle); err != nil {
+		cb, err := newElemCallback(vm, name, needle)
+		if err != nil {
 			return Undefined, err
 		}
 		idx := -1
 		for i, e := range elems {
-			res, err := callElem(vm, needle, i, e)
+			res, err := cb.Call(i, e)
 			if err != nil {
 				return Undefined, err
 			}

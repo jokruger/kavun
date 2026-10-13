@@ -1002,6 +1002,7 @@ type finCallback struct {
 	fn  core.Value
 	err error
 	nan dec128.Dec128
+	buf [1]core.Value // the argument buffer, reused: the callee never retains or mutates its arguments
 }
 
 func newFinCallback(vm core.VM, ctx string, fn core.Value) (*finCallback, error) {
@@ -1022,7 +1023,8 @@ func (c *finCallback) eval(x dec128.Dec128) dec128.Dec128 {
 	if c.err != nil {
 		return c.nan
 	}
-	r, err := c.fn.Call(c.vm, []core.Value{core.NewDecimalValue(x)})
+	c.buf[0] = core.NewDecimalValue(x)
+	r, err := c.fn.Call(c.vm, c.buf[:])
 	if err != nil {
 		c.err = err
 		return c.nan

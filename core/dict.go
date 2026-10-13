@@ -389,12 +389,12 @@ func dictFnValues(v Value) (Value, error) {
 
 // dictMatch is a match member's argument list after reading; exactly one reading is set.
 type dictMatch struct {
-	pred Value               // a predicate
+	pred *ElemCallback       // a predicate
 	keys map[string]struct{} // a set of keys
 }
 
 // dictReadMatchArgs reads a match member's arguments.
-func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
+func dictReadMatchArgs(vm VM, name string, args []Value) (dictMatch, error) {
 	if len(args) == 0 {
 		return dictMatch{}, errs.NewWrongNumArgumentsError(name, "1 or more (a map has no blank reading)", 0)
 	}
@@ -403,10 +403,11 @@ func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
 		if len(args) > 1 {
 			return dictMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return dictMatch{}, err
 		}
-		return dictMatch{pred: args[0]}, nil
+		return dictMatch{pred: cb}, nil
 	}
 
 	keys := make(map[string]struct{}, len(args))
@@ -427,15 +428,9 @@ func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
 }
 
 // matches reports whether the entry k: val matches the reading.
-func (m *dictMatch) matches(vm VM, k string, val Value) (bool, error) {
-	if m.pred.IsCallable() {
-		var res Value
-		var err error
-		if m.pred.Arity() == 2 {
-			res, err = m.pred.Call(vm, []Value{NewStringValue(k), val})
-		} else {
-			res, err = m.pred.Call(vm, []Value{NewStringValue(k)})
-		}
+func (m *dictMatch) matches(k string, val Value) (bool, error) {
+	if m.pred != nil {
+		res, err := m.pred.CallEntry(NewStringValue(k), val)
 		if err != nil {
 			return false, err
 		}
@@ -448,14 +443,14 @@ func (m *dictMatch) matches(vm VM, k string, val Value) (bool, error) {
 // dictKept answers the entries keep(...) keeps: the matches. Shared by keep and keep_in_place; name is the
 // member called, for the errors.
 func dictKept(vm VM, name string, v Value, args []Value) (map[string]Value, error) {
-	m, err := dictReadMatchArgs(name, args)
+	m, err := dictReadMatchArgs(vm, name, args)
 	if err != nil {
 		return nil, err
 	}
 	o := (*Dict)(v.Ptr)
 	out := make(map[string]Value, len(o.Elements))
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return nil, err
 		}
@@ -469,14 +464,14 @@ func dictKept(vm VM, name string, v Value, args []Value) (map[string]Value, erro
 // dictRemaining answers the entries remove(...) leaves: everything but the matches. Shared by remove and
 // remove_in_place; name is the member called, for the errors.
 func dictRemaining(vm VM, name string, v Value, args []Value) (map[string]Value, error) {
-	m, err := dictReadMatchArgs(name, args)
+	m, err := dictReadMatchArgs(vm, name, args)
 	if err != nil {
 		return nil, err
 	}
 	o := (*Dict)(v.Ptr)
 	out := make(map[string]Value, len(o.Elements))
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return nil, err
 		}

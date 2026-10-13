@@ -3,7 +3,7 @@ package benchmarks
 // Member-function dispatch: string switch vs integer ID vs per-type table.
 //
 // Every builtin type resolves a member call with `switch name` on the method's string. This benchmark exists to
-// keep the evidence for why that is fine (see NOTES.md). The label set below is a snapshot of core/runes.go's
+// keep the evidence for why that is fine. The label set below is a snapshot of core/runes.go's
 // MethodCall switch (71 labels, 2026-10-03) — the exact membership does not matter, only that there are ~70 labels
 // of realistic lengths. The weights are how often each member appears in kavun_test.go (+1), a proxy for usage.
 //
@@ -16,11 +16,14 @@ package benchmarks
 // and `s.has_prefix("ab")` is a structural member whose cost is its body, not its dispatch.
 
 import (
+	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -813,5 +816,129 @@ func BenchmarkMemberCall(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// Host→script re-entry: the cost of a callback member calling a script function once per element.
+// BenchmarkReentry: the host-side cost of one (*VM).Call of a tiny compiled function. Subtract `identity` from the
+// others to isolate the body; `identity` itself is re-entry + 2 instructions.
+func BenchmarkReentry(b *testing.B) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	for _, sc := range []struct {
+		name, fn string
+		nargs    int
+	}{
+		{"identity", `func(e) { return e }`, 1},
+		{"plus_one", `func(e) { return e + 1 }`, 1},
+		{"two_args", `func(i, e) { return e }`, 2},
+	} {
+		compiled, err := kavun.NewScript([]byte("out = "+sc.fn), "out").Compile()
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := compiled.Run(machine); err != nil {
+			b.Fatal(err)
+		}
+		fn := compiled.MustGet("out")
+		args := []core.Value{core.IntValue(1), core.IntValue(2)}[:sc.nargs]
+		b.Run(sc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if _, err := machine.Call(fn, args); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+const callbackIters = 100_000
+
+// BenchmarkCallback: the in-language cost. Subtract `empty` and divide by callbackIters for ns per iteration;
+// divide by the element count for ns per callback.
+func BenchmarkCallback(b *testing.B) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	for _, sc := range []struct{ name, body string }{
+		{"empty", `x = i`},
+		{"call_direct", `x = f(i)`},
+		{"for_in_call8", `for e in a { x = f(e) }`},
+		{"arr_map8", `x = a.map(f)`},
+		{"arr_map8_lambda", `x = a.map(e => e + 1)`},
+		{"arr_map8_f2", `x = a.map(f2)`},
+		{"arr_for_each8", `a.for_each(f)`},
+		{"arr_keep8", `x = a.keep(p)`},
+		{"arr_any8_miss", `x = a.any(q)`},
+		{"arr_reduce8", `x = a.reduce(0, r)`},
+		{"str_map8", `x = s.map(c => c)`},
+		{"nested_map8x8", `x = a.map(e => a.map(f))`},
+	} {
+		src := "f := func(e) { return e + 1 }\nf2 := func(i, e) { return e + i }\np := func(e) { return e > 4 }\n" +
+			"q := func(e) { return e > 100 }\nr := func(acc, e) { return acc + e }\nx := 0\n" +
+			"for i := 0; i < N; i++ {\n\t" + sc.body + "\n}\nout = x\n"
+		compiled, err := kavun.NewScript([]byte(src), "out", "N", "a", "s").Compile()
+		if err != nil {
+			b.Fatalf("%s: %v", sc.name, err)
+		}
+		b.Run(sc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				compiled.Reset()
+				compiled.Set("N", core.IntValue(callbackIters))
+				elems := make([]core.Value, 8)
+				for j := range elems {
+					elems[j] = core.IntValue(int64(j + 1))
+				}
+				compiled.Set("a", core.NewArrayValue(elems, false))
+				compiled.Set("s", core.NewStringValue("abcdefgh"))
+				if err := compiled.Run(machine); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// TestAbortReachesCallbackMembers: a RunContext deadline stops a script inside a callback member as promptly as
+// inside a plain loop, and as completely — no callback answers a result after the abort, so the script never
+// reaches its next statement. The array is an input, built before the run,
+// so the member is the only work the deadline has to interrupt.
+func TestAbortReachesCallbackMembers(t *testing.T) {
+	elems := make([]core.Value, 3_000_000)
+	for i := range elems {
+		elems[i] = core.IntValue(int64(i))
+	}
+	const deadline = 50 * time.Millisecond
+	var loop time.Duration
+	for _, sc := range []struct{ name, body string }{
+		{"for_in_loop", "n := 0\nfor e in a { n = n + e }\nout = n"},
+		{"map_member", `out = a.map(e => e).len()`},
+		{"for_each_member", "n := 0\na.for_each(func(e) { n = n + e })\nout = n"},
+	} {
+		compiled, err := kavun.NewScript([]byte(sc.body), "out", "a").Compile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		compiled.Set("a", core.NewArrayValue(elems, false))
+		machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+		ctx, cancel := context.WithTimeout(context.Background(), deadline)
+		start := time.Now()
+		err = compiled.RunContext(ctx, machine)
+		el := time.Since(start)
+		cancel()
+		t.Logf("%-16s returned after %v, err=%v", sc.name, el.Round(time.Millisecond), err)
+		if err != context.DeadlineExceeded {
+			t.Fatalf("%s: expected the deadline to stop the script, got %v", sc.name, err)
+		}
+		// stopped means stopped: the script never gets to assign its result
+		if out := compiled.MustGet("out"); out.Type != value.Undefined {
+			t.Fatalf("%s: the script ran on after the deadline and assigned out = %v", sc.name, out)
+		}
+		if sc.name == "for_in_loop" {
+			loop = el
+			continue
+		}
+		if el > loop+100*time.Millisecond {
+			t.Errorf("%s: returned %v after start, the plain loop %v: the deadline did not reach the callbacks", sc.name, el, loop)
+		}
 	}
 }

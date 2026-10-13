@@ -10936,6 +10936,25 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	`, Opts().Symbol("invoke", caller).Skip2ndPass(), "rescued")
 }
 
+func TestHostCallback_ErrorIgnoredByHost(t *testing.T) {
+	// A host builtin may drop the error of a script function it called. The raise left the callee's frame unpopped
+	// (the trace reads it); a later script call reusing that frame must return to its caller, not out of the run.
+	swallow := core.NewBuiltinClosureValue("swallow",
+		func(v core.VM, args []core.Value) (core.Value, error) {
+			_, _ = v.Call(args[0], nil)
+			return core.Undefined, nil
+		}, 1, false)
+
+	expectRun(t, `
+		c := func() { return 7 }
+		b := func() { return c() }
+		a := func() { return b() }
+		g := func() { return swallow(func() { raise("dropped") }) }
+		g()
+		out = [a(), "after"]
+	`, Opts().Symbol("swallow", swallow).Skip2ndPass(), core.NewArrayValue([]core.Value{core.IntValue(7), core.NewStringValue("after")}, false))
+}
+
 func TestHostCallback_VarargsAndArity(t *testing.T) {
 	caller := core.NewBuiltinClosureValue("invoke3",
 		func(v core.VM, args []core.Value) (core.Value, error) {
@@ -10960,6 +10979,105 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 			return v.Call(fnVal, nil)
 		}, 1, false)
 	expectError(t, `f := func(a) { return a }; invoke(f)`, Opts().Symbol("invoke", wrong).Skip2ndPass(), "wrong_num_arguments: (call) expected 1 argument(s), got 0")
+}
+
+// TestCallbackMember_Boundaries pins how errors, defer and recover() cross the boundary between a callback member
+// and the script function it calls back: each callback is its own call, so its defers and recover() see only its
+// own body, and an error it does not recover leaves the member as the member's error.
+func TestCallbackMember_Boundaries(t *testing.T) {
+	const try = "try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e } }(); result = f() }\n"
+
+	// fatalRun runs src and answers the error that left it, which must be fatal.
+	fatalRun := func(t *testing.T, src string) *kavun.RuntimeError {
+		t.Helper()
+		c := compile(t, src, nil)
+		err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+		require.Error(t, err)
+		var re *kavun.RuntimeError
+		require.True(t, errors.As(err, &re), "expected a *kavun.RuntimeError, got %T: %v", err, err)
+		require.True(t, re.Fatal, "expected a fatal error, got %v", err)
+		return re
+	}
+
+	t.Run("callback recovers its own raise", func(t *testing.T) {
+		expectRun(t, try+`out = [1,2,3].map(func(e) result { defer func(){ r := recover(); if r != undefined { result = -1 } }(); if e == 2 { raise("x") }; return e })`,
+			nil, core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(-1), core.IntValue(3)}, false))
+	})
+
+	t.Run("unrecovered raise leaves the member", func(t *testing.T) {
+		expectRun(t, try+`r := try(func() { return [1].map(func(e) { raise("boom") }) }); out = [is_error(r), r.value()]`,
+			nil, core.NewArrayValue([]core.Value{core.True, core.NewStringValue("boom")}, false))
+	})
+
+	t.Run("nested members: inner raise reaches the outer try", func(t *testing.T) {
+		expectRun(t, try+`r := try(func() { return [1].map(func(e) { return [2].map(func(x) { raise("in") }) }) }); out = r.value()`,
+			nil, "in")
+	})
+
+	t.Run("nested members: outer callback recovers the inner raise", func(t *testing.T) {
+		expectRun(t, try+`out = [1].map(func(e) result { defer func(){ r := recover(); if r != undefined { result = "caught" } }(); return [2].map(func(x) { raise("in") }) })`,
+			nil, core.NewArrayValue([]core.Value{core.NewStringValue("caught")}, false))
+	})
+
+	t.Run("defer inside a callback runs per callback", func(t *testing.T) {
+		expectRun(t, try+`n := 0; [1,2].for_each(func(e) { defer func(){ n = n + 1 }() }); out = n`, nil, 2)
+	})
+
+	t.Run("unbounded member nesting overflows fatally", func(t *testing.T) {
+		re := fatalRun(t, try+`f := func(a) { return [a].map(f) }; out = try(func(){ return f(1) })`)
+		require.Equal(t, errs.KindStackOverflow, re.Kind)
+		require.True(t, strings.Contains(re.Message, "native callback frames"), "got %q", re.Message)
+	})
+
+	t.Run("tail call inside a callback", func(t *testing.T) {
+		expectRun(t, try+`g := func(n) { if n == 0 { return 0 }; return g(n - 1) }; out = [100000].map(g)`,
+			nil, core.NewArrayValue([]core.Value{core.IntValue(0)}, false))
+	})
+
+	t.Run("recover() in a callback run by a defer sees nothing", func(t *testing.T) {
+		expectRun(t, try+`seen := 0
+r := try(func() result { defer func(){ [1].for_each(func(e){ seen = recover() }) }(); raise("z") })
+out = [seen, is_error(r), r.value()]`,
+			nil, core.NewArrayValue([]core.Value{core.Undefined, core.True, core.NewStringValue("z")}, false))
+	})
+
+	t.Run("variadic callback", func(t *testing.T) {
+		expectRun(t, try+`out = [1,2].map(func(...a) { return a })`, nil, core.NewArrayValue([]core.Value{
+			core.NewArrayValue([]core.Value{core.IntValue(1)}, false),
+			core.NewArrayValue([]core.Value{core.IntValue(2)}, false),
+		}, false))
+	})
+
+	t.Run("bound member as callback", func(t *testing.T) {
+		expectRun(t, try+`out = ["ab","x"].map("ab".has_prefix)`,
+			nil, core.NewArrayValue([]core.Value{core.True, core.False}, false))
+	})
+
+	t.Run("callback in a defer writes the named result", func(t *testing.T) {
+		expectRun(t, try+`out = try(func() result { defer func(){ [1,2].for_each(func(e){ result = e }) }(); return 0 })`, nil, 2)
+	})
+
+	t.Run("raise from a callback in a defer", func(t *testing.T) {
+		expectRun(t, try+`r := try(func() { defer func(){ [1].for_each(func(e){ raise("from-defer-cb") }) }(); return 1 }); out = [is_error(r), r.value()]`,
+			nil, core.NewArrayValue([]core.Value{core.True, core.NewStringValue("from-defer-cb")}, false))
+	})
+
+	t.Run("named-result callback", func(t *testing.T) {
+		expectRun(t, try+`out = [1,2].map(func(e) r { r = e * 10 })`,
+			nil, core.NewArrayValue([]core.Value{core.IntValue(10), core.IntValue(20)}, false))
+	})
+
+	t.Run("callback re-raises a different error from its defer", func(t *testing.T) {
+		expectRun(t, try+`r := try(func() { return [1].map(func(e) result { defer func(){ x := recover(); if x != undefined { raise("second") } }(); raise("first") }) }); out = r.value()`,
+			nil, "second")
+	})
+
+	t.Run("fatal raise in a callback bypasses recover", func(t *testing.T) {
+		re := fatalRun(t, try+`reached := false
+r := try(func() { return [1].map(func(e) { raise("fatal!", true) }) })
+reached = true`)
+		require.Equal(t, core.NewStringValue("fatal!"), re.Payload)
+	})
 }
 
 func TestStackOverflow_MutualRecursion(t *testing.T) {
@@ -11218,6 +11336,53 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 	wg.Wait()
 	// VM stopped cleanly via Abort: no error propagated.
 	require.NoError(t, runErr)
+}
+
+// An abort stops the script wherever it lands — before a callback, inside a callback's or a deferred body's loop,
+// inside a root defer: Run answers no error and nothing after the abort point reaches the script.
+func TestVM_Abort_InsideCallbacks(t *testing.T) {
+	// stop() aborts the VM it runs on, as Abort from another goroutine would at that instant
+	stop := core.NewBuiltinClosureValue("stop", func(v core.VM, _ []core.Value) (core.Value, error) {
+		v.Abort()
+		return core.Undefined, nil
+	}, 0, false)
+
+	run := func(t *testing.T, src string) (out, after core.Value) {
+		t.Helper()
+		c, err := kavun.NewScript([]byte(src), "stop", "out", "after").Compile()
+		require.NoError(t, err)
+		require.NoError(t, c.Set("stop", stop))
+		require.NoError(t, c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)))
+		out, err = c.Get("out")
+		require.NoError(t, err)
+		after, err = c.Get("after")
+		require.NoError(t, err)
+		return out, after
+	}
+
+	t.Run("before a callback member", func(t *testing.T) {
+		out, after := run(t, `stop(); out = [1, 2].map(func(e) { return e }); after = true`)
+		require.Equal(t, core.Undefined, out)
+		require.Equal(t, core.Undefined, after)
+	})
+
+	t.Run("inside a callback body", func(t *testing.T) {
+		out, after := run(t, `out = [1].map(func(e) { stop(); for i := 0; i < 3; i++ {}; return e }); after = true`)
+		require.Equal(t, core.Undefined, out)
+		require.Equal(t, core.Undefined, after)
+	})
+
+	t.Run("inside a deferred body", func(t *testing.T) {
+		out, after := run(t, `f := func() { defer func() { stop(); for i := 0; i < 3; i++ {} }(); return 1 }; out = f(); after = true`)
+		require.Equal(t, core.Undefined, out)
+		require.Equal(t, core.Undefined, after)
+	})
+
+	t.Run("inside a root defer", func(t *testing.T) {
+		out, after := run(t, `defer func() { stop(); for i := 0; i < 3; i++ {}; after = true }(); out = 1`)
+		require.Equal(t, core.IntValue(1), out)
+		require.Equal(t, core.Undefined, after)
+	})
 }
 
 func TestVM_Clear_ZerosOutSlots(t *testing.T) {

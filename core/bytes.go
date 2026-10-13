@@ -577,15 +577,15 @@ func bytesEncodeMatchArg(name string, a Value) ([]byte, bool, error) {
 
 // bytesMatch is a match member's argument list after reading; exactly one reading is set.
 type bytesMatch struct {
-	significant bool     // no argument
-	pred        Value    // a predicate
-	elems       []byte   // any/all: a set of octets
-	runs        [][]byte // contains/count/keep/remove: a set of runs
+	significant bool          // no argument
+	pred        *ElemCallback // a predicate
+	elems       []byte        // any/all: a set of octets
+	runs        [][]byte      // contains/count/keep/remove: a set of runs
 }
 
 // bytesReadMatchArgs reads a match member's arguments. octets is true for any/all, which read each argument as
 // exactly one octet instead of a run.
-func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, error) {
+func bytesReadMatchArgs(vm VM, name string, args []Value, octets bool) (bytesMatch, error) {
 	if len(args) == 0 {
 		return bytesMatch{significant: true}, nil
 	}
@@ -594,10 +594,11 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 		if len(args) > 1 {
 			return bytesMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return bytesMatch{}, err
 		}
-		return bytesMatch{pred: args[0]}, nil
+		return bytesMatch{pred: cb}, nil
 	}
 
 	runs := make([][]byte, 0, len(args))
@@ -638,12 +639,12 @@ func bytesReadMatchArgs(name string, args []Value, octets bool) (bytesMatch, err
 }
 
 // matches reports whether octet r at index i matches an element-wise reading (anything but runs).
-func (m *bytesMatch) matches(vm VM, i int, r byte) (bool, error) {
+func (m *bytesMatch) matches(i int, r byte) (bool, error) {
 	switch {
 	case m.significant:
 		return !text.IsBlankByte(r), nil
-	case m.pred.IsCallable():
-		res, err := callElem(vm, m.pred, i, ByteValue(r))
+	case m.pred != nil:
+		res, err := m.pred.Call(i, ByteValue(r))
 		if err != nil {
 			return false, err
 		}
@@ -655,7 +656,7 @@ func (m *bytesMatch) matches(vm VM, i int, r byte) (bool, error) {
 // bytesKept answers the octets keep(...) keeps: the matches, in order. Shared by keep and keep_in_place; name is
 // the member called, for the errors.
 func bytesKept(vm VM, name string, v Value, args []Value) ([]byte, error) {
-	m, err := bytesReadMatchArgs(name, args, false)
+	m, err := bytesReadMatchArgs(vm, name, args, false)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +676,7 @@ func bytesKept(vm VM, name string, v Value, args []Value) ([]byte, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return nil, err
 		}
@@ -690,7 +691,7 @@ func bytesKept(vm VM, name string, v Value, args []Value) ([]byte, error) {
 // remove drops the BLANK octets — so it keeps the significant ones, landing on keep()'s answer by the opposite
 // action. Shared by remove and remove_in_place; name is the member called, for the errors.
 func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
-	m, err := bytesReadMatchArgs(name, args, false)
+	m, err := bytesReadMatchArgs(vm, name, args, false)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +720,7 @@ func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return nil, err
 		}
@@ -763,12 +764,13 @@ func bytesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	needle, dflt := args[0], args[1:]
 
 	if needle.IsCallable() {
-		if err := checkElemCallback(name, needle); err != nil {
+		cb, err := newElemCallback(vm, name, needle)
+		if err != nil {
 			return Undefined, err
 		}
 		idx := -1
 		for i, e := range elems {
-			res, err := callElem(vm, needle, i, ByteValue(e))
+			res, err := cb.Call(i, ByteValue(e))
 			if err != nil {
 				return Undefined, err
 			}

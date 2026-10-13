@@ -113,12 +113,12 @@ func intRangeContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) 
 	if err != nil {
 		return Undefined, err
 	}
-	m, err := intRangeReadMatchArgs("contains", args, true)
+	m, err := intRangeReadMatchArgs(vm, "contains", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -136,13 +136,13 @@ func intRangeCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	m, err := intRangeReadMatchArgs("count", args, true)
+	m, err := intRangeReadMatchArgs(vm, "count", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	n := int64(0)
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -160,12 +160,12 @@ func intRangeAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	m, err := intRangeReadMatchArgs("any", args, false)
+	m, err := intRangeReadMatchArgs(vm, "any", args, false)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -183,12 +183,12 @@ func intRangeAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	m, err := intRangeReadMatchArgs("all", args, false)
+	m, err := intRangeReadMatchArgs(vm, "all", args, false)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -202,7 +202,7 @@ func intRangeAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // intRangeForEach is for_each(f): a full pass whose callback result is ignored; returns the receiver, so it chains.
 // PURE by contract
 func intRangeForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -211,7 +211,7 @@ func intRangeForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	for i, e := range elems {
-		if _, err := callElem(vm, fn, i, IntValue(e)); err != nil {
+		if _, err := cb.Call(i, IntValue(e)); err != nil {
 			return Undefined, err
 		}
 	}
@@ -363,12 +363,12 @@ func intRangeReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	acc, fn, err := readReduceArgs(args)
+	acc, cb, err := readReduceArgs(vm, args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range elems {
-		acc, err = callReduce(vm, fn, acc, i, IntValue(e))
+		acc, err = cb.Call(acc, i, IntValue(e))
 		if err != nil {
 			return Undefined, err
 		}

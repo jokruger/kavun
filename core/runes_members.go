@@ -225,7 +225,7 @@ func runesUpper(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // same answer `in` gives.
 // PURE by contract
 func runesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("contains", args, false)
+	m, err := runesReadMatchArgs(vm, "contains", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -246,7 +246,7 @@ func runesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -260,7 +260,7 @@ func runesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // runesCount is count(...): how many matches. Runs count non-overlapping occurrences.
 // PURE by contract
 func runesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("count", args, false)
+	m, err := runesReadMatchArgs(vm, "count", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -280,7 +280,7 @@ func runesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -343,12 +343,12 @@ func runesRemoveInPlace(vm VM, v Value, _ member.ID, args []Value) (Value, error
 // runesAny is any(...): does some symbol match? Symbols, a predicate, or nothing — never a run.
 // PURE by contract
 func runesAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("any", args, true)
+	m, err := runesReadMatchArgs(vm, "any", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range (*Runes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -363,12 +363,12 @@ func runesAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // runes.
 // PURE by contract
 func runesAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("all", args, true)
+	m, err := runesReadMatchArgs(vm, "all", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range (*Runes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -483,12 +483,12 @@ func runesReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, erro
 // search member. Returns the receiver, so it chains.
 // PURE by contract
 func runesForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Runes)(v.Ptr).Elements {
-		if _, err := callElem(vm, fn, i, RuneValue(e)); err != nil {
+		if _, err := cb.Call(i, RuneValue(e)); err != nil {
 			return Undefined, err
 		}
 	}
@@ -754,14 +754,14 @@ func runesSpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // PURE by contract
 func runesMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Runes)(v.Ptr).Elements
 	out := make([]rune, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
+		res, err := cb.Call(i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -788,14 +788,14 @@ func runesMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func runesFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "flat_map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Runes)(v.Ptr).Elements
 	out := make([]rune, 0, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, RuneValue(e))
+		res, err := cb.Call(i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -874,12 +874,12 @@ func runesPascalCase(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // runesReduce is reduce(acc, f): folds the symbols left to right.
 // PURE by contract
 func runesReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
+	acc, cb, err := readReduceArgs(vm, args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Runes)(v.Ptr).Elements {
-		acc, err = callReduce(vm, fn, acc, i, RuneValue(e))
+		acc, err = cb.Call(acc, i, RuneValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -944,11 +944,12 @@ func runesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
+			res, err := cb.Call(i, RuneValue(e))
 			if err != nil {
 				return Undefined, err
 			}
@@ -1022,11 +1023,12 @@ func runesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, RuneValue(e))
+			res, err := cb.Call(i, RuneValue(e))
 			if err != nil {
 				return Undefined, err
 			}

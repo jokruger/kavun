@@ -159,7 +159,7 @@ func bytesMax(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // same answer `in` gives.
 // PURE by contract
 func bytesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := bytesReadMatchArgs("contains", args, false)
+	m, err := bytesReadMatchArgs(vm, "contains", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -180,7 +180,7 @@ func bytesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -194,7 +194,7 @@ func bytesContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // bytesCount is count(...): how many matches. Runs count non-overlapping occurrences.
 // PURE by contract
 func bytesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := bytesReadMatchArgs("count", args, false)
+	m, err := bytesReadMatchArgs(vm, "count", args, false)
 	if err != nil {
 		return Undefined, err
 	}
@@ -214,7 +214,7 @@ func bytesCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -277,12 +277,12 @@ func bytesRemoveInPlace(vm VM, v Value, _ member.ID, args []Value) (Value, error
 // bytesAny is any(...): does some octet match? Symbols, a predicate, or nothing — never a run.
 // PURE by contract
 func bytesAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := bytesReadMatchArgs("any", args, true)
+	m, err := bytesReadMatchArgs(vm, "any", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range (*Bytes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -297,12 +297,12 @@ func bytesAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // bytes.
 // PURE by contract
 func bytesAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := bytesReadMatchArgs("all", args, true)
+	m, err := bytesReadMatchArgs(vm, "all", args, true)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, r := range (*Bytes)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return Undefined, err
 		}
@@ -417,12 +417,12 @@ func bytesReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, erro
 // search member. Returns the receiver, so it chains.
 // PURE by contract
 func bytesForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Bytes)(v.Ptr).Elements {
-		if _, err := callElem(vm, fn, i, ByteValue(e)); err != nil {
+		if _, err := cb.Call(i, ByteValue(e)); err != nil {
 			return Undefined, err
 		}
 	}
@@ -688,14 +688,14 @@ func bytesSpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // PURE by contract
 func bytesMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Bytes)(v.Ptr).Elements
 	out := make([]byte, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, ByteValue(e))
+		res, err := cb.Call(i, ByteValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -722,14 +722,14 @@ func bytesMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // PURE by contract
 func bytesFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	const name = "flat_map"
-	fn, err := readElemCallback(name, args)
+	cb, err := readElemCallback(vm, name, args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Bytes)(v.Ptr).Elements
 	out := make([]byte, 0, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, ByteValue(e))
+		res, err := cb.Call(i, ByteValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -748,12 +748,12 @@ func bytesFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // bytesReduce is reduce(acc, f): folds the octets left to right.
 // PURE by contract
 func bytesReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
+	acc, cb, err := readReduceArgs(vm, args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Bytes)(v.Ptr).Elements {
-		acc, err = callReduce(vm, fn, acc, i, ByteValue(e))
+		acc, err = cb.Call(acc, i, ByteValue(e))
 		if err != nil {
 			return Undefined, err
 		}
@@ -818,11 +818,12 @@ func bytesSplit(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, ByteValue(e))
+			res, err := cb.Call(i, ByteValue(e))
 			if err != nil {
 				return Undefined, err
 			}
@@ -898,11 +899,12 @@ func bytesPartition(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 		if len(args) > 1 {
 			return Undefined, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return Undefined, err
 		}
 		for i, e := range elems {
-			res, err := callElem(vm, args[0], i, ByteValue(e))
+			res, err := cb.Call(i, ByteValue(e))
 			if err != nil {
 				return Undefined, err
 			}

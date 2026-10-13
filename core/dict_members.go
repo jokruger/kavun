@@ -122,13 +122,13 @@ func dictRange(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // dictContains is contains(...): does some entry match?
 // PURE by contract
 func dictContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := dictReadMatchArgs("contains", args)
+	m, err := dictReadMatchArgs(vm, "contains", args)
 	if err != nil {
 		return Undefined, err
 	}
 	o := (*Dict)(v.Ptr)
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
@@ -142,14 +142,14 @@ func dictContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // dictCount is count(...): how many entries match.
 // PURE by contract
 func dictCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := dictReadMatchArgs("count", args)
+	m, err := dictReadMatchArgs(vm, "count", args)
 	if err != nil {
 		return Undefined, err
 	}
 	o := (*Dict)(v.Ptr)
 	n := int64(0)
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
@@ -213,13 +213,13 @@ func dictRemoveInPlace(vm VM, v Value, _ member.ID, args []Value) (Value, error)
 // dictAny is any(...): does some entry match? The same question as contains on a map.
 // PURE by contract
 func dictAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := dictReadMatchArgs("any", args)
+	m, err := dictReadMatchArgs(vm, "any", args)
 	if err != nil {
 		return Undefined, err
 	}
 	o := (*Dict)(v.Ptr)
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
@@ -233,13 +233,13 @@ func dictAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // dictAll is all(...): does every entry match? True on an empty dict.
 // PURE by contract
 func dictAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := dictReadMatchArgs("all", args)
+	m, err := dictReadMatchArgs(vm, "all", args)
 	if err != nil {
 		return Undefined, err
 	}
 	o := (*Dict)(v.Ptr)
 	for _, k := range o.sortedKeys() {
-		hit, err := m.matches(vm, k, o.Elements[k])
+		hit, err := m.matches(k, o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
@@ -256,18 +256,13 @@ func dictMap(vm VM, v Value, id member.ID, args []Value) (Value, error) {
 	// maps the ATTACHMENT, keys fixed — 1:1, answering a dict. Re-keying is a
 	// different operation, and one that can collide. The callback follows the
 	// map family's bindings: f/1 receives the key, f/2 (key, value)
-	fn, err := readElemCallback(id.String(), args)
+	cb, err := readElemCallback(vm, id.String(), args)
 	if err != nil {
 		return Undefined, err
 	}
 	mapped := make(map[string]Value, len(o.Elements))
 	for _, k := range o.sortedKeys() {
-		var res Value
-		if fn.Arity() == 2 {
-			res, err = fn.Call(vm, []Value{NewStringValue(k), o.Elements[k]})
-		} else {
-			res, err = fn.Call(vm, []Value{NewStringValue(k)})
-		}
+		res, err := cb.CallEntry(NewStringValue(k), o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
@@ -277,36 +272,20 @@ func dictMap(vm VM, v Value, id member.ID, args []Value) (Value, error) {
 }
 
 // PURE by contract
-func dictReduce(vm VM, v Value, id member.ID, args []Value) (Value, error) {
-	name := id.String()
+func dictReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
 	// f/2 receives (acc, key), f/3 (acc, key, value) — the key is the element
 	// (mirroring array.reduce); keys are visited in sorted order so callback
 	// side effects and the fold itself are deterministic
-	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-	}
-	acc := args[0]
-	fn := args[1]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "function", fn.TypeName())
-	}
-	arity := fn.Arity()
-	if arity != 2 && arity != 3 {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "f/2 or f/3", fn.TypeName())
+	acc, cb, err := readReduceArgs(vm, args)
+	if err != nil {
+		return Undefined, err
 	}
 	for _, k := range o.sortedKeys() {
-		var res Value
-		var err error
-		if arity == 3 {
-			res, err = fn.Call(vm, []Value{acc, NewStringValue(k), o.Elements[k]})
-		} else {
-			res, err = fn.Call(vm, []Value{acc, NewStringValue(k)})
-		}
+		acc, err = cb.CallEntry(acc, NewStringValue(k), o.Elements[k])
 		if err != nil {
 			return Undefined, err
 		}
-		acc = res
 	}
 	return acc, nil
 }
@@ -357,7 +336,7 @@ func dictValues(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // PURE by contract
 func dictForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -366,24 +345,9 @@ func dictForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	// sorted order, like every other member and like `for k in d` — for_each is the side-effecting member,
 	// so its order is the most observable of all.
 	o := (*Dict)(v.Ptr)
-	var buf [2]Value
-	sorted := o.sortedKeys()
-	switch fn.Arity() {
-	case 1:
-		for _, k := range sorted {
-			buf[0] = NewStringValue(k)
-			if _, err := fn.Call(vm, buf[:1]); err != nil {
-				return Undefined, err
-			}
-		}
-
-	case 2:
-		for _, k := range sorted {
-			buf[0] = NewStringValue(k)
-			buf[1] = o.Elements[k]
-			if _, err := fn.Call(vm, buf[:2]); err != nil {
-				return Undefined, err
-			}
+	for _, k := range o.sortedKeys() {
+		if _, err := cb.CallEntry(NewStringValue(k), o.Elements[k]); err != nil {
+			return Undefined, err
 		}
 	}
 	return v, nil
@@ -414,19 +378,12 @@ func dictIndex(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	sort.Strings(keys)
 
 	if needle.IsCallable() {
-		arity := needle.Arity()
-		if arity != 1 && arity != 2 {
-			return Undefined, errs.NewInvalidArgumentTypeError("index", "first", "f/1 or f/2", needle.TypeName())
+		cb, err := newElemCallback(vm, "index", needle)
+		if err != nil {
+			return Undefined, err
 		}
-		var buf [2]Value
 		for _, k := range keys {
-			if arity == 2 {
-				buf[0] = NewStringValue(k)
-				buf[1] = o.Elements[k]
-			} else {
-				buf[0] = NewStringValue(k)
-			}
-			res, err := needle.Call(vm, buf[:arity])
+			res, err := cb.CallEntry(NewStringValue(k), o.Elements[k])
 			if err != nil {
 				return Undefined, err
 			}

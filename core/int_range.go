@@ -255,14 +255,14 @@ func intRangeTypeEqual(v Value, other Value, final bool) bool {
 
 // intRangeMatch is a match member's argument list after reading; exactly one reading is set.
 type intRangeMatch struct {
-	significant bool    // no argument
-	pred        Value   // a predicate
-	elems       []int64 // a set of elements
+	significant bool          // no argument
+	pred        *ElemCallback // a predicate
+	elems       []int64       // a set of elements
 }
 
 // intRangeReadMatchArgs reads a match member's arguments. allowRuns is false for any/all, which never have a run
 // reading; for contains/count the run reading exists but is not implemented yet.
-func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeMatch, error) {
+func intRangeReadMatchArgs(vm VM, name string, args []Value, allowRuns bool) (intRangeMatch, error) {
 	if len(args) == 0 {
 		return intRangeMatch{significant: true}, nil
 	}
@@ -271,10 +271,11 @@ func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeM
 		if len(args) > 1 {
 			return intRangeMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return intRangeMatch{}, err
 		}
-		return intRangeMatch{pred: args[0]}, nil
+		return intRangeMatch{pred: cb}, nil
 	}
 
 	var m intRangeMatch
@@ -306,12 +307,12 @@ func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeM
 }
 
 // matches reports whether element e at index i matches the reading.
-func (m *intRangeMatch) matches(vm VM, i int, e int64) (bool, error) {
+func (m *intRangeMatch) matches(i int, e int64) (bool, error) {
 	switch {
 	case m.significant:
 		return e != 0, nil
-	case m.pred.IsCallable():
-		res, err := callElem(vm, m.pred, i, IntValue(e))
+	case m.pred != nil:
+		res, err := m.pred.Call(i, IntValue(e))
 		if err != nil {
 			return false, err
 		}
@@ -356,12 +357,13 @@ func intRangeLocate(vm VM, name string, v Value, args []Value, last bool) (Value
 	needle, dflt := args[0], args[1:]
 
 	if needle.IsCallable() {
-		if err := checkElemCallback(name, needle); err != nil {
+		cb, err := newElemCallback(vm, name, needle)
+		if err != nil {
 			return Undefined, err
 		}
 		idx := -1
 		for i, e := range elems {
-			res, err := callElem(vm, needle, i, IntValue(e))
+			res, err := cb.Call(i, IntValue(e))
 			if err != nil {
 				return Undefined, err
 			}

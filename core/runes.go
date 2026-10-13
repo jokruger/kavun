@@ -594,15 +594,15 @@ func runesTypeAsArray(v Value) ([]Value, bool) {
 
 // runesMatch is a match member's argument list after reading; exactly one reading is set.
 type runesMatch struct {
-	significant bool     // no argument
-	pred        Value    // a predicate
-	elems       []rune   // any/all: a set of symbols
-	runs        [][]rune // contains/count/keep/remove: a set of runs
+	significant bool          // no argument
+	pred        *ElemCallback // a predicate
+	elems       []rune        // any/all: a set of symbols
+	runs        [][]rune      // contains/count/keep/remove: a set of runs
 }
 
 // runesReadMatchArgs reads a match member's arguments. symbols is true for any/all, which read each argument as
 // exactly one symbol instead of a run.
-func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, error) {
+func runesReadMatchArgs(vm VM, name string, args []Value, symbols bool) (runesMatch, error) {
 	if len(args) == 0 {
 		return runesMatch{significant: true}, nil
 	}
@@ -611,10 +611,11 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 		if len(args) > 1 {
 			return runesMatch{}, seq.ErrPredicateAmongMany(name)
 		}
-		if err := checkElemCallback(name, args[0]); err != nil {
+		cb, err := newElemCallback(vm, name, args[0])
+		if err != nil {
 			return runesMatch{}, err
 		}
-		return runesMatch{pred: args[0]}, nil
+		return runesMatch{pred: cb}, nil
 	}
 
 	runs := make([][]rune, 0, len(args))
@@ -655,12 +656,12 @@ func runesReadMatchArgs(name string, args []Value, symbols bool) (runesMatch, er
 }
 
 // matches reports whether symbol r at index i matches an element-wise reading (anything but runs).
-func (m *runesMatch) matches(vm VM, i int, r rune) (bool, error) {
+func (m *runesMatch) matches(i int, r rune) (bool, error) {
 	switch {
 	case m.significant:
 		return !text.IsBlankRune(r), nil
-	case m.pred.IsCallable():
-		res, err := callElem(vm, m.pred, i, RuneValue(r))
+	case m.pred != nil:
+		res, err := m.pred.Call(i, RuneValue(r))
 		if err != nil {
 			return false, err
 		}
@@ -672,7 +673,7 @@ func (m *runesMatch) matches(vm VM, i int, r rune) (bool, error) {
 // runesKept answers the symbols keep(...) keeps: the matches, in order. Shared by keep and keep_in_place; name is
 // the member called, for the errors.
 func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
-	m, err := runesReadMatchArgs(name, args, false)
+	m, err := runesReadMatchArgs(vm, name, args, false)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +693,7 @@ func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return nil, err
 		}
@@ -707,7 +708,7 @@ func runesKept(vm VM, name string, v Value, args []Value) ([]rune, error) {
 // remove drops the BLANK symbols — so it keeps the significant ones, landing on keep()'s answer by the opposite
 // action. Shared by remove and remove_in_place; name is the member called, for the errors.
 func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
-	m, err := runesReadMatchArgs(name, args, false)
+	m, err := runesReadMatchArgs(vm, name, args, false)
 	if err != nil {
 		return nil, err
 	}
@@ -736,7 +737,7 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 	}
 
 	for i, r := range elems {
-		hit, err := m.matches(vm, i, r)
+		hit, err := m.matches(i, r)
 		if err != nil {
 			return nil, err
 		}
@@ -780,12 +781,13 @@ func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, e
 	needle, dflt := args[0], args[1:]
 
 	if needle.IsCallable() {
-		if err := checkElemCallback(name, needle); err != nil {
+		cb, err := newElemCallback(vm, name, needle)
+		if err != nil {
 			return Undefined, err
 		}
 		idx := -1
 		for i, e := range elems {
-			res, err := callElem(vm, needle, i, RuneValue(e))
+			res, err := cb.Call(i, RuneValue(e))
 			if err != nil {
 				return Undefined, err
 			}

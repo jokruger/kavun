@@ -151,7 +151,7 @@ func arrayLast(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // same answer `in` gives.
 // PURE by contract
 func arrayContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("contains", args, true)
+	m, err := arrayReadMatchArgs(vm, "contains", args, true)
 	if err != nil {
 		return Undefined, err
 	}
@@ -172,7 +172,7 @@ func arrayContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -186,7 +186,7 @@ func arrayContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // arrayCount is count(...): how many matches. Runs count non-overlapping occurrences.
 // PURE by contract
 func arrayCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("count", args, true)
+	m, err := arrayReadMatchArgs(vm, "count", args, true)
 	if err != nil {
 		return Undefined, err
 	}
@@ -206,7 +206,7 @@ func arrayCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 	}
 
 	for i, e := range elems {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -269,12 +269,12 @@ func arrayRemoveInPlace(vm VM, v Value, _ member.ID, args []Value) (Value, error
 // arrayAny is any(...): does some element match? Elements, a predicate, or nothing — never a run.
 // PURE by contract
 func arrayAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("any", args, false)
+	m, err := arrayReadMatchArgs(vm, "any", args, false)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Array)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -289,12 +289,12 @@ func arrayAny(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // empty array.
 // PURE by contract
 func arrayAll(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := arrayReadMatchArgs("all", args, false)
+	m, err := arrayReadMatchArgs(vm, "all", args, false)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Array)(v.Ptr).Elements {
-		hit, err := m.matches(vm, i, e)
+		hit, err := m.matches(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -475,14 +475,14 @@ func arrayUniqueInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // array result spreads, undefined contributes nothing, anything else is one element.
 // PURE by contract
 func arrayFlatMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("flat_map", args)
+	cb, err := readElemCallback(vm, "flat_map", args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Array)(v.Ptr).Elements
 	out := make([]Value, 0, len(elems))
 	for i, e := range elems {
-		res, err := callElem(vm, fn, i, e)
+		res, err := cb.Call(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -528,14 +528,14 @@ func arrayReverseInPlace(_ VM, v Value, id member.ID, args []Value) (Value, erro
 // arrayMap is map(f): a new array of the callback results, 1:1.
 // PURE by contract
 func arrayMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("map", args)
+	cb, err := readElemCallback(vm, "map", args)
 	if err != nil {
 		return Undefined, err
 	}
 	elems := (*Array)(v.Ptr).Elements
 	out := make([]Value, len(elems))
 	for i, e := range elems {
-		out[i], err = callElem(vm, fn, i, e)
+		out[i], err = cb.Call(i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -546,12 +546,12 @@ func arrayMap(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // arrayReduce is reduce(acc, f): folds the elements left to right.
 // PURE by contract
 func arrayReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	acc, fn, err := readReduceArgs(args)
+	acc, cb, err := readReduceArgs(vm, args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Array)(v.Ptr).Elements {
-		acc, err = callReduce(vm, fn, acc, i, e)
+		acc, err = cb.Call(acc, i, e)
 		if err != nil {
 			return Undefined, err
 		}
@@ -563,12 +563,12 @@ func arrayReduce(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // search member. Returns the receiver, so it chains.
 // PURE by contract
 func arrayForEach(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	fn, err := readElemCallback("for_each", args)
+	cb, err := readElemCallback(vm, "for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
 	for i, e := range (*Array)(v.Ptr).Elements {
-		if _, err := callElem(vm, fn, i, e); err != nil {
+		if _, err := cb.Call(i, e); err != nil {
 			return Undefined, err
 		}
 	}

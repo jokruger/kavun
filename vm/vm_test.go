@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
@@ -642,4 +643,76 @@ func TestVM_JumpUsesInstructionIndex(t *testing.T) {
 	), core.Static{})
 
 	require.Equal(t, core.IntValue(3), globals[0])
+}
+
+// scriptValues compiles src with names declared, runs it on a fresh VM and answers that VM with the named globals, so a test can call
+// the script's functions from the host the way a callback member does.
+func scriptValues(t *testing.T, src string, names ...string) (*vm.VM, map[string]core.Value) {
+	t.Helper()
+	c, err := kavun.NewScript([]byte(src), names...).Compile()
+	require.NoError(t, err)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	require.NoError(t, c.Run(machine))
+	values := make(map[string]core.Value, len(names))
+	for _, name := range names {
+		v, err := c.Get(name)
+		require.NoError(t, err)
+		values[name] = v
+	}
+	return machine, values
+}
+
+func TestVM_HostCall(t *testing.T) {
+	machine, fns := scriptValues(t, `
+add = func(a, b) { return a + b }
+rest = func(a, ...r) { return [a, r] }
+bound = "ab".has_prefix
+`, "add", "rest", "bound")
+
+	t.Run("fixed arity", func(t *testing.T) {
+		res, err := machine.Call(fns["add"], []core.Value{core.IntValue(2), core.IntValue(3)})
+		require.NoError(t, err)
+		require.Equal(t, core.IntValue(5), res)
+	})
+
+	t.Run("variadic", func(t *testing.T) {
+		res, err := machine.Call(fns["rest"], []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
+		require.NoError(t, err)
+		require.Equal(t, `[1, [2, 3]]`, res.String())
+
+		res, err = machine.Call(fns["rest"], []core.Value{core.IntValue(1)})
+		require.NoError(t, err)
+		require.Equal(t, `[1, []]`, res.String())
+
+		_, err = machine.Call(fns["rest"], nil)
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), "wrong_num_arguments"), "got %v", err)
+	})
+
+	t.Run("wrong arity", func(t *testing.T) {
+		_, err := machine.Call(fns["add"], []core.Value{core.IntValue(1)})
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), "wrong_num_arguments"), "got %v", err)
+	})
+
+	t.Run("bound member is not a compiled function", func(t *testing.T) {
+		_, err := machine.Call(fns["bound"], []core.Value{core.NewStringValue("a")})
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), "compiled function"), "got %v", err)
+	})
+
+	t.Run("before any Reset", func(t *testing.T) {
+		fresh := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+		res, err := fresh.Call(fns["add"], []core.Value{core.IntValue(4), core.IntValue(5)})
+		require.NoError(t, err)
+		require.Equal(t, core.IntValue(9), res)
+	})
+
+	// last: it leaves machine aborted
+	t.Run("after Abort, until the next Reset", func(t *testing.T) {
+		machine.Abort()
+		_, err := machine.Call(fns["add"], []core.Value{core.IntValue(1), core.IntValue(2)})
+		require.Error(t, err)
+		require.Equal(t, "aborted", err.Error())
+	})
 }

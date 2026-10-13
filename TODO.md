@@ -54,8 +54,8 @@
    `v.Data < len(BuiltinFunctions) && BuiltinFunctions[v.Data] != nil` and raises a decode error otherwise.
 7. **Callable arity has two meanings, and a member whose fewest is 0 cannot be a callback.** Found 2026-10-12
    (bound members). Callback-taking members (`map`, `keep`, `reduce`, `for_each`, the dict members, …) choose
-   `f(e)` vs `f(i, e)` from `Arity()` (`checkElemCallback`/`callElem`, `readReduceArgs`/`callReduce` in
-   `core/tools.go`; `core/dict_members.go`). What `Arity()` means differs per callable kind:
+   `f(e)` vs `f(i, e)` from `Arity()` (`newElemCallback`/`ElemCallback`, `readReduceArgs`/`ReduceCallback` in
+   `core/tools.go`). What `Arity()` means differs per callable kind:
 
    | callable | `Arity()` of a variadic | accepted as `f/1` callback |
    | --- | --- | --- |
@@ -92,6 +92,11 @@
     is right even when a member stored a wrong count (found 2026-10-13: a pad mutant counting a fused result as its
     width passed). A count pin must go through a user function (`f := func(s) { return s.m(...).len() }; out = f(x)`),
     which the optimizer does not fold across. Option: run `expectRun` once more at O0.
+13. **A runtime error's trace omits the frames of the callback it was raised in.** `[1].map(f)` with `f` raising
+    reports only the `map` call site: `VM.Call` restores the frame count before `Run` builds the trace from the
+    frame chain, so the callback's own frames (and their positions) are gone. Fix: capture the trace at the host
+    boundary — when an error leaves `VM.Call`, append the callee's frames to the error before restoring — and pin
+    the positions in a test (a raise two levels deep inside a callback).
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
@@ -475,6 +480,21 @@
   contract, whether embedders may define new families or only join builtin ones, script visibility.
 
 ## Optimizations
+
+- **Where a callback's cost goes.** A callback member's per-element cost is the host re-entry (≈ 35 ns, which
+  `BenchmarkReentry` measures) plus the callback's body (≈ 3.4 ns per instruction) — `BenchmarkCallback` measures
+  both, in `benchmarks/dispatch_benchmark_test.go`; a member is now on par with the hand-written `for` loop. The
+  re-entry's trampoline frame was removed experimentally on 2026-10-13 (a host-entered flag on the callee frame,
+  a prepare-once handle on `core.VM`): it saved nothing measurable (34.0 → 35.1 ns), and the boxed handle cost one
+  allocation per member call, so it was reverted. Do not redo it without a different idea for the Go-side call
+  shape. (If it is redone: a recovery that pops a host-entered frame must end the nested run, but a recovery in
+  `Run`'s own frames must not — keying the exit on the frame count gets this wrong.) What remains is the body —
+  the instruction-level items below.
+
+- **`string.map` allocates per symbol.** `s.map(c => c)` over 8 symbols makes 12 allocations, nearly all its own
+  text handling (decoding the receiver, building each result), not the callbacks — measured by
+  `BenchmarkCallback/str_map8`. Reading the text in place, as the search members do, and building the result
+  with one builder would remove most of them.
 
 - `string`'s `any`/`all` could walk the symbols with `text.TextFirst`, and `keep`/`remove` build with a
   `strings.Builder`, instead of decoding the receiver to `[]rune` per call — the way the structural and search

@@ -2,10 +2,12 @@ package vm
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"os"
+	"slices"
 	"sync/atomic"
 
 	"github.com/jokruger/kavun/ast"
@@ -19,6 +21,11 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
+
+// errAborted is what a callback answers when the VM is aborted (Abort, a RunContext deadline) before or while it
+// runs. It is not an *errs.Error, so errs.IsCritical reads it as fatal: it bypasses every recover(), every member
+// propagates it unchanged, and Run answers it as the abort it is — no error.
+var errAborted = errors.New("aborted")
 
 var (
 	callbackTrampolineInstructions = bc.Instructions{bc.Instruction{Op: opcodes.Suspend}}
@@ -220,6 +227,11 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	}
 	fn := (*core.CompiledFunction)(cfv.Ptr)
 
+	// a callback member calls back once per element: polling here is what lets an abort stop it between elements
+	if atomic.LoadInt64(&v.abort) != 0 {
+		return core.Undefined, errAborted
+	}
+
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
 	if fn.VarArgs {
@@ -229,9 +241,11 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 		realArgs := int(fn.NumParameters) - 1
 		varArgs := numArgs - realArgs
 		if varArgs >= 0 {
+			// the rest array is a value the callee keeps, so it gets its own elements: args is the caller's
+			// buffer (a callback member reuses one for every element)
 			newArgs := make([]core.Value, realArgs+1)
 			copy(newArgs, args[:realArgs])
-			newArgs[realArgs] = core.NewArrayValue(args[realArgs:], true)
+			newArgs[realArgs] = core.NewArrayValue(slices.Clone(args[realArgs:]), true)
 			args = newArgs
 			numArgs = realArgs + 1
 		}
@@ -309,6 +323,12 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	trampolineIdx := savedFramesIndex // the trampoline frame's index
 	v.runUntilSuspend(trampolineIdx)
 
+	// run() leaves on Suspend once the callee has returned into the trampoline, which is then the top frame; a
+	// callee frame still above it means run() left on an abort check inside the callee
+	if v.err == nil && v.framesIndex > trampolineIdx+1 {
+		v.err = errAborted
+	}
+
 	// Extract result before restoring state
 	// Return places the result at sp-1, which is the callee slot we reserved
 	var result core.Value
@@ -372,7 +392,7 @@ func (v *VM) Run() (err error) {
 		if v.err == nil {
 			return nil
 		}
-		return v.formatRuntimeError(v.err)
+		return v.runError()
 	}
 
 	if len(v.frames[0].defers) > 0 {
@@ -387,13 +407,13 @@ func (v *VM) Run() (err error) {
 	if v.err != nil {
 		// Critical error raised by a root defer.
 		v.frames[0].inFlightErr = core.Undefined
-		return v.formatRuntimeError(v.err)
+		return v.runError()
 	}
 	if v.frames[0].inFlightErr.Type != value.Undefined {
 		// Nothing recovered the in-flight error (or a defer raised a new one): it escapes to the host.
 		v.err = unwrapKavunError(v.frames[0].inFlightErr)
 		v.frames[0].inFlightErr = core.Undefined
-		return v.formatRuntimeError(v.err)
+		return v.runError()
 	}
 	return nil
 }
@@ -417,6 +437,16 @@ func (v *VM) runRootDefers() {
 		f.inFlightErr = v.makeVMErrorValue(v.err)
 		v.err = nil
 	}
+}
+
+// runError answers what Run reports for v.err: nothing for an abort, which stops a script without failing it,
+// and the annotated runtime error otherwise.
+func (v *VM) runError() error {
+	if errors.Is(v.err, errAborted) {
+		v.err = nil
+		return nil
+	}
+	return v.formatRuntimeError(v.err)
 }
 
 // formatRuntimeError classifies a runtime error and annotates it with a stack trace built from the current frame
