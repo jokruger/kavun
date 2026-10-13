@@ -307,12 +307,3 @@ int(undefined)        // Error: cannot convert undefined to int: value is missin
 ```
 
 The default rescues *data*, never a program error — a wrong argument type raises even with a default present.
-
-## Migration notes
-
-- **Durations are int members** (the `times` module became `clock`): `30 * times.second` → `30.seconds()`,
-  `times.duration_hours(d)` → `d.in_hours()` (and the other units), `times.duration_string(d)` →
-  `d.duration_string()`, `times.from_unix_ms(n)` → `n.time_ms()`.
-- **A member call on an int literal needs no parentheses**: `30.seconds()`, `5.string()` (was `(5).string()`, which
-  still works). Consequently `1.e5` is no longer a float literal — write `1e5` or `1.0e5`.
-

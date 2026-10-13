@@ -47,11 +47,3 @@ p.find("ab12 cd34", -1).len()    // 2
 p.find("!!")                 // []
 re.pattern(",").split("a,b,c", 2)    // ["a", "b,c"]
 ```
-
-## Migration notes
-
-- Was `regexp.re_compile(p)`, a frozen record of four closures; it is a type now (`type_name` `re.pattern`), built
-  by `re.pattern(p)`. The module's one-shot functions are its members: `re_match(p, s)` → `re.pattern(p).match(s)`,
-  and likewise `find`, `replace`, `split`.
-- `find` answers `[]` when nothing matches (was `undefined`), and its match records are always frozen (the first-match
-  form used to answer mutable ones).

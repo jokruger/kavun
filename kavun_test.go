@@ -1086,6 +1086,16 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "z" in "Hello"`, nil, false)
 	expectRun(t, `out = "Hello".contains("z")`, nil, false)
 	expectRun(t, `out = "z" not in "Hello"`, nil, true)
+	// `in` is contains's operator spelling: the same reading of an undecodable octet on both sides. It used to
+	// answer false for an escape operand because the operand was re-encoded with U+FFFD in place of the escape.
+	expectRun(t, `s := b"a\xffb".string(); out = s.contains(b"\xff".string())`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); out = b"\xff".string() in s`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); out = s[1] in s`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); out = s.contains(s[1])`, nil, true)
+	expectRun(t, `out = b"\xe2\x82".string() in "€"`, nil, false)
+	expectRun(t, `out = "€".contains(b"\xe2\x82".string())`, nil, false)
+	expectRun(t, `out = bytes([0xa9]) in "é"`, nil, false)
+	expectRun(t, `out = "" in "é"`, nil, true)
 
 	// index operator — s[i] yields the i-th SYMBOL as a rune; the result type
 	// is rune even on ASCII, never a byte

@@ -618,9 +618,3 @@ b                            // [1, 2, 3] — no reassignment needed
 
 [1].freeze().append_in_place(2)   // Error: (append_in_place) type immutable-array is immutable
 ```
-
-## Migration notes
-
-- **New: `shuffle(g)` / `shuffle_in_place(g)`** with a required `rand.generator` (the old module-level `rand`
-  draws are gone — see [stdlib § rand](../stdlib.md#rand)).
-

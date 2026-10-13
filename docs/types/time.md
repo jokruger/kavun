@@ -406,33 +406,3 @@ Zone names resolve through the host's IANA tzdata (Go's lookup order: `ZONEINFO`
 `$GOROOT/lib/time/zoneinfo.zip`, and the embedded copy the `kavun` CLI links in). Zone rules change, so a
 named-zone result can differ between hosts with different tzdata versions; UTC and fixed offsets never do.
 See [embedding](../embedding.md#time-zone-data) for pinning tzdata and replaying past results.
-
-## Migration notes
-
-- **Text parsing is strict.** `time(s)`, `t"…"` and the canonical layouts read only the grammar above. Slashes,
-  month names, free text, unpadded fields, lowercase `t`/`z` and bare digit strings now raise (a `t"…"`
-  literal, at compile time). A digit string was a unix timestamp whose unit was guessed from its length; name
-  the unit: `time(s, "unix")`. The `github.com/araddon/dateparse` dependency is gone.
-- **Text → time takes a layout in member form.** `s.time()` → `s.time("iso")` (or `time(s)`); `s.time(default)`
-  → `s.time("iso", default)`. A non-string first argument raises, so a default can no longer be taken for a
-  layout (or the reverse).
-- **`times.parse(layout, s)` is removed** → `time(s, layout)` with `%` directives (`"2006-01-02"` →
-  `"%Y-%m-%d"`). The `times.format_*` Go-layout constants went with it; the format aliases replace them.
-- **`times.date(y, mo, d, h, mi, s, ns[, zone])` is removed** → `time({year, month, day, hour, minute, second,
-  nanosecond, zone})`. Components no longer normalize (`day: 32` raises), and a wall clock in a DST gap or
-  overlap raises.
-- **`times.add_date(t, y, m, d)` is removed** → `t.add_years(y, eom)`, `t.add_months(m, eom)`, `t.add_days(d)`.
-  Go's normalization (31 Jan + 1 month = 3 March) is gone: the end-of-month rule is stated.
-- **`times.in_location(t, z)` is removed** → `t.in_zone(z)`. **`t.local()` is removed**, and `"Local"`/`""` are
-  not zone names: name the zone. **`times.now()` answers in UTC**, not the host's zone.
-- **`times.from_unix(n)` is removed** → `(n).time()`.
-- **The zero value is unix 0.** `time()` was `0001-01-01T00:00:00Z`; it is now `1970-01-01T00:00:00Z`, the same
-  instant `(0).time()` and `date()` name. Truthiness moves with it: the epoch is falsy, `0001-01-01` truthy.
-- **`times` is now `clock`, and durations are int members.** `times.now/since/until/sleep` → `clock.now()` etc.
-  The duration constants and helpers are gone: `30 * times.second` → `30.seconds()`, `times.parse_duration(s)` →
-  `s.nanoseconds()`, `times.duration_hours(d)` → `d.in_hours()` (and the other units), `times.duration_string(d)`
-  → `d.duration_string()`. `times.unix(sec, nsec)` → `sec.time() + nsec`, `times.from_unix_ms(n)` →
-  `n.time_ms()` (likewise `_micro`, `_nano`). The calendar facts about plain numbers
-  (`times.is_leap_year(y)`, `days_in_year`, `days_in_month`) are `date` members (`d"2027-02-01".days_in_month()`);
-  the month constants are integer literals.
-

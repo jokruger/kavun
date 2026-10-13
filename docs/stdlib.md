@@ -78,12 +78,6 @@ Durations are **int members**, not module functions: `30.seconds()`, `1.5.hours(
 Construction, parsing, zones, calendar arithmetic and calendar facts are on the `time` and `date` types —
 `time(…)`, `t.in_zone(z)`, `t.add_months(n, eom)`, `t.is_leap_year()`.
 
-**Migration:** the module was `times`, and kept only these four functions. `30 * times.second` → `30.seconds()`;
-`times.parse_duration(s)` → `s.nanoseconds()`; `times.duration_hours(d)` (and the other units) → `d.in_hours()`;
-`times.duration_string(d)` → `d.duration_string()`; `times.unix(sec, nsec)` → `sec.time() + nsec`;
-`times.from_unix_ms(n)` → `n.time_ms()` (likewise `_micro`, `_nano`); `times.is_leap_year(y)`, `days_in_year`,
-`days_in_month` → the `date` members; the month constants → integer literals.
-
 ## exec
 
 **World access** — needs a grant (`docs/embedding.md` § The module grant).
@@ -109,10 +103,6 @@ frozen record of facts: `{pid, exited, success, status}`.
 
 **Failures.** A program that cannot be found or run, or ends badly for `run`/`output`, raises `io` naming the call
 (`(exec.command.run) exit status 1`).
-
-**Migration:** these were `os.exec`, `os.exec_look_path`, `os.start_process` and `os.find_process`. The command and
-process are types instead of records of closures; the wait result is a record of VALUES — `st.success`, not
-`st.success()` — and its text field is `status` (was `string()`).
 
 ## fin
 
@@ -378,9 +368,6 @@ An open file is an [`fs.file`](types/fs-file.md): `name`, `read(buffer)`, `write
 **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
 `(fs.remove) remove /nope: no such file or directory`. A function whose success has no result answers `undefined`.
 
-**Migration:** these were `os` functions and constants of the same names (`os.read_file` → `fs.read_file`). The
-file is a type instead of a record of closures.
-
 ## hex
 
 **Pure** — importable by default.
@@ -437,10 +424,6 @@ UTF-8 come through unchanged; each counts as one symbol, as in every text conver
 
 Failures: `io` (an output or input stream the world refused, or end of input for `read_line` without a default);
 `invalid_value` (a negative count); `invalid_argument_type`; `wrong_num_arguments`.
-
-**Migration:** the module was `fmt`. `import("fmt")` → `import("io")`. `println(...)` → `print(...)`, and the old
-`print` (no newline, no separators) → `write(...)`. Output goes to the VM's stdout instead of the process's.
-`read_line` and `read` are new.
 
 ## json
 
@@ -530,12 +513,6 @@ Constants:
 - `math.y1(x float) -> float`: Bessel Y1.
 - `math.yn(n int, x float) -> float`: Bessel Yn.
 
-**Migration:** `abs`, `is_nan`, `is_inf`, `signbit`, `sqrt`, `pow`, `exp`, `log`, `log2`, `log10`, `floor`, `ceil`,
-`trunc`, `copy_sign` and `mod` left the module; each is a float member now (`math.log(x)` → `x.ln()`,
-`math.mod(x, y)` → `x.quo_rem(y)[1]`, `math.floor(x)` → `x.round_floor(0)`; full list in
-[types/float.md § Migration notes](types/float.md#migration-notes)). Reading one raises
-`module 'math' has no member 'sqrt'`.
-
 ## os
 
 **World access** — needs a grant (`docs/embedding.md` § The module grant).
@@ -573,11 +550,6 @@ Constants: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separato
 
 **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
 `(os.chdir) chdir /nope: no such file or directory`. A function whose success has no result answers `undefined`.
-
-**Migration:** `os` was also the file system and process module. Each function and constant kept its name and
-moved: files, directories, links, permissions and `temp_dir` to [`fs`](#fs) (`os.read_file` → `fs.read_file`,
-`os.o_create` → `fs.o_create`), `exec`, `exec_look_path`, `start_process` and `find_process` to [`exec`](#exec).
-The objects they answer are types now (`fs.file`, `exec.command`, `exec.process`), not records of closures.
 
 ## path
 
@@ -634,11 +606,6 @@ The generator's members (see [types/rand-generator.md](types/rand-generator.md))
 
 **Failures.** A bound that leaves no value (`g.int(5, 5)`) or a bad count (`g.bytes(0)`) raises `invalid_value`.
 
-**Migration:** the module-level draws and the process-global generator are gone — they shared state between every
-script in the process. `rand.int_n(n)` → `g.int(n)`, `rand.int()` → `g.int()`, `rand.float()` → `g.float()`,
-`rand.perm(n)` → `g.perm(n)`, `rand.read(buf)` → `g.bytes(n)` (answers new bytes), `rand.seed(s)` / `rand.rand(s)` →
-`rand.generator(s)`; for unpredictable draws use `os.rand_generator()`. `rand` no longer needs a grant.
-
 ## re
 
 **Pure** — importable by default.
@@ -658,7 +625,8 @@ digits.replace("a1b22", "#")        // "a#b#"
 re.pattern(",\\s*").split("a, b,c")  // ["a", "b", "c"]
 ```
 
-- `re.pattern(src string) -> re.pattern`: Compile; a malformed expression raises `invalid_value`.
+- `re.pattern(src string) -> re.pattern`: Compile; a malformed expression raises `invalid_value`. The expression is
+  compiled where `re.pattern(…)` runs — hoist a pattern used in a loop.
 
 The pattern's members (see [types/re-pattern.md](types/re-pattern.md)):
 
@@ -672,24 +640,4 @@ The pattern's members (see [types/re-pattern.md](types/re-pattern.md)):
 
 **Failures.** An invalid expression raises kind `invalid_value` — a bad pattern is a bad argument:
 `(re.pattern) error parsing regexp: missing closing ): `(``.
-
-**Migration:** the module was `regexp`. `re_compile(p)` → `re.pattern(p)`; the one-shot functions became the
-pattern's members: `re_match(p, s)` → `re.pattern(p).match(s)`, likewise `find`, `replace`, `split`. `find` answers
-`[]` on no match (was `undefined`), and every match record is frozen. Hoist a pattern used in a loop: it is compiled
-where `re.pattern(…)` runs.
-
-Where the old `text` module's functions went (the regex ones are above):
-
-| old | now |
-| --- | --- |
-| `text.contains/count/index/last_index/has_prefix/has_suffix/replace/repeat/split/fields/join/title/pad_*/trim*` | member functions: `s.contains(x)`, `s.count(x)`, `s.index(x)`, `s.index_last(x)`, `s.has_prefix(p)`, `s.replace(old, new)`, `s.repeat(n)`, `s.split(...seps)`, `arr.join(sep)`, `s.title_case()`, `s.pad_start/pad_end(n [,fill])`, `s.trim/trim_start/trim_end(...set)`, `s.remove_prefix/remove_suffix(run)` |
-| `text.to_lower/to_upper` | `s.lower()`, `s.upper()` |
-| `text.equal_fold(a, b)` | `a.case_fold() == b.case_fold()` |
-| `text.atoi/itoa/parse_*` | conversions: `s.int()`, `i.string()`, `s.bool()`, `s.float()` — each takes an optional trailing default |
-| `text.format_bool/format_float/format_int` | `format()` / `x.format(spec)` (arbitrary radix beyond the format verbs is not currently expressible) |
-| `text.compare(a, b)` | the comparison operators (`<`, `<=`, `>`, `>=`) |
-| `text.substr(s, i, j)` | `s.slice(i, j)` / `s[i:j]` |
-| `text.contains_any/index_any/last_index_any` | `s.contains(a, b, ...)` (variadic set); the locator forms are a predicate: `s.index(func(c) { return c == 'x' \|\| c == 'y' })` |
-| `text.split_n/split_after/split_after_n` | `partition(...seps)` covers the split-once use; keep-separator and n-way splits have no member form |
-| `text.quote/unquote` | removed with no successor — `format()` is the render surface, `json.encode` the interop one |
 

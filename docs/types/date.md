@@ -216,11 +216,3 @@ Identity no-ops on an immutable scalar, kept so generic code never type-errors.
 ## For hosts
 
 `kavun.ValueOf` accepts fin128's `civil.Date` directly, and a date's `Interface()` is a `civil.Date`.
-
-## Migration notes
-
-- **New type.** `date` and the `d"…"` literal are new. Before it, a day was a `time` at midnight UTC; such
-  scripts keep working, and `t.date()` / `d.time()` convert between the two.
-- New builtins: `date(...)`, `is_date(x)`. New members on other types: `t.date([default])`, `t.date_in(zone)`,
-  `(n).date([default])` (epoch days), `s.date(layout[, default])` on `string`/`runes`, `dict.date([default])`
-  (components), and `undefined.date(default)`.

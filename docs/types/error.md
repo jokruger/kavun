@@ -343,12 +343,3 @@ from. Three kinds carry that signal:
 
 A host that wants to distinguish "the caller sent bad data" from "the rules have a bug" should branch on that,
 not on the message text. See [embedding](../embedding.md#handling-errors).
-
-## Migration notes
-
-- `is_fatal()` is **removed**. A caught error is recoverable by construction, so the member could only ever
-  read back a flag the script itself had set; the host reads severity from `RuntimeError.Fatal`.
-- `is_runtime()` **changed meaning**. It used to answer `kind() != "user"` — true for everything a script did
-  not construct. It now answers "this error's category is runtime", so it is `false` for a `requirement` error
-  as well as for a `user` one.
-- `is_user()` and `is_requirement()` are **new**.

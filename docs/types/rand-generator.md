@@ -52,9 +52,3 @@ Ranges are half-open, like `range(lo, hi)`.
 
 The render names the source, not a constructor expression — no expression rebuilds a state mid-sequence. There is
 no `string()`.
-
-## Migration notes
-
-- Replaces the module-level `rand` functions and their shared, process-global generator, and the `rand.rand(seed)`
-  record of closures. `rand.int_n(n)` → `g.int(n)`, `rand.read(buf)` → `g.bytes(n)` (answers new bytes),
-  `rand.seed(s)` → `rand.generator(s)`. Unpredictable draws: `os.rand_generator()`.

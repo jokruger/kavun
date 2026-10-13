@@ -39,9 +39,3 @@ f.close()
 | `read_dir_names(n)` | up to `n` entry names of a directory (`n <= 0`: all) |
 | `sync()`, `close()`, `chmod(mode)`, `chown(uid, gid)`, `chdir()` | `undefined` |
 | `is_true()`, `format([spec])`, `copy()`, `freeze()` | `true`; the render; the file itself |
-
-## Migration notes
-
-- The file was a frozen record of closures (`type_name` `immutable-record`, `f.close` a function value); it is a
-  type now: `type_name(f)` is `fs.file`, and the members are called the same way. Error contexts say
-  `fs.file.<member>` (were `os.file.<member>`).

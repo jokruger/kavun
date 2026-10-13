@@ -341,21 +341,3 @@ float(3)               // 3.0
 
 There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gateway between the numeric family and
 the ordinal scalars (`x.int().byte()`).
-
-## Migration notes
-
-- **Durations:** a float builds an int duration in nanoseconds, rounded to the nearest one: `1.5.hours()` →
-  `5400000000000` (`nanoseconds()` … `weeks()`; NaN and a result past int's range raise). Was
-  `int(1.5 * times.hour)`.
-
-- **`math` functions became float members**, by parity with `decimal`: `math.sqrt(x)` → `x.sqrt()`,
-  `math.pow(x, y)` → `x.pow(y)`, `math.exp(x)` → `x.exp()`, `math.log(x)` → `x.ln()`, `math.log2(x)` →
-  `x.log2()`, `math.log10(x)` → `x.log10()`, `math.copy_sign(x, y)` → `x.copy_sign(y)`, `math.mod(x, y)` →
-  `x.quo_rem(y)[1]`, `math.floor(x)` / `math.ceil(x)` / `math.trunc(x)` → `x.round_floor(0)` /
-  `x.round_ceiling(0)` / `x.round_down(0)`. `math.abs`, `math.is_nan`, `math.is_inf` and `math.signbit` were
-  second spellings of `x.abs()`, `x.is_nan()`, `x.is_inf()` and `x < 0` / `x.sign()`, and are gone.
-- **New:** `round(places, mode)` with its seven twins, `round_to_multiple`, `round_significant`, `clamp`, `negate`,
-  `next_up`, `next_down`, `is_integer`, `quo_rem`. Float rounding rounds the printed digits, not the binary value
-  (`2.675.round(2, "half_up")` is `2.68`).
-- Like the operators, these members raise on a NaN or ±Inf result instead of answering it.
-

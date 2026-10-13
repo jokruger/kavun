@@ -341,7 +341,7 @@ u"ab".pad_start(5, "ab")        // => raises     (fill is one element)
 Separators come from the dispatch menu: element, run, homogeneous variadic set, element-level predicate, or
 absent (= the blank set). **Explicit separators keep empty pieces** — n hits produce n+1 pieces; the no-arg
 blank form separates on runs of whitespace and drops empties. An empty-run separator matches nothing. There
-is **no limit argument** (see the migration notes). `partition` splits at the **first** hit into
+is **no limit argument**. `partition` splits at the **first** hit into
 `[before, separator, after]`. All three answer an `array` of `runes`.
 
 ```go

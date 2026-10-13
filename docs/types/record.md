@@ -174,9 +174,3 @@ v2.c                     // 9 — live
 
 The entries boundary works in both directions and round-trips up to ordering: `array(r)` answers the key-sorted
 `[[k, v], ...]` entries, `record([[k, v], ...])` builds from them.
-
-## Migration notes
-
-- `r.is_true()` no longer answers truthiness: it calls a field named `is_true` (and raises when there is none, or
-  when it is not callable), like every other `r.name()`. Write the free `is_true(r)`. Builtin module values are not
-  records (they are `module` values) and a compiled expression is a `re.pattern`, so neither is affected.

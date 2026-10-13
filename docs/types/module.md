@@ -71,18 +71,3 @@ names := []
 for k, _ in h { names.push_in_place(k) }
 names                                   // ["decode", "encode"]
 ```
-
-## Migration notes
-
-- **Builtin modules are `module` values, not frozen records.** `type_name(import("math"))` was
-  `immutable-record` and is now `module`; `format(math)` renders `import("math")`; `string(math)` raises.
-- **A missing member raises.** `math.pii` answered `undefined` (record selector semantics) and now raises
-  `invalid_selector` with `module 'math' has no member 'pii'`; a missing function called (`math.sqroot(2)`) raises
-  `invalid_method` with the same text (it said `type immutable-record has no method sqroot`).
-- **Assignment names the module**: `math.pi = 1` raises `not_assignable` with
-  `module 'math' is read-only: cannot assign member 'pi'`.
-- `len`, `in` and `for` over a module are unchanged; source modules are unchanged.
-- **The grant.** `io` (formerly `fmt`), `os` (and `fs`, `exec`, split from it) and `clock` (formerly `times`) are
-  no longer importable by default from an embedding host — grant them (`docs/embedding.md` § The module grant).
-  `rand` became pure and needs no grant (entropy moved to `os.rand_generator()`). The `kavun` CLI grants every
-  module.

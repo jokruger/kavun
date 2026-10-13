@@ -723,7 +723,17 @@ func stringTypeContains(v Value, e Value) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(*(*string)(v.Ptr), string(run)), nil
+	str := *(*string)(v.Ptr)
+	if len(run) == 0 {
+		return true, nil
+	}
+	// a valid run can match only on symbol boundaries, so the octet search answers contains's reading; a run holding
+	// an escape is compared symbol by symbol — its octets would also match inside a multi-octet symbol
+	// ("\xe2\x82" in "€"), and string(run) would render the escape as U+FFFD
+	if RunesAreValid(run) {
+		return strings.Contains(str, string(run)), nil
+	}
+	return indexRun(DecodeText(str), run, false) >= 0, nil
 }
 
 // PURE by contract

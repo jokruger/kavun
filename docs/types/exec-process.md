@@ -31,11 +31,3 @@ st.success                 // true
 | `wait()` | blocks until it ends; answers the frozen record `{pid, exited, success, status}` — facts, not behaviour (`status` is the system's text: `"exit status 3"`, `"signal: killed"`) |
 | `kill()`, `signal(sig)`, `release()` | `undefined` |
 | `is_true()`, `format([spec])`, `copy()`, `freeze()` | `true`; the render; the process itself |
-
-## Migration notes
-
-- Was a frozen record of closures (`os.start_process`, `os.find_process`, `cmd.process()`); it is a type now
-  (`type_name` `exec.process`), and gained `pid()`. Error contexts say `exec.process.<member>` (were
-  `os.process.<member>`).
-- **`wait()` answers values, not functions:** `st.success` (was `st.success()`), `st.exited`, `st.pid`, and the text
-  is `st.status` (was `st.string()`).

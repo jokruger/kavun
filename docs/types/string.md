@@ -514,9 +514,3 @@ whitespace:
 
 `bytes` projects the same notion into its element domain (the ASCII subset — all the whitespace an octet can
 express); the sets agree wherever the domains overlap.
-
-## Migration notes
-
-- **`times.parse_duration(s)` → `s.nanoseconds([default])`** — the text form of the int duration members
-  (`30.seconds()`); bad text raises `conversion` unless a default is given.
-

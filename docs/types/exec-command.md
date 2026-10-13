@@ -34,9 +34,3 @@ c.process().wait().success            // false
 | `process()` | the started command's [`exec.process`](exec-process.md); before `start()` raises `invalid_value` |
 | `set_path(p)`, `set_dir(d)`, `set_env(["K=V", …])` | `undefined` — configure before running |
 | `is_true()`, `format([spec])`, `copy()`, `freeze()` | `true`; the render; the command itself |
-
-## Migration notes
-
-- Was `os.exec(...)`, a frozen record of closures; it is a type now (`type_name` `exec.command`). Error contexts say
-  `exec.command.<member>` (were `os.exec.<member>`). `process()` before `start()` raises instead of answering a
-  process that fails on first use.
