@@ -1096,6 +1096,21 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "€".contains(b"\xe2\x82".string())`, nil, false)
 	expectRun(t, `out = bytes([0xa9]) in "é"`, nil, false)
 	expectRun(t, `out = "" in "é"`, nil, true)
+	// + and - are append's and remove's operator spellings on every operand class, an escape included: an escape
+	// rune or a runes operand contributes its octet (never U+FFFD), and - removes whole symbols — never the octets of
+	// an escape inside a multi-octet symbol
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = "x" + e`, nil, "x\xff")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = "x" + runes([e])`, nil, "x\xff")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = ("x" + runes([e])) == "x".append(runes([e]))`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = s - e`, nil, "ab")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = s - runes([e])`, nil, "ab")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = (s - runes([e])) == s.remove(runes([e]))`, nil, true)
+	expectRun(t, `out = "x€" - b"\xe2\x82".string()`, nil, "x€")
+	expectRun(t, `out = "x€" - bytes([0xe2, 0x82])`, nil, "x€")
+	expectRun(t, `out = "x€" - runes(b"\xe2\x82".string())`, nil, "x€")
+	expectRun(t, `out = "abcab" - "ab"`, nil, "c")
+	expectRun(t, `out = "aaa" - "aa"`, nil, "a") // leftmost, non-overlapping
+	expectRun(t, `out = "ab" - ""`, nil, "ab")
 
 	// index operator — s[i] yields the i-th SYMBOL as a rune; the result type
 	// is rune even on ASCII, never a byte
@@ -1318,6 +1333,29 @@ func TestRunes(t *testing.T) {
 	// respects which side was written first
 	expectRun(t, `out = "World!" + u"Hello "`, nil, "World!Hello ")
 	expectRun(t, `out = u"Hello " + "World!"`, nil, []rune("Hello World!"))
+	// escapes stay symbols through the operators: + is append (no fusing across the seam, no U+FFFD), - is remove
+	// (whole symbols), in is contains
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = u"x" + runes([e])`, nil, []rune{'x', 0xDCFF})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = u"x" + e`, nil, []rune{'x', 0xDCFF})
+	expectRun(t, `out = b"\xe2\x82".string().runes() + b"\xa9".string()`, nil, []rune{0xDCE2, 0xDC82, 0xDCA9})
+	expectRun(t, `out = b"\xe2\x82".string().runes() + bytes([0xa9])`, nil, []rune{0xDCE2, 0xDC82, 0xDCA9})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; r := s.runes(); out = (r + runes([e])) == r.append(runes([e]))`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = s.runes() - runes([e])`, nil, []rune("ab"))
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = s.runes() - e`, nil, []rune("ab"))
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; r := s.runes(); out = (r - runes([e])) == r.remove(runes([e]))`, nil, true)
+	expectRun(t, `out = u"x€" - b"\xe2\x82".string()`, nil, []rune("x€"))
+	expectRun(t, `out = u"x€" - bytes([0xe2, 0x82])`, nil, []rune("x€"))
+	expectRun(t, `out = u"aaa" - "aa"`, nil, []rune("a"))
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = runes([e]) in s.runes()`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = e in s.runes()`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"\xff".string() in s.runes()`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = bytes([0xff]) in s.runes()`, nil, true)
+	expectRun(t, `out = b"\xe2\x82".string() in "€".runes()`, nil, false)
+	expectRun(t, `out = "" in u"é"`, nil, true)
+	// runes(x) is total on text: an undecodable octet becomes its escape, as .runes() answers
+	expectRun(t, `out = runes(b"a\xffb")`, nil, []rune{'a', 0xDCFF, 'b'})
+	expectRun(t, `out = runes(b"a\xffb") == b"a\xffb".runes()`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = runes(e)`, nil, []rune{0xDCFF})
 	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []rune("cdab")) // valid UTF-8 decodes
 	expectRun(t, `out = "cd" > u"ab"`, nil, true)
 	expectRun(t, `out = u"ab" > "cd"`, nil, false)
@@ -1626,6 +1664,17 @@ out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, t
 }
 
 func TestArray(t *testing.T) {
+	// an escape element or separator keeps its octet through the text conversions and join
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = ['x', e].string()`, nil, "x\xff")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = string(['x', e])`, nil, "x\xff")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = ['x', e].runes()`, nil, []rune{'x', 0xDCFF})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = ["x", "y"].join(e)`, nil, []rune{'x', 0xDCFF, 'y'}) // the separator's type decides
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = ["x", "y"].join(string(e))`, nil, "x\xffy")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = [u"x", u"y"].join(runes([e]))`, nil, []rune{'x', 0xDCFF, 'y'})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = [u"x", u"y"].join(e)`, nil, []rune{'x', 0xDCFF, 'y'})
+	// a runes join keeps symbols apart across the seams, as runes + does; a string join joins octets
+	expectRun(t, `p := b"\xe2\x82".string().runes(); q := b"\xa9".string().runes(); out = [p, q].join(u"")`, nil, []rune{0xDCE2, 0xDC82, 0xDCA9})
+	expectRun(t, `p := b"\xe2\x82".string(); q := b"\xa9".string(); out = [p, q].join("")`, nil, "₩")
 	expectRun(t, `out = [1, 2 * 2, 3 + 3]`, nil, ARR{1, 4, 6})
 
 	// array's ONLY operator pairing is same-type '+' (concatenate) — no scalar append/prepend, no
@@ -2788,6 +2837,16 @@ func TestDictRecord(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
+	// a rune contributes its encoding, and an escape's encoding is its octet — on every add, remove and match path
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"x" + e`, nil, []byte{'x', 0xff})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = e + b"x"`, nil, []byte{0xff, 'x'})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"x".append(e)`, nil, []byte{'x', 0xff})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"a\xffb" - e`, nil, []byte("ab"))
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"a\xffb".remove(e)`, nil, []byte("ab"))
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = e in b"a\xffb"`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"a\xffb".contains(e)`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = b"x" + runes([e])`, nil, []byte{'x', 0xff})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = [b"x", b"y"].join(bytes(e))`, nil, []byte{'x', 0xff, 'y'})
 	expectRun(t, `out = b'A'`, nil, byte(65))
 	expectRun(t, `out = b'\x00'`, nil, byte(0))
 	expectRun(t, `out = b'\n'`, nil, byte('\n'))
@@ -4646,6 +4705,7 @@ func TestBuiltinFunctionString(t *testing.T) {
 	expectRun(t, `out = string(false)`, nil, "false")
 	expectRun(t, `out = string('8')`, nil, "8")
 	expectRun(t, `out = string([100, 101, 102])`, nil, "def")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = string(e)`, nil, "\xff")
 	// .string() is a conversion, not the render: no text content -> raise; format() renders
 	expectError(t, `out = string({b: "foo"})`, nil, "conversion: cannot convert record to string: no conversion exists")
 	expectRun(t, `out = format({b: "foo"})`, nil, `{"b": "foo"}`)
@@ -4728,6 +4788,7 @@ func TestBuiltinFunctionBytes(t *testing.T) {
 	expectRun(t, `out = bytes(b'\x07')`, nil, []byte{7}) // a byte is one octet
 	expectRun(t, `out = bytes('8')`, nil, []byte{'8'})   // a rune converts as its UTF-8 encoding, agreeing with '8'.bytes()
 	expectRun(t, `out = bytes('\u00e9')`, nil, []byte{0xC3, 0xA9})
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = bytes(e)`, nil, []byte{0xff}) // an escape's encoding is its octet
 	expectRun(t, `out = bytes([1])`, nil, []byte{1})
 	expectError(t, `out = bytes({a: 1})`, nil, "no conversion exists")
 	expectError(t, `out = bytes(undefined)`, nil, "value is missing")
@@ -4798,6 +4859,9 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 0")
 	expectRun(t, `out = format("x")`, nil, "x") // format(x) renders any value — a template with nothing to fill is its own rendering
 	expectRun(t, `out = format(5)`, nil, "5")
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = f"{e:c}"`, nil, "\xff") // the c rendering of an escape is its octet
+	expectRun(t, `out = f"{0xDCFF:c}"`, nil, "\xff")
+	expectError(t, `out = f"{0xD800:c}"`, nil, "unsupported_format_spec") // a surrogate has no character: raise, never U+FFFD
 	expectRun(t, `out = format({a: 1})`, nil, `{"a": 1}`)
 	expectRun(t, `out = format(undefined)`, nil, "undefined")
 	expectRun(t, `out = [1, 2].map(format)`, nil, ARR{"1", "2"}) // the render's callable form

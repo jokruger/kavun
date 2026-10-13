@@ -206,6 +206,9 @@ normally with left-alignment as the default; other modifiers (sign, grouping, pr
 Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error. The `!` flag (suppress prefix) applies to
 `b`, `o`, `x`, `X` and is a parse error on `d` / `c` / `q`.
 
+`c` on an int renders an escape code point (U+DC80–U+DCFF) as its octet, as the rune does; a code point with no
+character — a surrogate, or beyond U+10FFFF — raises.
+
 Grouping `,` is decimal-only; use `_` with `b` / `o` / `x` / `X`.
 
 ### Numbers: `float`, `decimal`
@@ -263,6 +266,8 @@ f"{1.500d:.2f}"  // "1.50"  — precision governs; '!' here is a parse error
 | `X`  | Code point upper hex.      |
 | `U`  | Unicode notation `U+%04X`. |
 | `q`  | Quoted: `'A'`.             |
+
+`c` renders an escape (an [undecodable octet](types/string.md#undecodable-octets)) as its octet, as `string(r)` does.
 
 ### Strings: `string`, `runes`, `bytes`
 

@@ -79,7 +79,7 @@ F-strings interpolate expressions and format specs into a `string`: `f"n={n:5d}"
 | operator | meaning |
 | --- | --- |
 | `+` | concatenation of text content |
-| `-` | remove every occurrence of the run (leftmost, non-overlapping); acceptance equals `+`'s |
+| `-` | remove every occurrence of the run (leftmost, non-overlapping), read as symbols as `remove` reads it — the octets of an escape never match inside a symbol; acceptance equals `+`'s |
 | `*` | exactly `repeat(n)`: the right operand is a **count**, not text. No reflected direction — `n * s` raises |
 | `==` `!=` | content equality; `string` and `runes` with the same text are equal |
 | `<` `<=` `>` `>=` | lexicographic by symbol |
@@ -490,6 +490,19 @@ is always a symbol — so 128 values suffice. Every undecodable octet decodes wi
 always become *n* escapes. And U+DC80–U+DCFF are low surrogates: never Unicode scalar values, so well-formed
 text can never produce one and an escape can never be mistaken for content. (The scheme is Python's
 `surrogateescape`, PEP 383; Rust's WTF-8 answers the same problem the same way.)
+
+**A string is its octets, so building one joins octets.** Every member and operator that builds a string —
+`+`, `append`, `prepend`, `push`, `replace`, `pad_start`/`pad_end`, f-strings — concatenates the octets, and the
+result is read afresh: escapes whose octets meet to complete a sequence read as the one symbol they spell.
+[`runes`](runes.md) holds symbols, so the same building keeps them apart; the octets are the same either way.
+
+```go
+a = bytes([0xE2, 0x82]).string()  // two escapes: the first two octets of "₩"
+b = bytes([0xA9]).string()        // one escape: its last octet
+(a + b).len()                     // 1 — the octets meet and read "₩"
+a + b == "₩"                      // true
+a.runes().append(b).len()         // 3 — runes keeps the three escapes
+```
 
 **The two places this is visible elsewhere.** A [`rune`](rune.md)'s domain is exactly what can be encoded —
 scalar values plus the 128 escapes — so `rune(0xDCFF)` exists while `rune(0xD800)` raises where it is written,

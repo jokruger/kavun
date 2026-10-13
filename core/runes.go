@@ -7,7 +7,6 @@ import (
 	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 	"unsafe"
 
@@ -439,22 +438,20 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	}
 
 	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
-	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
+	// mirrors the member layer minus int, whose operator reading stays arithmetic. Both work on symbols, as
+	// append and remove do: + keeps the operand's symbols apart from the receiver's, `-` removes every
 	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
 	if op == tokens.Add || op == tokens.Sub {
-		s, ok, err := textOperandString(other)
+		run, ok, err := textOperandRunes(other)
 		if err != nil {
 			return Undefined, err
 		}
 		if ok {
-			l := text.EncodeText((*Runes)(v.Ptr).Elements)
+			l := (*Runes)(v.Ptr).Elements
 			if op == tokens.Add {
-				return NewRunesValue(text.DecodeText(l+s), false), nil
+				return NewRunesValue(slices.Concat(l, run), false), nil
 			}
-			if s == "" {
-				return NewRunesValue(text.DecodeText(l), false), nil
-			}
-			return NewRunesValue(text.DecodeText(strings.ReplaceAll(l, s, "")), false), nil
+			return NewRunesValue(seq.RemoveRun(l, run), false), nil
 		}
 	}
 
@@ -1108,5 +1105,6 @@ func runesTypeContains(v Value, e Value) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(text.EncodeText((*Runes)(v.Ptr).Elements), string(run)), nil
+	// symbol by symbol, as contains reads it: an escape is one symbol, never the octets inside another
+	return len(run) == 0 || seq.IndexRun((*Runes)(v.Ptr).Elements, run, false) >= 0, nil
 }

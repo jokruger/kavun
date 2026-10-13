@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // array's members: one function per entry of TypeArray.Methods that is not a shared member (MemberIsTrue,
@@ -74,7 +75,7 @@ func arrayString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	// the element step is the rune conversion (string and runes are one text),
 	// so ["a","b"].string() raises — join() is the concatenative spelling
 	rs, ok := ElementsToRunes(o.Elements)
-	return ConvMember(id.String(), arrayTypeName, args, ok, NewStringValue(string(rs)))
+	return ConvMember(id.String(), arrayTypeName, args, ok, NewStringValue(text.EncodeText(rs)))
 }
 
 // PURE by contract

@@ -772,7 +772,7 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, false
 			}
 			rs, ok := core.ElementsToRunes(elems)
-			return core.NewStringValue(string(rs)), ok
+			return core.NewStringValue(text.EncodeText(rs)), ok
 		case value.Error:
 			o := (*core.Error)(src.Ptr)
 			s, err := o.Payload.Format(fspec.FormatSpec{})
@@ -807,13 +807,11 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 			return ctorSameType(src)
 		case value.Byte:
 			s, ok := text.ByteSymbolString(byte(src.Data))
-			return core.NewRunesValue([]rune(s), false), ok
+			return core.NewRunesValue(text.DecodeText(s), false), ok
 		case value.Bytes:
+			// TOTAL: an undecodable octet decodes to its escape, as .runes() answers
 			b, _ := src.AsBytes()
-			if !utf8.Valid(b) {
-				return core.Undefined, false
-			}
-			return core.NewRunesValue([]rune(string(b)), false), true
+			return core.NewRunesValue(text.DecodeOctets(b), false), true
 		case value.Array, value.IntRange:
 			// a range past MaxSequenceLen declines
 			elems, ok := src.AsArray()
@@ -825,10 +823,10 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 		case value.Error:
 			o := (*core.Error)(src.Ptr)
 			s, err := o.Payload.Format(fspec.FormatSpec{})
-			return core.NewRunesValue([]rune(s), false), err == nil
+			return core.NewRunesValue(text.DecodeText(s), false), err == nil
 		}
 		s, ok := src.AsString()
-		return core.NewRunesValue([]rune(s), false), ok
+		return core.NewRunesValue(text.DecodeText(s), false), ok
 	})
 }
 
@@ -862,11 +860,8 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		case value.Byte:
 			return core.NewBytesValue([]byte{byte(src.Data)}, false), true
 		case value.Rune:
-			r := rune(src.Data)
-			if !utf8.ValidRune(r) {
-				return core.Undefined, false
-			}
-			return core.NewBytesValue([]byte(string(r)), false), true
+			// a rune contributes its encoding; an escape's encoding is its octet
+			return core.NewBytesValue([]byte(text.EncodeRuneText(rune(src.Data))), false), true
 		}
 		b, ok := src.AsBytes()
 		return core.NewBytesValue(b, false), ok

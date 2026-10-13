@@ -105,7 +105,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(string(r), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(text.EncodeRuneText(r), sp, fspec.AlignLeft), nil
 
 	case 'q':
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {

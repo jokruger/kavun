@@ -486,19 +486,9 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil
 	}
-	parts := make([]string, len(elems))
-	total := 0
-	for i, e := range elems {
-		switch e.Type {
-		case value.Array, value.Dict, value.Record, value.IntRange:
-			return "", errs.NewConversionError(e.TypeName(), "string", "a nested collection is not renderable in join")
-		}
-		s, ok := e.AsString()
-		if !ok {
-			return "", errs.NewConversionError(e.TypeName(), "string", "")
-		}
-		parts[i] = s
-		total += len(s)
+	parts, total, err := joinElementParts(elems)
+	if err != nil {
+		return "", err
 	}
 	if len(elems) > 1 {
 		total += (len(elems) - 1) * len(sep)
@@ -514,6 +504,54 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 	return b.String(), nil
 }
 
+// joinElementsToRunes is the runes join: the same acceptance as joinElementsToString, assembled as symbols — every
+// element and the separator keep their own symbols across the seams (a runes element its elements, text decoded on
+// its own), as runes + does.
+func joinElementsToRunes(elems []Value, sep []rune) ([]rune, error) {
+	if len(elems) == 0 {
+		return []rune{}, nil
+	}
+	parts, _, err := joinElementParts(elems)
+	if err != nil {
+		return nil, err
+	}
+	var out []rune
+	for i, p := range parts {
+		if i > 0 {
+			out = append(out, sep...)
+		}
+		if elems[i].Type == value.Runes {
+			out = append(out, (*Runes)(elems[i].Ptr).Elements...)
+		} else {
+			out = append(out, text.DecodeText(p)...)
+		}
+	}
+	if out == nil {
+		out = []rune{}
+	}
+	return out, nil
+}
+
+// joinElementParts reads every element of a join as its text (AsString); a nested collection and a value with no
+// text form raise. It answers the parts and their total octet length.
+func joinElementParts(elems []Value) ([]string, int, error) {
+	parts := make([]string, len(elems))
+	total := 0
+	for i, e := range elems {
+		switch e.Type {
+		case value.Array, value.Dict, value.Record, value.IntRange:
+			return nil, 0, errs.NewConversionError(e.TypeName(), "string", "a nested collection is not renderable in join")
+		}
+		s, ok := e.AsString()
+		if !ok {
+			return nil, 0, errs.NewConversionError(e.TypeName(), "string", "")
+		}
+		parts[i] = s
+		total += len(s)
+	}
+	return parts, total, nil
+}
+
 // coerceSepToBytes converts the separator argument of split/partition to a
 // []byte. Accepted types: bytes, byte, string, rune.
 func coerceSepToBytes(name string, sep Value) ([]byte, error) {
@@ -525,7 +563,7 @@ func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	case value.String:
 		return []byte(*(*string)(sep.Ptr)), nil
 	case value.Rune:
-		return []byte(string(rune(sep.Data))), nil
+		return []byte(text.EncodeRuneText(rune(sep.Data))), nil
 	default:
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
 	}
@@ -717,7 +755,7 @@ func defaultAsRunes(v Value) ([]rune, bool) {
 	if !ok {
 		return nil, false
 	}
-	return []rune(s), true
+	return text.DecodeText(s), true
 }
 
 // ---------------------------------------------------------------------------
@@ -744,19 +782,41 @@ func textOperandString(a Value) (string, bool, error) {
 	case value.String:
 		return *(*string)(a.Ptr), true, nil
 	case value.Runes:
-		return string((*Runes)(a.Ptr).Elements), true, nil
+		return text.EncodeText((*Runes)(a.Ptr).Elements), true, nil
 	case value.Bytes:
 		// TOTAL: an undecodable octet is carried through as itself; a string holds octets
 		return string((*Bytes)(a.Ptr).Elements), true, nil
 	case value.Rune:
-		return string(rune(a.Data)), true, nil
+		return text.EncodeRuneText(rune(a.Data)), true, nil
 	case value.Byte:
 		if a.Data > 0x7F {
 			return "", false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
 		}
-		return string(rune(a.Data)), true, nil
+		return text.EncodeRuneText(rune(a.Data)), true, nil
 	}
 	return "", false, nil
+}
+
+// textOperandRunes reads an operand as a run of SYMBOLS — the reading of the member that the operator spells
+// (append, remove): a runes operand keeps its own symbols, text decodes on its own, never fused with the receiver.
+// Acceptance and refusals are textOperandString's.
+func textOperandRunes(a Value) ([]rune, bool, error) {
+	switch a.Type {
+	case value.String:
+		return text.DecodeText(*(*string)(a.Ptr)), true, nil
+	case value.Runes:
+		return (*Runes)(a.Ptr).Elements, true, nil
+	case value.Bytes:
+		return text.DecodeOctets((*Bytes)(a.Ptr).Elements), true, nil
+	case value.Rune:
+		return []rune{rune(a.Data)}, true, nil
+	case value.Byte:
+		if a.Data > 0x7F {
+			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
+		}
+		return []rune{rune(a.Data)}, true, nil
+	}
+	return nil, false, nil
 }
 
 // textOperandOctets reads an operand as OCTET content (bytes receivers) — encoding is total, so every text
@@ -768,9 +828,9 @@ func textOperandOctets(a Value) ([]byte, bool, error) {
 	case value.String:
 		return []byte(*(*string)(a.Ptr)), true, nil
 	case value.Runes:
-		return []byte(string((*Runes)(a.Ptr).Elements)), true, nil
+		return []byte(text.EncodeText((*Runes)(a.Ptr).Elements)), true, nil
 	case value.Rune:
-		return []byte(string(rune(a.Data))), true, nil
+		return []byte(text.EncodeRuneText(rune(a.Data))), true, nil
 	case value.Byte:
 		return []byte{byte(a.Data)}, true, nil
 	}

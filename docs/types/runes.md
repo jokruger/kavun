@@ -91,8 +91,8 @@ literal value they raise.
 
 | operator | meaning |
 | --- | --- |
-| `+` | concatenation; the **receiver** (left operand) decides the result type |
-| `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+| `+` | concatenation; the **receiver** (left operand) decides the result type; the operand's symbols stay apart from the receiver's, escapes included |
+| `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping), symbol by symbol as `remove` does; acceptance equals `+`'s |
 | `*` | exactly `repeat(n)`: the right operand is a **count**, not content. No reflected direction — `n * u` raises |
 | `==` `!=` `<` `<=` `>` `>=` | content-based, symbol by symbol — compares across `string`/`runes`/`bytes` by text content |
 | `in` | membership: `x in r` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |

@@ -137,15 +137,16 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		verb = 'd'
 	}
 
-	// 'c' renders the code point as a UTF-8 character.
+	// 'c' renders the code point as its text: a scalar value as its UTF-8 character, an escape as its octet; any
+	// other int (a surrogate, out of range) has no character and raises.
 	if verb == 'c' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		if i < 0 || i > utf8.MaxRune {
+		if !text.IntInRuneDomain(i) {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(string(rune(i)), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(text.EncodeRuneText(rune(i)), sp, fspec.AlignLeft), nil
 	}
 
 	// 'q' renders the code point as a quoted character literal: 'A', '\n', etc.

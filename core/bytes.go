@@ -285,7 +285,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		case value.Rune:
 			switch op {
 			case tokens.Add:
-				l := []byte(string(rune(other.Data)))
+				l := []byte(text.EncodeRuneText(rune(other.Data)))
 				t := make([]byte, len(l)+len(o.Elements))
 				copy(t, l)
 				copy(t[len(l):], o.Elements)
@@ -356,7 +356,7 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		}
 
 	case value.Rune:
-		r := []byte(string(rune(other.Data)))
+		r := []byte(text.EncodeRuneText(rune(other.Data)))
 		switch op {
 		case tokens.Add:
 			t := make([]byte, len(o.Elements)+len(r))
@@ -550,7 +550,8 @@ func bytesEncodeMatchArg(name string, a Value) ([]byte, bool, error) {
 		}
 		return []byte{byte(i)}, true, nil
 	case value.Rune:
-		return []byte(string(rune(a.Data))), true, nil
+		// a rune contributes its encoding; an escape's encoding is its octet
+		return []byte(text.EncodeRuneText(rune(a.Data))), true, nil
 	case value.String, value.Runes:
 		b, _ := a.AsBytes()
 		return b, false, nil

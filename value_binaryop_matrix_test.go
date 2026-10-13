@@ -629,6 +629,23 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	parity("bytes - runes ≡ remove", byt("banana"), "remove", tokens.Sub, run("an"))
 	parity("bytes - byte ≡ remove (element)", byt("banana"), "remove", tokens.Sub, core.ByteValue('a'))
 
+	// an escape (an undecodable octet) on either side: + and - read it as one symbol on string/runes and as its
+	// octet on bytes, exactly as append and remove do; - never matches the octets of an escape inside a symbol
+	esc := core.RuneValue(0xDCFF)
+	escRun := core.NewRunesValue([]rune{0xDCFF}, false)
+	part := str("\xe2\x82") // the first two octets of "€", as two escapes
+	for _, recv := range []core.Value{str("a\xffb"), core.NewRunesValue([]rune{'a', 0xDCFF, 'b'}, false), byt("a\xffb")} {
+		for _, operand := range []core.Value{esc, escRun, str("\xff"), byt("\xff")} {
+			parity(recv.TypeName()+" + escape "+operand.TypeName()+" ≡ append", recv, "append", tokens.Add, operand)
+			parity(recv.TypeName()+" - escape "+operand.TypeName()+" ≡ remove", recv, "remove", tokens.Sub, operand)
+		}
+	}
+	for _, recv := range []core.Value{str("x€"), run("x€"), byt("x€")} {
+		for _, operand := range []core.Value{part, core.NewRunesValue([]rune{0xDCE2, 0xDC82}, false), byt("\xe2\x82")} {
+			parity(recv.TypeName()+" - partial symbol "+operand.TypeName()+" ≡ remove", recv, "remove", tokens.Sub, operand)
+		}
+	}
+
 	// the repeat side ≡ *
 	parity("array * int ≡ repeat", arr(1, 2), "repeat", tokens.Mul, core.IntValue(3))
 	parity("string * int ≡ repeat", str("ab"), "repeat", tokens.Mul, core.IntValue(3))

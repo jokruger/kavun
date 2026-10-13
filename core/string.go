@@ -278,22 +278,34 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	}
 
 	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
-	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
-	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
-	if op == tokens.Add || op == tokens.Sub {
+	// mirrors the member layer minus int, whose operator reading stays arithmetic. + joins the octets, as append
+	// does (a string is its octets). `-` removes every occurrence of the run as remove reads it — whole symbols,
+	// leftmost non-overlapping; the empty run removes nothing
+	if op == tokens.Add {
 		s, ok, err := textOperandString(other)
 		if err != nil {
 			return Undefined, err
 		}
 		if ok {
+			return NewStringValue(*(*string)(v.Ptr) + s), nil
+		}
+	}
+	if op == tokens.Sub {
+		run, ok, err := textOperandRunes(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if ok {
 			l := *(*string)(v.Ptr)
-			if op == tokens.Add {
-				return NewStringValue(l + s), nil
-			}
-			if s == "" {
+			if len(run) == 0 {
 				return NewStringValue(l), nil
 			}
-			return NewStringValue(strings.ReplaceAll(l, s, "")), nil
+			// a valid run matches only whole symbols, so the octet replacement is remove's reading; a run holding
+			// an escape is removed symbol by symbol — its octets would also match inside a multi-octet symbol
+			if text.RunesAreValid(run) {
+				return NewStringValue(strings.ReplaceAll(l, text.EncodeText(run), "")), nil
+			}
+			return NewStringValue(text.EncodeText(seq.RemoveRun(text.DecodeText(l), run))), nil
 		}
 	}
 

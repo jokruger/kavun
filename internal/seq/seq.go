@@ -174,6 +174,22 @@ func IndexRun[T comparable](elems []T, run []T, last bool) int {
 	return idx
 }
 
+// RemoveRun answers a new slice holding elems with every occurrence of run removed, leftmost and non-overlapping.
+// The empty run removes nothing. elems is never modified.
+func RemoveRun[T comparable](elems []T, run []T) []T {
+	out := make([]T, 0, len(elems))
+	m := len(run)
+	for i := 0; i < len(elems); {
+		if m > 0 && i+m <= len(elems) && slices.Equal(elems[i:i+m], run) {
+			i += m
+			continue
+		}
+		out = append(out, elems[i])
+		i++
+	}
+	return out
+}
+
 // ErrPredicateAmongMany: a function was passed together with other arguments to a member that reads a single
 // function as a predicate.
 func ErrPredicateAmongMany(name string) error {

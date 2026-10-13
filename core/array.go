@@ -1122,18 +1122,18 @@ func joinSeqWithSep(elems []Value, sep Value, name string) (Value, error) {
 		return NewStringValue(s), nil
 
 	case value.Runes:
-		s, err := joinElementsToString(elems, string((*Runes)(sep.Ptr).Elements))
+		rs, err := joinElementsToRunes(elems, (*Runes)(sep.Ptr).Elements)
 		if err != nil {
 			return Undefined, err
 		}
-		return NewRunesValue([]rune(s), false), nil
+		return NewRunesValue(rs, false), nil
 
 	case value.Rune:
-		s, err := joinElementsToString(elems, string(rune(sep.Data)))
+		rs, err := joinElementsToRunes(elems, []rune{rune(sep.Data)})
 		if err != nil {
 			return Undefined, err
 		}
-		return NewRunesValue([]rune(s), false), nil
+		return NewRunesValue(rs, false), nil
 
 	case value.Byte:
 		s, err := joinElementsToString(elems, string([]byte{byte(sep.Data)}))
