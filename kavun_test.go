@@ -1112,6 +1112,46 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "aaa" - "aa"`, nil, "a") // leftmost, non-overlapping
 	expectRun(t, `out = "ab" - ""`, nil, "ab")
 
+	// an undecodable octet is one symbol, its escape, on both sides of a match: it matches itself only, never a
+	// continuation octet inside a valid symbol, and a truncated sequence is its octets, not a prefix of the symbol
+	expectRun(t, `s := b"a\xffb".string(); out = s.has_prefix(b"a\xff".string())`, nil, true)
+	expectRun(t, `s := b"ab\xff".string(); out = s.has_suffix(s[2])`, nil, true)
+	expectRun(t, `s := b"a\xffb".string(); out = s.has_suffix(s[1])`, nil, false)
+	expectRun(t, `s := b"a\xffb".string(); out = s.remove_prefix(b"a\xff".string())`, nil, "b")
+	expectRun(t, `s := b"a\xffb".string(); out = s.remove_suffix(s[1], 'b')`, nil, "a\xff")
+	expectRun(t, `s := b"a\xffb".string(); out = s.remove_suffix(s[1], 'b').len()`, nil, 2)
+	expectRun(t, `out = "é".has_prefix(b"\xc3".string())`, nil, false)
+	expectRun(t, `out = "é".has_suffix(b"\xa9".string())`, nil, false)
+	expectRun(t, `out = "é".has_suffix(bytes([0xa9]))`, nil, false)
+	expectRun(t, `out = "€".has_prefix(b"\xe2\x82".string())`, nil, false)
+	expectRun(t, `out = "€x".remove_prefix("€").len()`, nil, 1)
+	expectRun(t, `out = b"\xe2\x82".string().last().int()`, nil, 0xDC82)
+	expectRun(t, `out = b"a\xe2\x82".string().first()`, nil, 'a')
+	expectRun(t, `out = "�".first().int()`, nil, 0xFFFD)
+	expectRun(t, `out = "abc".remove_prefix("")`, nil, "abc")
+	expectRun(t, `out = "abc".has_prefix("")`, nil, true)
+	expectRun(t, `out = "abc".has_prefix("x", "ab", "abc", "abcd")`, nil, true)
+	expectRun(t, `out = "abcd".remove_prefix("a", "abc", "ab")`, nil, "d")
+	expectRun(t, `out = "é".count("é", "x")`, nil, 1)
+	expectRun(t, `out = "ééé".count("éé")`, nil, 1)
+	expectRun(t, `out = b"a\xff\xffb".string().count(b"\xff".string())`, nil, 2)
+	expectRun(t, `out = "abab".count("ab", "aba")`, nil, 1)
+	expectRun(t, `out = "abab".count("")`, nil, 0)
+	expectRun(t, `out = b"a\xffb".string().contains(b"\xffb".string(), "zz")`, nil, true)
+	expectRun(t, `out = "€".count(b"\xe2\x82".string())`, nil, 0)
+	expectRun(t, `out = "x€x€".count(bytes([0xe2, 0x82]), "x")`, nil, 2)
+	expectRun(t, `r := runes([b"\xe2"[0], b"\x82"[0], b"\xa9"[0]].map(o => o.int() + 0xDC00)); out = ["₩".contains(r), r in "₩", "₩₩".count(r)]`, nil, ARR{false, false, 0})
+	// a pad builds text, so an escape fill joins octets with the receiver's edge (a string is its octets): the
+	// length is the text's own count, not the requested width. The calls go through a function so the optimizer
+	// cannot fold them into a constant, which would recount the text and hide a wrong count
+	expectRun(t, `out = b"\xe2\x82".string().pad_end(3, b"\xa9".string()[0])`, nil, "₩")
+	expectRun(t, `f := func(s, n, e) { return s.pad_end(n, e).len() }; out = f(b"\xe2\x82".string(), 3, b"\xa9".string()[0])`, nil, 1)
+	expectRun(t, `f := func(s, n, e) { return s.pad_start(n, e).len() }; out = f(b"\x82\xa9".string(), 3, b"\xe2".string()[0])`, nil, 1)
+	expectRun(t, `f := func(s, n, e) { return s.pad_end(n, e).len() }; out = f(b"\xe2".string(), 3, b"\xe2".string()[0])`, nil, 3)
+	expectRun(t, `f := func(s, n, e) { return s.pad_end(n, e).len() }; out = f("ab", 4, '€')`, nil, 4)
+	// a runes run whose escapes spell a symbol as text ("₩") can never occur in a string: it never matches
+	expectRun(t, `r := runes([b"\xe2"[0], b"\x82"[0], b"\xa9"[0]].map(o => o.int() + 0xDC00)); out = "₩x".has_prefix(r)`, nil, false)
+
 	// index operator — s[i] yields the i-th SYMBOL as a rune; the result type
 	// is rune even on ASCII, never a byte
 	str := "abcdef"

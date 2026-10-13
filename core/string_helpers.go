@@ -5,6 +5,7 @@ package core
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -14,9 +15,73 @@ import (
 
 // ---------------------------------------------------------------------------
 // The match members: contains / count / keep / remove / any / all — the same readings as on runes (see the
-// runes match members; the arguments are read by runesReadMatchArgs), over the string's SYMBOLS. No _in_place
-// twins: a string is immutable by construction.
+// runes match members), over the string's SYMBOLS. contains, count and the locators read the receiver in place
+// (stringReadMatchArgs answers the runs as text, matched with text.RunAt/FindRun); keep, remove, any and all
+// build or visit every symbol and decode once (runesReadMatchArgs). No _in_place twins: a string is immutable
+// by construction.
 // ---------------------------------------------------------------------------
+
+// stringMatch is a match member's argument list after reading, as text; exactly one reading is set.
+type stringMatch struct {
+	significant bool     // no argument
+	pred        Value    // a predicate
+	runs        []string // contains/count: a set of runs, as text
+}
+
+// stringReadMatchArgs reads contains's and count's arguments — runesReadMatchArgs's run reading, answered as text
+// (the symbol-set reading is any's/all's, which stay on runesReadMatchArgs).
+// PURE by contract.
+func stringReadMatchArgs(name string, args []Value) (stringMatch, error) {
+	if len(args) == 0 {
+		return stringMatch{significant: true}, nil
+	}
+
+	if args[0].IsCallable() {
+		if len(args) > 1 {
+			return stringMatch{}, seq.ErrPredicateAmongMany(name)
+		}
+		if err := checkElemCallback(name, args[0]); err != nil {
+			return stringMatch{}, err
+		}
+		return stringMatch{pred: args[0]}, nil
+	}
+
+	runs := make([]string, 0, len(args))
+	sawSymbol, sawText := false, false
+	for _, a := range args {
+		if a.IsCallable() {
+			return stringMatch{}, seq.ErrFunctionInSet(name)
+		}
+		run, isSymbol, matchable, err := textMatchArg(name, a)
+		if err != nil {
+			return stringMatch{}, err
+		}
+		if isSymbol {
+			sawSymbol = true
+		} else {
+			sawText = true
+		}
+		if matchable { // a run that can never occur in a string matches nothing; runs stays non-nil
+			runs = append(runs, run)
+		}
+	}
+	if sawSymbol && sawText {
+		return stringMatch{}, seq.ErrMixedSet(name)
+	}
+	return stringMatch{runs: runs}, nil
+}
+
+// matches reports whether symbol r at index i matches the element-wise reading (significant or predicate).
+func (m *stringMatch) matches(vm VM, i int, r rune) (bool, error) {
+	if m.significant {
+		return !text.IsBlankRune(r), nil
+	}
+	res, err := callElem(vm, m.pred, i, RuneValue(r))
+	if err != nil {
+		return false, err
+	}
+	return res.IsTrue()
+}
 
 // ---------------------------------------------------------------------------
 // The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
@@ -199,77 +264,113 @@ func stringReadRunSet(name string, args []Value, onFunction string) ([][]rune, e
 }
 
 // stringTrimmed answers the receiver without its leading (start) and/or trailing (end) symbols that belong to the
-// set. The name is the member called, for the errors.
-func stringTrimmed(name string, v Value, args []Value, start, end bool) ([]rune, error) {
+// set — a substring, with the symbol count carried over; the receiver itself when nothing is stripped. The ends
+// are read one symbol at a time (text.TextFirst/TextLast), so the cost is the symbols removed, never the
+// receiver's length; an undecodable octet is its escape here too, so a stray octet can be trimmed by passing it
+// as the set (s.trim(s[0])). The name is the member called, for the errors.
+// PURE by contract.
+func stringTrimmed(name string, v Value, args []Value, start, end bool) (Value, error) {
 	set, err := stringReadElementSet(name, args, "a set of elements (the anchored run form is remove_prefix/remove_suffix; no predicate reading)")
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
-	inSet := func(e rune) bool {
+	inSet := func(r rune) bool {
 		if len(args) == 0 {
-			return text.IsBlankRune(e)
+			return text.IsBlankRune(r)
 		}
-		return slices.Contains(set, e)
+		return slices.Contains(set, r)
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
-	lo, hi := 0, len(elems)
+	s := *(*string)(v.Ptr)
+	lo, hi, removed := 0, len(s), 0
 	if start {
-		for lo < hi && inSet(elems[lo]) {
-			lo++
+		for lo < hi {
+			r, w := text.TextFirst(s[lo:hi])
+			if !inSet(r) {
+				break
+			}
+			lo, removed = lo+w, removed+1
 		}
 	}
 	if end {
-		for hi > lo && inSet(elems[hi-1]) {
-			hi--
+		for hi > lo {
+			r, w := text.TextLast(s[lo:hi])
+			if !inSet(r) {
+				break
+			}
+			hi, removed = hi-w, removed+1
 		}
 	}
-	return (elems[lo:hi]), nil
+	if removed == 0 {
+		return v, nil
+	}
+	return newStringValueCounted(s[lo:hi], int64(v.Data)-int64(removed)), nil
 }
 
-// stringAnchoredRun answers the length of the longest run of the argument set found at the start (or, with suffix,
-// the end) of the receiver, or -1 when none is. The empty run is anchored everywhere. The name is the member
-// called, for the errors.
-func stringAnchoredRun(name string, v Value, args []Value, suffix bool) (int, error) {
+// stringAnchored answers the longest run of the argument set anchored at the start (or, with suffix, the end) of
+// the receiver — its width in octets and in symbols — or octets -1 when none is. The empty run is anchored
+// everywhere. The set is read as stringReadRunSet reads it (a function raises with onFunction; mixing elements
+// and runs raises after every argument was read), but argument by argument, matching as it goes: nothing is
+// materialised and a miss costs the argument's length, not the receiver's. The name is the member called, for
+// the errors.
+// PURE by contract.
+func stringAnchored(name string, v Value, args []Value, suffix bool) (octets, symbols int, err error) {
 	if len(args) == 0 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
+		return 0, 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
 	}
-	runs, err := stringReadRunSet(name, args, "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)")
-	if err != nil {
-		return 0, err
-	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
-	best := -1
-	for _, r := range runs {
-		if len(r) > len(elems) || len(r) <= best {
-			continue
+	const onFunction = "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)"
+	s := *(*string)(v.Ptr)
+	octets = -1
+	sawElement, sawText := false, false
+	for _, a := range args {
+		if a.IsCallable() {
+			return 0, 0, errs.NewInvalidArgumentTypeError(name, "argument", onFunction, a.TypeName())
 		}
-		at := elems[:len(r)]
+		p, isElement, matchable, err := textMatchArg(name, a)
+		if err != nil {
+			return 0, 0, err
+		}
+		if isElement {
+			sawElement = true
+		} else {
+			sawText = true
+		}
+		if !matchable {
+			continue // a run that can never occur in a string matches nothing
+		}
+		var o, n int
+		var ok bool
 		if suffix {
-			at = elems[len(elems)-len(r):]
+			o, n, ok = text.SuffixRun(s, p)
+		} else {
+			o, n, ok = text.PrefixRun(s, p)
 		}
-		if slices.Equal(at, r) {
-			best = len(r)
+		if ok && o > octets {
+			octets, symbols = o, n
 		}
 	}
-	return best, nil
+	if sawElement && sawText {
+		return 0, 0, seq.ErrMixedSet(name)
+	}
+	return octets, symbols, nil
 }
 
-// stringWithoutAnchored answers the receiver without its longest matching prefix (or suffix) — removed once;
-// unchanged when nothing matches. The name is the member called, for the errors.
-func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]rune, error) {
-	best, err := stringAnchoredRun(name, v, args, suffix)
+// stringWithoutAnchored answers the receiver without its longest matching prefix (or suffix), removed once — a
+// substring, with the symbol count carried over; unchanged (the receiver itself, which is immutable) when
+// nothing matches. The name is the member called, for the errors.
+// PURE by contract.
+func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) (Value, error) {
+	octets, symbols, err := stringAnchored(name, v, args, suffix)
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
-	switch {
-	case best <= 0:
-		return (elems), nil
-	case suffix:
-		return (elems[:len(elems)-best]), nil
-	default:
-		return (elems[best:]), nil
+	if octets <= 0 {
+		return v, nil
 	}
+	s := *(*string)(v.Ptr)
+	if suffix {
+		return newStringValueCounted(s[:len(s)-octets], int64(v.Data)-int64(symbols)), nil
+	}
+	return newStringValueCounted(s[octets:], int64(v.Data)-int64(symbols)), nil
 }
 
 // stringReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); each
@@ -304,36 +405,53 @@ func stringReplaced(name string, v Value, args []Value) ([]rune, error) {
 }
 
 // stringPadded answers the receiver filled at the front (start) or the end up to n symbols; a width at or below the
-// length leaves it unchanged. The name is the member called, for the errors.
-func stringPadded(name string, v Value, args []Value, start bool) ([]rune, error) {
+// length answers the receiver unchanged. The width is in symbols and the receiver's count is cached, so nothing is
+// decoded: the result is built in one allocation, the fill (one symbol — an escape is one octet) repeated
+// width-count times around the receiver's text. A valid fill symbol is complete and cannot join its neighbours, so
+// the result has exactly width symbols; an escape fill can complete a sequence with the receiver's edge octets
+// (a string is its octets), so that result is recounted. The name is the member called, for the errors.
+// PURE by contract.
+func stringPadded(name string, v Value, args []Value, start bool) (Value, error) {
 	if len(args) < 1 || len(args) > 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
 	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
 	fill := ' '
 	if len(args) == 2 {
 		set, err := stringReadElementSet(name, args[1:], "one fill element (a run fill hides a truncation rule; build the run and append it instead)")
 		if err != nil {
-			return nil, err
+			return Undefined, err
 		}
 		fill = set[0]
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
-	if n <= int64(len(elems)) {
-		return (elems), nil
+	count := int64(v.Data)
+	if n <= count {
+		return v, nil
 	}
-	width, err := seq.PadWidth(name, n)
+	width, err := seq.PadWidth(name, n) // the ceiling is checked BEFORE any allocation (makeslice panics, this raises)
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
-	pad := slices.Repeat([]rune{fill}, width-len(elems))
+	s := *(*string)(v.Ptr)
+	fillText := text.EncodeRuneText(fill)
+	var b strings.Builder
+	b.Grow(len(s) + (width-int(count))*len(fillText))
+	if !start {
+		b.WriteString(s)
+	}
+	for i := int(count); i < width; i++ {
+		b.WriteString(fillText)
+	}
 	if start {
-		return slices.Concat(pad, elems), nil
+		b.WriteString(s)
 	}
-	return slices.Concat(elems, pad), nil
+	if text.IsEscapeRune(fill) {
+		return NewStringValue(b.String()), nil
+	}
+	return newStringValueCounted(b.String(), int64(width)), nil
 }
 
 // ---------------------------------------------------------------------------

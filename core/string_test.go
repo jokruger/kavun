@@ -47,7 +47,7 @@ func TestStringMembersAgreeWithRunes(t *testing.T) {
 		rns("ab"), rns("\xff"), rns("é"), bts("ab"), bts("\xa9"), bts("\xc3\xa9"), bts(""),
 		// runes whose escapes spell a valid sequence ("₩", "é"): as text they would read as one symbol
 		core.NewRunesValue([]rune{0xDCE2, 0xDC82, 0xDCA9}, false), core.NewRunesValue([]rune{0xDCC3, 0xDCA9}, false),
-		core.RuneValue('a'), core.RuneValue(' '), core.RuneValue(0), core.RuneValue(0xDCFF), core.RuneValue(0xDCA9), core.RuneValue('é'), core.RuneValue(0xFFFD),
+		core.RuneValue('a'), core.RuneValue(' '), core.RuneValue(0), core.RuneValue(0xDCFF), core.RuneValue(0xDCA9), core.RuneValue(0xDCE2), core.RuneValue(0xDCC3), core.RuneValue('é'), core.RuneValue(0xFFFD),
 		core.ByteValue('a'), core.ByteValue(' '), core.ByteValue(0xff),
 		core.IntValue(97), core.IntValue(0xDCFF), core.IntValue(-1), core.IntValue(0x110000),
 		core.FloatValue(1.5), core.True, core.Undefined,
@@ -109,6 +109,23 @@ func TestStringMembersAgreeWithRunes(t *testing.T) {
 		{"index_last", members.IndexLast, 0, 3, false},
 		{"replace", members.Replace, 1, 3, false},
 	}
+	// the pads, exhaustively over every fill: an escape fill joins octets with the receiver's edge, and only an
+	// exhaustive sweep is sure to meet each such seam
+	for _, name := range []string{"pad_start", "pad_end"} {
+		var id member.ID = members.PadStart
+		if name == "pad_end" {
+			id = members.PadEnd
+		}
+		t.Run(name+"/every_fill", func(t *testing.T) {
+			for _, recv := range receivers {
+				for _, w := range widths {
+					for _, fill := range pool {
+						check(t, name, id, recv, []core.Value{w, fill})
+					}
+				}
+			}
+		})
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			for _, recv := range receivers {
@@ -148,22 +165,22 @@ func TestStringMembersDoNotDecodeReceiver(t *testing.T) {
 		task   int     // the plan task that converts the member; 0 once it reads in place
 		today  float64 // the count before that task
 	}{
-		{"has_prefix", members.HasPrefix, s, ab, 0, 7, 3},
-		{"has_suffix", members.HasSuffix, s, ab, 0, 7, 3},
-		{"remove_prefix hit", members.RemovePrefix, s, ab, 1, 7, 6},
-		{"remove_prefix miss", members.RemovePrefix, s, zz, 0, 7, 6},
-		{"remove_suffix miss", members.RemoveSuffix, s, zz, 0, 7, 6},
-		{"first", members.First, s, nil, 0, 7, 1},
-		{"last", members.Last, s, nil, 0, 7, 1},
-		{"trim no-op", members.Trim, s, nil, 0, 8, 3},
-		{"trim", members.Trim, padded, nil, 1, 8, 3},
-		{"trim_start", members.TrimStart, padded, nil, 1, 8, 3},
-		{"trim_end", members.TrimEnd, padded, nil, 1, 8, 3},
-		{"pad_start no-op", members.PadStart, s, []core.Value{core.IntValue(3)}, 0, 9, 3},
-		{"pad_start", members.PadStart, s, []core.Value{core.IntValue(10)}, 2, 9, 4},
-		{"pad_end", members.PadEnd, s, []core.Value{core.IntValue(10)}, 2, 9, 4},
-		{"contains", members.Contains, s, cd, 1, 10, 3},
-		{"count", members.Count, s, cd, 1, 10, 3},
+		{"has_prefix", members.HasPrefix, s, ab, 0, 0, 0},
+		{"has_suffix", members.HasSuffix, s, ab, 0, 0, 0},
+		{"remove_prefix hit", members.RemovePrefix, s, ab, 1, 0, 0},
+		{"remove_prefix miss", members.RemovePrefix, s, zz, 0, 0, 0},
+		{"remove_suffix miss", members.RemoveSuffix, s, zz, 0, 0, 0},
+		{"first", members.First, s, nil, 0, 0, 0},
+		{"last", members.Last, s, nil, 0, 0, 0},
+		{"trim no-op", members.Trim, s, nil, 0, 0, 0},
+		{"trim", members.Trim, padded, nil, 1, 0, 0},
+		{"trim_start", members.TrimStart, padded, nil, 1, 0, 0},
+		{"trim_end", members.TrimEnd, padded, nil, 1, 0, 0},
+		{"pad_start no-op", members.PadStart, s, []core.Value{core.IntValue(3)}, 0, 0, 0},
+		{"pad_start", members.PadStart, s, []core.Value{core.IntValue(10)}, 2, 0, 0},
+		{"pad_end", members.PadEnd, s, []core.Value{core.IntValue(10)}, 2, 0, 0},
+		{"contains", members.Contains, s, cd, 1, 0, 0},
+		{"count", members.Count, s, cd, 1, 0, 0},
 		{"index", members.Index, s, cd, 0, 11, 2},
 		{"index_last", members.IndexLast, s, cd, 0, 11, 2},
 		{"replace miss", members.Replace, s, []core.Value{core.NewStringValue("zz"), core.NewStringValue("x")}, 1, 12, 6},

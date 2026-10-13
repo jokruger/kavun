@@ -391,27 +391,24 @@ func stringTypeAsArray(v Value) ([]Value, bool) {
 }
 
 // PURE by contract
-// stringTypeContains is the `in` operator: every accepted operand is text content encoded into the
-// receiver's representation and matched as a run (the member's own acceptance); a callable raises.
+// stringTypeContains is the `in` operator: every accepted operand is text content read as a run (the member's own
+// acceptance — contains(x) and x in s agree symbol for symbol, an undecodable octet included); a callable raises.
+// The empty run is contained everywhere.
 func stringTypeContains(v Value, e Value) (bool, error) {
 	if e.IsCallable() {
 		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
 	}
-	run, _, err := runesEncodeMatchArg("in", e)
+	run, _, matchable, err := textMatchArg("in", e)
 	if err != nil {
 		return false, err
 	}
-	str := *(*string)(v.Ptr)
 	if len(run) == 0 {
 		return true, nil
 	}
-	// a valid run can match only on symbol boundaries, so the octet search answers contains's reading; a run holding
-	// an escape is compared symbol by symbol — its octets would also match inside a multi-octet symbol
-	// ("\xe2\x82" in "€"), and string(run) would render the escape as U+FFFD
-	if text.RunesAreValid(run) {
-		return strings.Contains(str, string(run)), nil
+	if !matchable {
+		return false, nil
 	}
-	return seq.IndexRun(text.DecodeText(str), run, false) >= 0, nil
+	return text.FindRun(*(*string)(v.Ptr), run, false) >= 0, nil
 }
 
 // PURE by contract

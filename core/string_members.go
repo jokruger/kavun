@@ -144,27 +144,34 @@ func stringUpper(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // same answer `in` gives.
 // PURE by contract
 func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("contains", args, false)
+	m, err := stringReadMatchArgs("contains", args)
 	if err != nil {
 		return Undefined, err
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
+	s := *(*string)(v.Ptr)
 
 	if m.runs != nil {
-		for _, r := range m.runs {
-			if len(r) == 0 {
+		for _, p := range m.runs {
+			if len(p) == 0 {
 				return True, nil
 			}
 		}
-		for i := range elems {
-			if seq.RunLengthAt(elems, i, m.runs) > 0 {
+		if len(m.runs) == 1 {
+			return BoolValue(text.FindRun(s, m.runs[0], false) >= 0), nil
+		}
+		for i := 0; i < len(s); {
+			if text.RunAt(s[i:], m.runs) > 0 {
 				return True, nil
 			}
+			_, w := text.TextFirst(s[i:])
+			i += w
 		}
 		return False, nil
 	}
 
-	for i, r := range elems {
+	for off, i := 0, 0; off < len(s); i++ {
+		r, w := text.TextFirst(s[off:])
+		off += w
 		hit, err := m.matches(vm, i, r)
 		if err != nil {
 			return Undefined, err
@@ -179,26 +186,32 @@ func stringContains(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringCount is count(...): how many matches. Runs count non-overlapping occurrences.
 // PURE by contract
 func stringCount(vm VM, v Value, _ member.ID, args []Value) (Value, error) {
-	m, err := runesReadMatchArgs("count", args, false)
+	m, err := stringReadMatchArgs("count", args)
 	if err != nil {
 		return Undefined, err
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
+	s := *(*string)(v.Ptr)
 
 	n := int64(0)
 	if m.runs != nil {
-		for i := 0; i < len(elems); {
-			if k := seq.RunLengthAt(elems, i, m.runs); k > 0 {
+		if len(m.runs) == 1 && len(m.runs[0]) > 0 && text.TextIsValid(m.runs[0]) {
+			return IntValue(int64(strings.Count(s, m.runs[0]))), nil
+		}
+		for i := 0; i < len(s); {
+			if k := text.RunAt(s[i:], m.runs); k > 0 {
 				n++
 				i += k
 			} else {
-				i++
+				_, w := text.TextFirst(s[i:])
+				i += w
 			}
 		}
 		return IntValue(n), nil
 	}
 
-	for i, r := range elems {
+	for off, i := 0, 0; off < len(s); i++ {
+		r, w := text.TextFirst(s[off:])
+		off += w
 		hit, err := m.matches(vm, i, r)
 		if err != nil {
 			return Undefined, err
@@ -370,71 +383,51 @@ func stringPushFirst(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringTrim is trim(...): without the leading and trailing elements of the set.
 // PURE by contract
 func stringTrim(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringTrimmed("trim", v, args, true, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringTrimmed("trim", v, args, true, true)
 }
 
 // stringTrimStart is trim_start(...): without the leading elements of the set.
 // PURE by contract
 func stringTrimStart(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringTrimmed("trim_start", v, args, true, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringTrimmed("trim_start", v, args, true, false)
 }
 
 // stringTrimEnd is trim_end(...): without the trailing elements of the set.
 // PURE by contract
 func stringTrimEnd(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringTrimmed("trim_end", v, args, false, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringTrimmed("trim_end", v, args, false, true)
 }
 
 // stringHasPrefix is has_prefix(...): does the receiver start with one of the runs?
 // PURE by contract
 func stringHasPrefix(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	best, err := stringAnchoredRun("has_prefix", v, args, false)
+	octets, _, err := stringAnchored("has_prefix", v, args, false)
 	if err != nil {
 		return Undefined, err
 	}
-	return BoolValue(best >= 0), nil
+	return BoolValue(octets >= 0), nil
 }
 
 // stringHasSuffix is has_suffix(...): does the receiver end with one of the runs?
 // PURE by contract
 func stringHasSuffix(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	best, err := stringAnchoredRun("has_suffix", v, args, true)
+	octets, _, err := stringAnchored("has_suffix", v, args, true)
 	if err != nil {
 		return Undefined, err
 	}
-	return BoolValue(best >= 0), nil
+	return BoolValue(octets >= 0), nil
 }
 
 // stringRemovePrefix is remove_prefix(...): without the longest matching prefix, once.
 // PURE by contract
 func stringRemovePrefix(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringWithoutAnchored("remove_prefix", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringWithoutAnchored("remove_prefix", v, args, false)
 }
 
 // stringRemoveSuffix is remove_suffix(...): without the longest matching suffix, once.
 // PURE by contract
 func stringRemoveSuffix(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringWithoutAnchored("remove_suffix", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringWithoutAnchored("remove_suffix", v, args, true)
 }
 
 // stringReplace is replace(...): every occurrence of old replaced by new.
@@ -450,21 +443,13 @@ func stringReplace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // stringPadStart is pad_start(...): filled at the front up to n elements.
 // PURE by contract
 func stringPadStart(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringPadded("pad_start", v, args, true)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringPadded("pad_start", v, args, true)
 }
 
 // stringPadEnd is pad_end(...): filled at the end up to n elements.
 // PURE by contract
 func stringPadEnd(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringPadded("pad_end", v, args, false)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringPadded("pad_end", v, args, false)
 }
 
 // PURE by contract
@@ -481,30 +466,30 @@ func stringReverse(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // PURE by contract
 func stringFirst(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	o := (*string)(v.Ptr)
+	s := *(*string)(v.Ptr)
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := text.DecodeText(*o)
-	if len(rs) == 0 {
+	if len(s) == 0 {
 		// absence is data: undefined, or the optional trailing default
 		return emptySeqResult(name, args)
 	}
-	return RuneValue(rs[0]), nil
+	r, _ := text.TextFirst(s)
+	return RuneValue(r), nil
 }
 
 // PURE by contract
 func stringLast(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
-	o := (*string)(v.Ptr)
+	s := *(*string)(v.Ptr)
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	rs := text.DecodeText(*o)
-	if len(rs) == 0 {
+	if len(s) == 0 {
 		return emptySeqResult(name, args)
 	}
-	return RuneValue(rs[len(rs)-1]), nil
+	r, _ := text.TextLast(s)
+	return RuneValue(r), nil
 }
 
 // PURE by contract
