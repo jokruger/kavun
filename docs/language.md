@@ -1268,11 +1268,14 @@ type_name({})      // "record"
 Error messages include a source position:
 
 ```sh
-Runtime Error: invalid binary operator: int + string
+Runtime Error: invalid_binary_operator: int + string
     at myfile.kvn:12:5
 ```
 
-For runtime errors that bubble through multiple call frames, each frame is shown. Common runtime errors:
+A runtime error points at the step that failed: the operator of a unary or binary expression (`+`, `-`, `in`, …,
+and the `+=` or `++` of an assignment), the `[` of an index or slice, the `(` of a call, and the name of a property
+or member (`a.b.c` reports `c` when `.c` fails). For runtime errors that bubble through multiple call frames, each
+frame is shown, at the call that entered the next one. Common runtime errors:
 
 - `invalid_binary_operator: T op T` - operator not supported for the given types
 - `wrong_num_arguments: (call) expected N argument(s), got M`

@@ -182,7 +182,7 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 			return err
 		}
 		name := node.Sel.(*scalar.String).Value
-		_, err = c.emit(node, NewAccessProperty(member.Lookup(name), c.addStaticString(name)))
+		_, err = c.emitAt(node, node.Sel.Pos(), NewAccessProperty(member.Lookup(name), c.addStaticString(name)))
 		if err != nil {
 			return err
 		}
@@ -194,7 +194,7 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 		if err = c.CompileNode(node.Index); err != nil {
 			return err
 		}
-		_, err = c.emit(node, NewAccessIndex())
+		_, err = c.emitAt(node, node.LBrack, NewAccessIndex())
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 		if len(node.Args) > maxCallArgs {
 			return c.errorf(node, "too many arguments in function call: %d (max: %d)", len(node.Args), maxCallArgs)
 		}
-		_, err = c.emit(node, NewCallFunction(len(node.Args), node.Ellipsis.IsValid()))
+		_, err = c.emitAt(node, node.LParen, NewCallFunction(len(node.Args), node.Ellipsis.IsValid()))
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 			return c.errorf(node, "too many arguments in member call: %d (max: %d)", len(node.Args), maxMemberArgs)
 		}
 		i := c.addStaticString(node.MethodName)
-		_, err = c.emit(node, NewCallMember(len(node.Args), member.Lookup(node.MethodName), i, node.Ellipsis.IsValid()))
+		_, err = c.emitAt(node, node.MethodPos, NewCallMember(len(node.Args), member.Lookup(node.MethodName), i, node.Ellipsis.IsValid()))
 		if err != nil {
 			return err
 		}
@@ -281,7 +281,7 @@ func (c *Compiler) compileStatement(node ast.Statement) (err error) {
 		if node.Token == tokens.Dec {
 			op = tokens.SubAssign
 		}
-		return c.compileAssignStmt(node, []ast.Expression{node.Expr}, []ast.Expression{&scalar.Int{Value: 1}}, op)
+		return c.compileAssignStmt(node, node.TokenPos, []ast.Expression{node.Expr}, []ast.Expression{&scalar.Int{Value: 1}}, op)
 
 	case *statement.If:
 		return c.compileIfStmt(node)
@@ -299,7 +299,7 @@ func (c *Compiler) compileStatement(node ast.Statement) (err error) {
 		return c.compileBlockStmt(node)
 
 	case *statement.Assign:
-		err = c.compileAssignStmt(node, node.LHS, node.RHS, node.Token)
+		err = c.compileAssignStmt(node, node.TokenPos, node.LHS, node.RHS, node.Token)
 		if err != nil {
 			return err
 		}
@@ -330,11 +330,11 @@ func (c *Compiler) compileUnaryExpr(node *expression.Unary) (err error) {
 
 	switch node.Token {
 	case tokens.Not:
-		_, err = c.emit(node, NewUnaryNot())
+		_, err = c.emitAt(node, node.TokenPos, NewUnaryNot())
 	case tokens.Sub:
-		_, err = c.emit(node, NewUnaryNeg())
+		_, err = c.emitAt(node, node.TokenPos, NewUnaryNeg())
 	case tokens.Xor:
-		_, err = c.emit(node, NewUnaryBitNot())
+		_, err = c.emitAt(node, node.TokenPos, NewUnaryBitNot())
 	case tokens.Add:
 		// do nothing?
 	default:
@@ -358,41 +358,41 @@ func (c *Compiler) compileBinaryExpr(node *expression.Binary) (err error) {
 
 	switch node.Token {
 	case tokens.Add:
-		_, err = c.emit(node, NewBinaryOp(tokens.Add))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Add))
 	case tokens.Sub:
-		_, err = c.emit(node, NewBinaryOp(tokens.Sub))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Sub))
 	case tokens.Mul:
-		_, err = c.emit(node, NewBinaryOp(tokens.Mul))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Mul))
 	case tokens.Quo:
-		_, err = c.emit(node, NewBinaryOp(tokens.Quo))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Quo))
 	case tokens.Rem:
-		_, err = c.emit(node, NewBinaryOp(tokens.Rem))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Rem))
 	case tokens.Greater:
-		_, err = c.emit(node, NewBinaryOp(tokens.Greater))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Greater))
 	case tokens.GreaterEq:
-		_, err = c.emit(node, NewBinaryOp(tokens.GreaterEq))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.GreaterEq))
 	case tokens.Less:
-		_, err = c.emit(node, NewBinaryOp(tokens.Less))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Less))
 	case tokens.LessEq:
-		_, err = c.emit(node, NewBinaryOp(tokens.LessEq))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.LessEq))
 	case tokens.Equal:
-		_, err = c.emit(node, NewEqual())
+		_, err = c.emitAt(node, node.TokenPos, NewEqual())
 	case tokens.NotEqual:
-		_, err = c.emit(node, NewNotEqual())
+		_, err = c.emitAt(node, node.TokenPos, NewNotEqual())
 	case tokens.And:
-		_, err = c.emit(node, NewBinaryOp(tokens.And))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.And))
 	case tokens.Or:
-		_, err = c.emit(node, NewBinaryOp(tokens.Or))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Or))
 	case tokens.Xor:
-		_, err = c.emit(node, NewBinaryOp(tokens.Xor))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Xor))
 	case tokens.AndNot:
-		_, err = c.emit(node, NewBinaryOp(tokens.AndNot))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.AndNot))
 	case tokens.Shl:
-		_, err = c.emit(node, NewBinaryOp(tokens.Shl))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Shl))
 	case tokens.Shr:
-		_, err = c.emit(node, NewBinaryOp(tokens.Shr))
+		_, err = c.emitAt(node, node.TokenPos, NewBinaryOp(tokens.Shr))
 	case tokens.In:
-		_, err = c.emit(node, NewContains())
+		_, err = c.emitAt(node, node.TokenPos, NewContains())
 	default:
 		return c.errorf(node, "invalid binary operator: %s", node.Token.String())
 	}
@@ -553,12 +553,12 @@ func (c *Compiler) compileSliceExpr(node *expression.Slice) (err error) {
 		if err = c.CompileNode(node.Step); err != nil {
 			return err
 		}
-		_, err = c.emit(node, NewSliceStep())
+		_, err = c.emitAt(node, node.LBrack, NewSliceStep())
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err = c.emit(node, NewSlice())
+		_, err = c.emitAt(node, node.LBrack, NewSlice())
 		if err != nil {
 			return err
 		}
@@ -1189,7 +1189,7 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 		if len(call.Args) > maxCallArgs {
 			return c.errorf(node, "too many arguments in function call: %d (max: %d)", len(call.Args), maxCallArgs)
 		}
-		_, err = c.emit(node, NewDefer(len(call.Args)))
+		_, err = c.emitAt(node, call.LParen, NewDefer(len(call.Args)))
 		if err != nil {
 			return err
 		}
@@ -1209,7 +1209,7 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 			return c.errorf(node, "too many arguments in member call: %d (max: %d)", len(call.Args), maxMemberArgs)
 		}
 		i := c.addStaticString(call.MethodName)
-		_, err = c.emit(node, NewDeferMember(len(call.Args), member.Lookup(call.MethodName), i))
+		_, err = c.emitAt(node, call.MethodPos, NewDeferMember(len(call.Args), member.Lookup(call.MethodName), i))
 		if err != nil {
 			return err
 		}
@@ -1220,7 +1220,7 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 	return nil
 }
 
-func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
+func (c *Compiler) compileAssignStmt(node ast.Node, opPos core.Pos, lhs, rhs []ast.Expression, op token.Token) error {
 	numLHS, numRHS := len(lhs), len(rhs)
 	switch {
 	case numLHS > 1 && numRHS > 1:
@@ -1276,27 +1276,27 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 
 	switch op {
 	case tokens.AddAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Add))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Add))
 	case tokens.SubAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Sub))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Sub))
 	case tokens.MulAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Mul))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Mul))
 	case tokens.QuoAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Quo))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Quo))
 	case tokens.RemAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Rem))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Rem))
 	case tokens.AndAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.And))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.And))
 	case tokens.OrAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Or))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Or))
 	case tokens.AndNotAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.AndNot))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.AndNot))
 	case tokens.XorAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Xor))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Xor))
 	case tokens.ShlAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Shl))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Shl))
 	case tokens.ShrAssign:
-		_, err = c.emit(node, NewBinaryOp(tokens.Shr))
+		_, err = c.emitAt(node, opPos, NewBinaryOp(tokens.Shr))
 	}
 	if err != nil {
 		return err
@@ -1310,7 +1310,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 			return err
 		}
 		name := t.Sel.(*scalar.String).Value
-		_, err = c.emit(node, NewAssignProperty(member.Lookup(name), c.addStaticString(name)))
+		_, err = c.emitAt(node, t.Sel.Pos(), NewAssignProperty(member.Lookup(name), c.addStaticString(name)))
 		return err
 	case *expression.Index:
 		if err := c.CompileNode(t.Expr); err != nil {
@@ -1319,7 +1319,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		if err := c.CompileNode(t.Index); err != nil {
 			return err
 		}
-		_, err = c.emit(node, NewAssignIndex())
+		_, err = c.emitAt(node, t.LBrack, NewAssignIndex())
 		return err
 	}
 	return c.emitStoreForSymbol(node, symbol, op)
@@ -1892,8 +1892,15 @@ func (c *Compiler) changeJumpAddr(pos int, addr int) error {
 }
 
 func (c *Compiler) emit(node ast.Node, i bc.Instruction) (int, error) {
-	filePos := core.NoPos
-	if node != nil {
+	return c.emitAt(node, core.NoPos, i)
+}
+
+// emitAt is emit with the instruction attributed to at — the operator, bracket or member name of node — instead of
+// node's start, so a runtime error raised by that instruction points at the step that failed (each link of `a.b.c`
+// reports its own column). An invalid at falls back to node's start.
+func (c *Compiler) emitAt(node ast.Node, at core.Pos, i bc.Instruction) (int, error) {
+	filePos := at
+	if !filePos.IsValid() && node != nil {
 		filePos = node.Pos()
 	}
 

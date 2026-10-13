@@ -85,11 +85,11 @@ func (v *VM) newRuntimeError(err error) *RuntimeError {
 		e.Message = err.Error()
 	}
 
-	e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip-1)))
+	e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip)))
 	for v.framesIndex > 1 {
 		v.framesIndex--
 		v.curFrame = &v.frames[v.framesIndex-1]
-		e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip-1)))
+		e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip)))
 	}
 	return e
 }
