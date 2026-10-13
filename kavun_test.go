@@ -1141,6 +1141,18 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "€".count(b"\xe2\x82".string())`, nil, 0)
 	expectRun(t, `out = "x€x€".count(bytes([0xe2, 0x82]), "x")`, nil, 2)
 	expectRun(t, `r := runes([b"\xe2"[0], b"\x82"[0], b"\xa9"[0]].map(o => o.int() + 0xDC00)); out = ["₩".contains(r), r in "₩", "₩₩".count(r)]`, nil, ARR{false, false, 0})
+	// index/index_last answer SYMBOL offsets; an escape needle is one symbol, a partial symbol never matches
+	expectRun(t, `s := "€a" + bytes([0xff]) + "a€"; out = [s.index("a"), s.index_last("a"), s.index(s[2]), s.index_last("€"), s.index("x", -1)]`, nil, ARR{1, 3, 2, 4, -1})
+	expectRun(t, `out = ["x€x".index(b"\xe2\x82".string(), -1), "x€x".index(bytes([0xe2, 0x82]), -1), "ab€ab".index_last("ab"), "é€".index(b"\xa9".string(), -1)]`, nil, ARR{-1, -1, 3, -1})
+	expectRun(t, `s := "aé" + bytes([0xff]) + "é"; out = [s.index(bytes([0xff])), s.index(b"\xff".string() + "é"), s.index(97), s.index(b'a'), s.index_last('é')]`, nil, ARR{2, 2, 0, 0, 3})
+	expectRun(t, `r := runes([b"\xe2"[0], b"\x82"[0], b"\xa9"[0]].map(o => o.int() + 0xDC00)); out = ["₩₩".index(r, -1), "₩₩".index_last(r, -1)]`, nil, ARR{-1, -1})
+	// replace matches whole symbols — an escape old matches only itself, never octets inside a symbol — and builds
+	// text, so the replacement joins octets with its neighbours (a string is its octets)
+	expectRun(t, `s := "a" + bytes([0xff]) + "b" + bytes([0xff]); out = [s.replace(s[1], "-"), s.replace(b"\xffb".string(), "-")]`, nil, ARR{"a-b-", "a-\xff"})
+	expectRun(t, `out = ["x€x".replace(b"\xe2\x82".string(), "-"), "é".replace(bytes([0xa9]), "x"), "ééé".replace("éé", "x"), "abc".replace("", "x")]`, nil, ARR{"x€x", "é", "xé", "abc"})
+	expectRun(t, `r := runes([b"\xe2"[0], b"\x82"[0], b"\xa9"[0]].map(o => o.int() + 0xDC00)); out = "₩x₩".replace(r, "-")`, nil, "₩x₩")
+	expectRun(t, `f := func(s, o, n) { r := s.replace(o, n); return [r, r.len()] }; out = f(b"\xe2X\xa9".string(), "X", b"\x82".string())`, nil, ARR{"₩", 1})
+	expectRun(t, `f := func(s, o, n) { return s.replace(o, n).len() }; out = f("aaa", 'a', "€")`, nil, 3)
 	// a pad builds text, so an escape fill joins octets with the receiver's edge (a string is its octets): the
 	// length is the text's own count, not the requested width. The calls go through a function so the optimizer
 	// cannot fold them into a constant, which would recount the text and hide a wrong count

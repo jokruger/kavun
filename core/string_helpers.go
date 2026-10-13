@@ -93,17 +93,22 @@ func (m *stringMatch) matches(vm VM, i int, r rune) (bool, error) {
 // A miss answers undefined, or the trailing default. Never variadic: the second slot is the default.
 // ---------------------------------------------------------------------------
 
-// stringLocate is the body of index and index_last; name is the member called, for the errors.
+// stringLocate is the body of index and index_last; name is the member called, for the errors. A run is searched
+// as text (text.FindRun) and its octet offset converted to the symbol offset by counting the symbols before it —
+// O(position), no decode; the other readings walk the symbols one at a time.
+// PURE by contract.
 func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
+	s := *(*string)(v.Ptr)
 
 	if len(args) == 0 {
 		idx := -1
-		for i, e := range elems {
-			if !text.IsBlankRune(e) {
+		for off, i := 0, 0; off < len(s); i++ {
+			r, w := text.TextFirst(s[off:])
+			off += w
+			if !text.IsBlankRune(r) {
 				idx = i
 				if !last {
 					break
@@ -120,8 +125,10 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 			return Undefined, err
 		}
 		idx := -1
-		for i, e := range elems {
-			res, err := callElem(vm, needle, i, RuneValue(e))
+		for off, i := 0, 0; off < len(s); i++ {
+			r, w := text.TextFirst(s[off:])
+			off += w
+			res, err := callElem(vm, needle, i, RuneValue(r))
 			if err != nil {
 				return Undefined, err
 			}
@@ -140,11 +147,18 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 	}
 
 	if needle.Type == value.String || needle.Type == value.Runes || needle.Type == value.Bytes {
-		run, ok := needle.AsRunes()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "text content", needle.TypeName())
+		run, _, matchable, err := textMatchArg(name, needle)
+		if err != nil {
+			return Undefined, err
 		}
-		return locatorAnswer(seq.IndexRun(elems, run, last), dflt)
+		if !matchable {
+			return locatorAnswer(-1, dflt)
+		}
+		at := text.FindRun(s, run, last)
+		if at < 0 {
+			return locatorAnswer(-1, dflt)
+		}
+		return locatorAnswer(text.TextRuneCount(s[:at]), dflt)
 	}
 
 	enc, isElement, err := runesEncodeMatchArg(name, needle)
@@ -155,8 +169,10 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 		return Undefined, seq.ErrNotOneElement(name)
 	}
 	idx := -1
-	for i, e := range elems {
-		if RuneValue(e).Equal(needle) {
+	for off, i := 0, 0; off < len(s); i++ {
+		r, w := text.TextFirst(s[off:])
+		off += w
+		if r == enc[0] {
 			idx = i
 			if !last {
 				break
@@ -373,35 +389,51 @@ func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) (Val
 	return newStringValueCounted(s[octets:], int64(v.Data)-int64(symbols)), nil
 }
 
-// stringReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); each
-// argument is read on its own, an element being a run of one. The name is the member called, for the errors.
-func stringReplaced(name string, v Value, args []Value) ([]rune, error) {
+// stringReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]),
+// leftmost and non-overlapping; each argument is read on its own, an element being a run of one; an empty old
+// matches nothing. A valid-UTF-8 old is strings.ReplaceAll (a valid run's octet matches are its symbol matches);
+// one holding octet escapes is rebuilt symbol by symbol. The replacement needs no validity: its text is appended
+// as is — building joins octets, so it may complete a sequence with its neighbours, as any string building does —
+// and the result is recounted. The name is the member called, for the errors.
+// PURE by contract.
+func stringReplaced(name string, v Value, args []Value) (Value, error) {
 	if len(args) != 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 	}
 	if args[0].IsCallable() || args[1].IsCallable() {
-		return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
 	}
-	old, _, err := runesEncodeMatchArg(name, args[0])
+	old, _, matchable, err := textMatchArg(name, args[0])
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
-	repl, _, err := runesEncodeMatchArg(name, args[1])
+	repl, _, _, err := textMatchArg(name, args[1]) // new is appended as text: building joins octets
 	if err != nil {
-		return nil, err
+		return Undefined, err
 	}
-	elems := text.DecodeText(*(*string)(v.Ptr))
-	out := make([]rune, 0, len(elems))
-	for i := 0; i < len(elems); {
-		if len(old) > 0 && i+len(old) <= len(elems) && slices.Equal(elems[i:i+len(old)], old) {
-			out = append(out, repl...)
-			i += len(old)
-		} else {
-			out = append(out, elems[i])
-			i++
+	if !matchable {
+		return v, nil // an old run that can never occur in a string: nothing to replace
+	}
+	s := *(*string)(v.Ptr)
+	if len(old) == 0 {
+		return v, nil
+	}
+	if text.TextIsValid(old) {
+		return NewStringValue(strings.ReplaceAll(s, old, repl)), nil
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		if o, _, ok := text.PrefixRun(s[i:], old); ok {
+			b.WriteString(repl)
+			i += o
+			continue
 		}
+		_, w := text.TextFirst(s[i:])
+		b.WriteString(s[i : i+w])
+		i += w
 	}
-	return out, nil
+	return NewStringValue(b.String()), nil
 }
 
 // stringPadded answers the receiver filled at the front (start) or the end up to n symbols; a width at or below the

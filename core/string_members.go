@@ -433,11 +433,7 @@ func stringRemoveSuffix(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 // stringReplace is replace(...): every occurrence of old replaced by new.
 // PURE by contract
 func stringReplace(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
-	out, err := stringReplaced("replace", v, args)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(text.EncodeText(out)), nil
+	return stringReplaced("replace", v, args)
 }
 
 // stringPadStart is pad_start(...): filled at the front up to n elements.

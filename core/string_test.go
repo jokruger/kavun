@@ -148,8 +148,7 @@ func TestStringMembersAgreeWithRunes(t *testing.T) {
 
 // TestStringMembersDoNotDecodeReceiver pins the performance contract of the in-place string members: no
 // allocation proportional to the receiver. What remains is the result — one *string header behind Value.Ptr for a
-// substring, the run set for a match member — never a decoded copy of the receiver. A row whose member still
-// decodes names the task that converts it and its count today (plain build), and is skipped until then.
+// substring, the run set for a match member — never a decoded copy of the receiver.
 func TestStringMembersDoNotDecodeReceiver(t *testing.T) {
 	s := core.NewStringValue("abcdef")
 	padded := core.NewStringValue("  abcdef  ")
@@ -162,35 +161,30 @@ func TestStringMembersDoNotDecodeReceiver(t *testing.T) {
 		recv   core.Value
 		args   []core.Value
 		allocs float64
-		task   int     // the plan task that converts the member; 0 once it reads in place
-		today  float64 // the count before that task
 	}{
-		{"has_prefix", members.HasPrefix, s, ab, 0, 0, 0},
-		{"has_suffix", members.HasSuffix, s, ab, 0, 0, 0},
-		{"remove_prefix hit", members.RemovePrefix, s, ab, 1, 0, 0},
-		{"remove_prefix miss", members.RemovePrefix, s, zz, 0, 0, 0},
-		{"remove_suffix miss", members.RemoveSuffix, s, zz, 0, 0, 0},
-		{"first", members.First, s, nil, 0, 0, 0},
-		{"last", members.Last, s, nil, 0, 0, 0},
-		{"trim no-op", members.Trim, s, nil, 0, 0, 0},
-		{"trim", members.Trim, padded, nil, 1, 0, 0},
-		{"trim_start", members.TrimStart, padded, nil, 1, 0, 0},
-		{"trim_end", members.TrimEnd, padded, nil, 1, 0, 0},
-		{"pad_start no-op", members.PadStart, s, []core.Value{core.IntValue(3)}, 0, 0, 0},
-		{"pad_start", members.PadStart, s, []core.Value{core.IntValue(10)}, 2, 0, 0},
-		{"pad_end", members.PadEnd, s, []core.Value{core.IntValue(10)}, 2, 0, 0},
-		{"contains", members.Contains, s, cd, 1, 0, 0},
-		{"count", members.Count, s, cd, 1, 0, 0},
-		{"index", members.Index, s, cd, 0, 11, 2},
-		{"index_last", members.IndexLast, s, cd, 0, 11, 2},
-		{"replace miss", members.Replace, s, []core.Value{core.NewStringValue("zz"), core.NewStringValue("x")}, 1, 12, 6},
-		{"replace", members.Replace, s, []core.Value{core.NewStringValue("cd"), core.NewStringValue("x")}, 2, 12, 6},
+		{"has_prefix", members.HasPrefix, s, ab, 0},
+		{"has_suffix", members.HasSuffix, s, ab, 0},
+		{"remove_prefix hit", members.RemovePrefix, s, ab, 1},
+		{"remove_prefix miss", members.RemovePrefix, s, zz, 0},
+		{"remove_suffix miss", members.RemoveSuffix, s, zz, 0},
+		{"first", members.First, s, nil, 0},
+		{"last", members.Last, s, nil, 0},
+		{"trim no-op", members.Trim, s, nil, 0},
+		{"trim", members.Trim, padded, nil, 1},
+		{"trim_start", members.TrimStart, padded, nil, 1},
+		{"trim_end", members.TrimEnd, padded, nil, 1},
+		{"pad_start no-op", members.PadStart, s, []core.Value{core.IntValue(3)}, 0},
+		{"pad_start", members.PadStart, s, []core.Value{core.IntValue(10)}, 2},
+		{"pad_end", members.PadEnd, s, []core.Value{core.IntValue(10)}, 2},
+		{"contains", members.Contains, s, cd, 1},
+		{"count", members.Count, s, cd, 1},
+		{"index", members.Index, s, cd, 0},
+		{"index_last", members.IndexLast, s, cd, 0},
+		{"replace miss", members.Replace, s, []core.Value{core.NewStringValue("zz"), core.NewStringValue("x")}, 1},
+		{"replace", members.Replace, s, []core.Value{core.NewStringValue("cd"), core.NewStringValue("x")}, 2},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.task != 0 {
-				t.Skipf("turns green in Task %d; today %v allocs", c.task, c.today)
-			}
 			got := testing.AllocsPerRun(200, func() {
 				if _, err := c.recv.CallMember(nil, c.id, c.name, c.args); err != nil {
 					t.Fatal(err)
