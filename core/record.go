@@ -181,10 +181,10 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
 }
 
-// deep=true recursively copies every value (today's copy() semantics); deep=false only clones the top-level
-// map header, leaving nested containers sharing the source (copy_shallow()). record has no CallNamedMethod switch
-// (see P14/function-matrix.md), so neither is reachable as a member call — only via the free copy() builtin,
-// which dispatches here through the Value.Copy hook regardless.
+// deep=true recursively copies every value (copy()); deep=false only clones the top-level map header, leaving
+// nested containers sharing the source (copy_shallow()). record has no member surface (docs/types/record.md), so
+// neither is reachable as a member call — only via the free copy()/copy_shallow() builtins, through the
+// Value.Copy hook.
 func recordTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Record)(v.Ptr)
 	c := make(map[string]Value, len(o.Elements))
@@ -204,12 +204,11 @@ func recordTypeCopy(v Value, deep bool) (Value, error) {
 	return NewRecordValue(c, false), nil
 }
 
-// RecordToDict converts a record to a dict. share=true reuses the record's own map directly (dict_view(record_val)
-// — the explicit performance opt-in, today's original dict(record_val) behavior preserved under the new name);
-// share=false (dict(record_val)) builds an independent shallow copy — a new top-level map, elements copied by
-// reference (not recursively cloned), matching every other type's own `.dict()` conversion. Only ever reached
-// via the free `dict`/`dict_view` constructors: record has no `CallNamedMethod` switch (see P14), so there is no
-// `record_val.dict()` member form and never was.
+// RecordToDict converts a record to a dict. share=true reuses the record's own map directly (dict_view(record_val),
+// the explicit sharing opt-in); share=false (dict(record_val)) builds an independent shallow copy — a new
+// top-level map, elements copied by reference (not recursively cloned), matching every other type's own `.dict()`
+// conversion. Only reached via the free `dict`/`dict_view` constructors: record has no member surface
+// (docs/types/record.md), so there is no `record_val.dict()` member form.
 func RecordToDict(v Value, share bool) Value {
 	o := (*Record)(v.Ptr)
 	if share {

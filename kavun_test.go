@@ -1610,12 +1610,12 @@ func TestRunesMutability(t *testing.T) {
 	// immutable rejects writes
 	expectError(t, `r := freeze(runes("abc")); r[0] = 'X'`, nil, "not_assignable: type immutable-runes does not support assignment via indexing or field access")
 
-	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
-	// regardless of the source's mutability — same convention as copy() (see below)
+	// slice always produces a fresh independent buffer, so it is mutable regardless of the source's
+	// mutability — same convention as copy() (see below)
 	expectRun(t, `out = type_name(freeze(runes("abcd"))[1:3])`, nil, "runes")
-	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
+	// a stepped slice is a fresh independent buffer too, so it is mutable
 	expectRun(t, `out = type_name(freeze(runes("abcd"))[::-1])`, nil, "runes")
-	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
+	// slice_view() is the explicit opt-in for sharing, so it propagates immutability
 	expectRun(t, `out = type_name(freeze(runes("abcd")).slice_view(1, 3))`, nil, "immutable-runes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(runes("abcd")[1:3])`, nil, "runes")
@@ -1948,8 +1948,8 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, 4].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
 	expectRun(t, `out = [1, 2, 3, 4, 5].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}, ARR{5}})
 	expectRun(t, `out = [1, 2, 3].chunk(10)`, nil, ARR{ARR{1, 2, 3}})
-	// chunk() always copies now (P4-002, closing P01/P02) — its `copy` bool parameter is retired; chunk_view()
-	// is the explicit opt-in for sharing (see TestMemberFunctionSliceViewChunkView).
+	// chunk() always copies and takes no `copy` flag; chunk_view() is the explicit opt-in for sharing (see
+	// TestMemberFunctionSliceViewChunkView).
 	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
 	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
 	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
@@ -3105,12 +3105,12 @@ func TestBytesMutability(t *testing.T) {
 	// immutable rejects writes
 	expectError(t, `b := freeze(bytes("abc")); b[0] = 'X'`, nil, "not_assignable: type immutable-bytes does not support assignment via indexing or field access")
 
-	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
-	// regardless of the source's mutability — same convention as copy() (see below)
+	// slice always produces a fresh independent buffer, so it is mutable regardless of the source's
+	// mutability — same convention as copy() (see below)
 	expectRun(t, `out = type_name(freeze(bytes("abcd"))[1:3])`, nil, "bytes")
-	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
+	// a stepped slice is a fresh independent buffer too, so it is mutable
 	expectRun(t, `out = type_name(freeze(bytes("abcd"))[::-1])`, nil, "bytes")
-	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
+	// slice_view() is the explicit opt-in for sharing, so it propagates immutability
 	expectRun(t, `out = type_name(freeze(bytes("abcd")).slice_view(1, 3))`, nil, "immutable-bytes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(bytes("abcd")[1:3])`, nil, "bytes")
@@ -4379,16 +4379,15 @@ func TestBuiltinFunctionCopy(t *testing.T) {
 	expectError(t, `copy(1, 2)`, nil, "wrong_num_arguments")
 }
 
-// TestMemberFunctionCopyShallow checks P3-002's copy_shallow(): top-level container is independent (same
-// assertion as copy()'s existing deep-clone behavior), but nested containers still alias the source (the
-// opposite assertion) — for every type family that has a real deep/shallow distinction (array, dict, error),
-// plus confirms copy()'s own deep-clone behavior still holds after the Clone->Copy(deep bool) hook refactor,
-// and that types with no nested Values (bytes/runes/scalars) treat copy_shallow identically to copy.
+// TestMemberFunctionCopyShallow checks copy_shallow(): the top-level container is independent (same assertion as
+// copy()'s), but nested containers still alias the source (the opposite assertion) — on the types where elements
+// can be containers (array, dict) — and that copy() stays fully deep. Types whose elements cannot be containers
+// (error, bytes, runes, string, scalars) have no copy_shallow member at all.
 func TestMemberFunctionCopyShallow(t *testing.T) {
 	// array: top-level independent, nested shared
 	expectRun(t, `a := [1, 2, 3]; b := a.copy_shallow(); b[0] = 99; out = a`, nil, ARR{1, 2, 3})
 	expectRun(t, `a := [[1, 2], [3, 4]]; b := a.copy_shallow(); b[0][0] = 99; out = a[0][0]`, nil, 99)
-	// array: copy() stays fully deep after the refactor
+	// array: copy() is fully deep
 	expectRun(t, `a := [[1, 2], [3, 4]]; b := a.copy(); b[0][0] = 99; out = a[0][0]`, nil, 1)
 
 	// dict: top-level independent, nested shared
@@ -4406,30 +4405,29 @@ func TestMemberFunctionCopyShallow(t *testing.T) {
 	expectError(t, `bytes("abc").copy_shallow()`, nil, "invalid_method")
 	expectError(t, `runes("abc").copy_shallow()`, nil, "invalid_method")
 
-	// scalars and string have no _shallow twin any more: nothing to observe
+	// scalars and string have no _shallow twin: nothing to observe
 	expectError(t, `(5).copy_shallow()`, nil, "invalid_method")
 	expectError(t, `"x".copy_shallow()`, nil, "invalid_method")
 
 	// arity errors, mirroring copy()'s
 	expectError(t, `[1, 2, 3].copy_shallow(1)`, nil, "wrong_num_arguments")
 	expectError(t, `dict({}).copy_shallow(1)`, nil, "wrong_num_arguments")
-	expectError(t, `bytes("x").copy_shallow(1)`, nil, "invalid_method") // the twin left this type
+	expectError(t, `bytes("x").copy_shallow(1)`, nil, "invalid_method") // no twin on this type
 	expectError(t, `runes("x").copy_shallow(1)`, nil, "invalid_method")
 	expectError(t, `error("x").copy_shallow(1)`, nil, "invalid_method")
 	expectError(t, `(5).copy_shallow(1)`, nil, "invalid_method")
 
-	// record has no member functions at all (see P14/function-matrix.md) — copy_shallow is deliberately not
-	// reachable on it, same as copy() today.
+	// record has no member surface (docs/types/record.md) — copy_shallow is deliberately not reachable on it,
+	// same as copy().
 	expectError(t, `{}.copy_shallow()`, nil, "type record has no method copy_shallow")
 }
 
-// TestMemberFunctionSliceViewChunkView checks P3-003's slice_view()/chunk_view()/is_view(): both _view twins
-// reproduce today's two-part-slice/chunk sharing behavior exactly (same assertion style as the existing
-// aliasing tests for `a[i:j]` and `chunk(size)`), and is_view() reports true only for values actually produced
-// by one of the two _view constructors — not for plain values, not for copy()'d values, and (deliberately, for
-// now — see ROADMAP.md P4-002) not for chunk()'s own still-sharing default either.
+// TestMemberFunctionSliceViewChunkView checks slice_view()/chunk_view() and the is_view() builtin: both _view
+// twins share backing storage with the receiver (where a[i:j], slice() and chunk() copy), and is_view() reports
+// true only for values actually produced by a _view constructor — not for plain values, not for copy()'d
+// values, and not for chunk()'s copied chunks.
 func TestMemberFunctionSliceViewChunkView(t *testing.T) {
-	// slice_view: shares backing storage, same as a[i:j] does today
+	// slice_view: shares backing storage
 	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice_view(1, 3); b[0] = 99; out = a[1]`, nil, 99)
 	expectRun(t, `a := [1, 2, 3]; b := a.slice_view(); b[0] = 99; out = a[0]`, nil, 99)
 	expectRun(t, `a := [1, 2, 3, 4, 5]; out = a.slice_view(1, 3) == a[1:3]`, nil, true)
@@ -4453,7 +4451,7 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectRun(t, `out = is_view(runes("abc").slice_view(0, 1))`, nil, true)
 	expectError(t, `is_view()`, nil, "wrong_num_arguments")
 
-	// chunk_view: shares backing storage per-chunk, same as chunk(size) does today (chunk_view takes no bool arg)
+	// chunk_view: shares backing storage per chunk (and, like chunk(), takes no bool arg)
 	expectRun(t, `a := [1, 2, 3, 4]; c := a.chunk_view(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3, 4})
 	expectRun(t, `out = [1, 2, 3, 4].chunk_view(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
 	expectRun(t, `out = is_view([1, 2, 3, 4].chunk_view(2)[0])`, nil, true)
@@ -4463,8 +4461,7 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectRun(t, `out = bytes("hello").chunk_view(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
 	expectRun(t, `out = u"hello".chunk_view(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
 
-	// today's chunk()/its default (no bool, or explicit false) already shares storage, same as chunk_view, but
-	// is deliberately NOT tagged is_view() yet — that rename is P4-002's job, not this step's (see ROADMAP.md).
+	// chunk() copies, so its chunks are not views
 	expectRun(t, `out = is_view([1, 2, 3, 4].chunk(2)[0])`, nil, false)
 
 	// dict/record are map-shaped, not Seq-shaped — no slice/chunk concept, so none of these exist there.
@@ -4559,11 +4556,11 @@ s[1] = 77
 out = [is_view(f), is_immutable(f), f]`, nil, ARR{false, true, ARR{2, 3}})
 }
 
-// TestMemberFunctionFreeze checks P3-004's freeze()/freeze_shallow(): freeze() always detaches first (deep
-// copy + deep immutable-marking of the fresh, not-yet-observable clone) so it never affects the source or any
-// existing alias into it; freeze_shallow() skips the detach (today's ToImmutable(), now also member-callable)
-// and so does NOT protect the frozen reference's shared body from another still-mutable alias into the same
-// data — that's the documented danger motivating freeze() as the safe default.
+// TestMemberFunctionFreeze checks freeze()/freeze_shallow(): freeze() always detaches first (deep copy + deep
+// immutable-marking of the fresh, not-yet-observable clone) so it never affects the source or any existing alias
+// into it; freeze_shallow() skips the detach (Value.ToImmutable()) and so does NOT protect the frozen
+// reference's shared body from another still-mutable alias into the same data — that's the documented danger
+// motivating freeze() as the safe default.
 func TestMemberFunctionFreeze(t *testing.T) {
 	// freeze(): detaches, so the source and any pre-existing alias are unaffected
 	expectRun(t, `a := [1, 2, 3]; f := a.freeze(); out = is_immutable(f)`, nil, true)
@@ -4576,8 +4573,8 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	expectError(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); f[0][0] = 99`, nil, "not_assignable")
 	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); a[0][0] = 99; out = f[0][0]`, nil, 1)
 
-	// freeze_shallow(): today's ToImmutable(), now member-callable; requires reassignment to affect the
-	// caller's own variable, same as every other member method in this language
+	// freeze_shallow(): answers a new immutable header (Value.ToImmutable()); requires reassignment to affect
+	// the caller's own variable, same as every other non-mutating member in this language
 	expectRun(t, `a := [1, 2, 3]; a = a.freeze_shallow(); out = is_immutable(a)`, nil, true)
 	expectError(t, `a := [1, 2, 3]; a = a.freeze_shallow(); a[0] = 99`, nil, "not_assignable")
 
@@ -4587,7 +4584,7 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_shallow(); out = is_immutable(b)`, nil, false)
 	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_shallow(); b[0] = 99; out = a[0]`, nil, 99)
 
-	// copy_shallow().freeze_shallow() composes to the "shallow freeze" Rule 6 says needs no third name:
+	// copy_shallow().freeze_shallow() composes to a "shallow freeze", which therefore needs no third name:
 	// top level detached and frozen, nested structure still shared with (and mutable through) the source.
 	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_shallow(); out = is_immutable(f)`, nil, true)
 	expectError(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_shallow(); f[0] = [9, 9]`, nil,
@@ -4610,26 +4607,24 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	expectError(t, `[1, 2, 3].freeze(1)`, nil, "wrong_num_arguments")
 	expectError(t, `[1, 2, 3].freeze_shallow(1)`, nil, "wrong_num_arguments")
 	expectError(t, `dict({}).freeze(1)`, nil, "wrong_num_arguments")
-	expectError(t, `bytes("x").freeze_shallow(1)`, nil, "invalid_method") // the twin left this type
+	expectError(t, `bytes("x").freeze_shallow(1)`, nil, "invalid_method") // no twin on this type
 	expectError(t, `runes("x").freeze(1)`, nil, "wrong_num_arguments")
 	expectError(t, `error("x").freeze_shallow(1)`, nil, "invalid_method")
 	expectError(t, `(5).freeze(1)`, nil, "wrong_num_arguments")
 
-	// record has no member functions at all (see P14/function-matrix.md) — freeze/freeze_shallow have no
-	// member-call form on it, same as copy()/copy_shallow() today; see TestBuiltinFunctionFreeze/
-	// TestBuiltinFunctionFreezeShallow for record's free-function path (added 2026-08-17).
+	// record has no member surface (docs/types/record.md) — freeze/freeze_shallow have no member-call form
+	// on it, same as copy()/copy_shallow(); see TestBuiltinFunctionFreeze/TestBuiltinFunctionFreezeShallow for
+	// record's free-function path.
 	expectError(t, `{}.freeze()`, nil, "type record has no method freeze")
 	expectError(t, `{}.freeze_shallow()`, nil, "type record has no method freeze_shallow")
 }
 
-// TestSliceCopyByDefault checks P4-002's flip: the `a[i:j]` operator and the new `.slice(start, end)` member
-// function (Rule 10's "slice gets a real member-function name too") both now produce an independently-owned
-// copy, closing P01/P02 (the one confirmed engine-level bug in the whole redesign) — mutating through either
-// side no longer affects the other, matching copy()'s existing convention exactly (including that the result
-// is always mutable, regardless of the source's mutability). slice_view() (P3-003) is unaffected and remains
-// the explicit opt-in for the old sharing behavior.
+// TestSliceCopyByDefault checks that the `a[i:j]` operator and its member spelling `.slice(start, end)` both
+// produce an independently-owned copy — mutating through either side does not affect the other, matching
+// copy()'s convention exactly (including that the result is always mutable, regardless of the source's
+// mutability). slice_view() is the explicit opt-in for sharing.
 func TestSliceCopyByDefault(t *testing.T) {
-	// a[i:j] operator: no longer shares storage
+	// a[i:j] operator: does not share storage
 	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a[1:3]; b[0] = 99; out = a[1]`, nil, 2)
 	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a[1:3]; a[1] = 99; out = b[0]`, nil, 2)
 	expectRun(t, `b := bytes("hello")[1:3]; b[0] = 'X'; out = bytes("hello")[1:3]`, nil, []byte("el"))
@@ -4655,7 +4650,7 @@ func TestSliceCopyByDefault(t *testing.T) {
 	expectRun(t, `out = is_view([1, 2, 3][1:2])`, nil, false)
 	expectRun(t, `out = is_view([1, 2, 3].slice(1, 2))`, nil, false)
 
-	// slice_view() is unaffected: still the explicit opt-in for sharing
+	// slice_view() is the explicit opt-in for sharing
 	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice_view(1, 3); b[0] = 99; out = a[1]`, nil, 99)
 }
 
@@ -5005,9 +5000,9 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec ".2f"`)
 }
 
-// TestBuiltinFunctionDelete checks the free remove() builtin, kept alive specifically because record has no
-// member functions at all (see P14/function-matrix.md) — remove() is the only way to remove a key from a
-// record. remove() is pure now (P4-004/P4-005): it never mutates the receiver, works regardless of the
+// TestBuiltinFunctionDelete checks the free remove() builtin — record has no member surface
+// (docs/types/record.md), so remove() is the only way to remove a key from a record. remove() is pure: it never
+// mutates the receiver, works regardless of the
 // receiver's mutability, and requires reassignment to see its effect on the caller's own variable, same as
 // every other member/builtin in this language. See TestBuiltinFunctionDeleteInPlace for the mutating twin.
 func TestBuiltinFunctionDelete(t *testing.T) {
@@ -5043,8 +5038,8 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 	expectRun(t, `d := dict({key1: 1}); remove(d, "key1"); out = d`, nil, MAP{"key1": 1})
 }
 
-// TestBuiltinFunctionDeleteInPlace checks the free remove_in_place() builtin — the mutating twin, added
-// alongside pure remove() in P4-004/P4-005. Same arity/type-error surface as remove(), but mutates the
+// TestBuiltinFunctionDeleteInPlace checks the free remove_in_place() builtin — the mutating twin of pure
+// remove(). Same arity/type-error surface as remove(), but mutates the
 // receiver directly and rejects an immutable receiver (unlike the pure form).
 func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectError(t, `remove_in_place()`, nil, "wrong_num_arguments: (remove_in_place) expected 2 argument(s), got 0")
@@ -5065,9 +5060,8 @@ func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectRun(t, `d := dict({key1: 1}); remove_in_place(d, "key1"); out = d`, nil, MAP{})
 }
 
-// TestBuiltinFunctionFreeze checks the free freeze() builtin, added 2026-08-17 specifically because record has
-// no member functions at all (see P14/function-matrix.md) — before this, a record could not be frozen by any
-// spelling, member-call or free-function. freeze() is pure: detaches first (deep copy), then marks the fresh
+// TestBuiltinFunctionFreeze checks the free freeze() builtin — record's only way to be frozen, since record has
+// no member surface (docs/types/record.md). freeze() is pure: detaches first (deep copy), then marks the fresh
 // clone immutable throughout, so the source and any pre-existing alias are unaffected. See
 // TestBuiltinFunctionFreezeShallow for its shallow, no-detach twin.
 func TestBuiltinFunctionFreeze(t *testing.T) {
@@ -5114,9 +5108,9 @@ func TestBuiltinFunctionFreezeShallow(t *testing.T) {
 	expectError(t, `freeze_shallow(5)`, nil, "invalid_argument_type: (freeze_shallow) argument first expects type array, dict, or record") // twins only where observable
 }
 
-// TestRetiredFreeBuiltins confirms append()/splice() were retired outright (P4-005), not deprecated: calling
-// either as a free function is a compile-time error, with no fallback behavior. copy()/copy_shallow()/remove()/
-// remove_in_place() were kept as free functions instead (see P4-003's decision) — confirmed still callable.
+// TestRetiredFreeBuiltins confirms append()/splice() exist only as members: calling either as a free function is
+// a compile-time error. copy()/copy_shallow()/remove()/remove_in_place() are free functions — record has no
+// member surface, so they are its only spellings.
 func TestRetiredFreeBuiltins(t *testing.T) {
 	expectError(t, `out = append([1, 2, 3], 4)`, nil, "unresolved reference 'append'")
 	expectError(t, `out = splice([1, 2, 3], 0)`, nil, "unresolved reference 'splice'")
@@ -5127,31 +5121,30 @@ func TestRetiredFreeBuiltins(t *testing.T) {
 	expectRun(t, `r := {a: 1}; remove_in_place(r, "a"); out = r`, nil, MAP{})
 }
 
-// TestDictRecordConversionViews checks P19's resolution: dict.record()/dict(record_val) now build an
-// independent shallow copy (matching every other type's own .record()/.dict() conversion), and the new
-// dict.record_view()/dict_view(record_val)/record(dict_val)/record_view(dict_val) family covers the pure
-// (copy) vs _view (share) split symmetrically in both directions. record()/record_view()/dict_view() are new
-// free constructors (record has no CallNamedMethod switch, so record()/record_view() are its only spellings;
-// dict_view() completes the family alongside the pre-existing dict()).
+// TestDictRecordConversionViews checks the dict<->record conversions: dict.record()/dict(record_val) build an
+// independent shallow copy (matching every other type's own .record()/.dict() conversion), and
+// dict.record_view()/dict_view(record_val)/record(dict_val)/record_view(dict_val) cover the copy vs _view
+// (share) split symmetrically in both directions. record has no member surface, so record()/record_view() are
+// its only spellings.
 func TestDictRecordConversionViews(t *testing.T) {
-	// dict.record(): now an independent SHALLOW copy — same convention as array/bytes/runes/string's own
+	// dict.record(): an independent SHALLOW copy — same convention as array/bytes/runes/string's own
 	// .record() conversions. Top-level key set is independent; nested containers are still shared (shallow,
-	// not deep) — same shape already established for copy_shallow().
+	// not deep) — same shape as copy_shallow().
 	expectRun(t, `d := dict({a: 1}); r := d.record(); r.b = 2; out = d`, nil, MAP{"a": 1}) // top level independent
 	expectRun(t, `d := dict({a: 1}); r := d.record(); d["c"] = 3; out = r`, nil, MAP{"a": 1})
 	expectRun(t, `d := dict({a: [1, 2]}); r := d.record(); r.a[0] = 99; out = d["a"][0]`, nil, 99) // nested shared
 	expectRun(t, `out = dict({a: 1, b: 2}).record()`, nil, MAP{"a": 1, "b": 2})
 
-	// dict.record_view(): the explicit full-sharing opt-in — today's original dict.record() behavior. Top
-	// level and nested are both the same underlying map, so both directions of mutation are visible.
+	// dict.record_view(): the explicit full-sharing opt-in. Top level and nested are both the same
+	// underlying map, so both directions of mutation are visible.
 	expectRun(t, `d := dict({a: 1}); r := d.record_view(); r.b = 2; out = d`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `d := dict({a: 1}); r := d.record_view(); d["c"] = 3; out = r`, nil, MAP{"a": 1, "c": 3})
 	expectRun(t, `d := dict({a: [1, 2]}); r := d.record_view(); r.a[0] = 99; out = d["a"][0]`, nil, 99)
 	expectRun(t, `out = type_name(freeze_shallow(dict({a: 1})).record_view())`, nil, "immutable-record")
 	expectRun(t, `out = type_name(freeze_shallow(dict({a: 1})).record())`, nil, "record") // copy: always mutable
 
-	// free dict(record_val): now an independent shallow copy too (P19 fix; same shape as .record() above,
-	// opposite direction)
+	// free dict(record_val): an independent shallow copy too (same shape as .record() above, opposite
+	// direction)
 	expectRun(t, `r := {a: 1}; d := dict(r); d["b"] = 2; out = r`, nil, MAP{"a": 1})
 	expectRun(t, `r := {a: [1, 2]}; d := dict(r); d["a"][0] = 99; out = r.a[0]`, nil, 99) // nested still shared
 
@@ -5265,11 +5258,9 @@ func TestSameTypeConversionConstructs(t *testing.T) {
 	expectError(t, `dict(dict({a: 1}), 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
 }
 
-// TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin, renamed from what used
-// to be the only splice()/free splice() behavior (P4-004/P4-005: splice is member-only now, and splice() itself
-// is pure — see TestMemberFunctionAppendDeleteSplice for that side). The "argument first expects type array"
-// error family from the old free-function form is gone: a member receiver is already guaranteed to be an array
-// by dispatch, so that failure mode isn't reachable this way anymore.
+// TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin of pure splice() (see
+// TestMemberFunctionAppendDeleteSplice for that side). splice is member-only, so the receiver is guaranteed to
+// be an array by dispatch and no "argument first expects type array" failure is reachable.
 func TestMemberFunctionSpliceInPlace(t *testing.T) {
 	expectError(t, `[].splice_in_place("str")`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got string`)
 	expectError(t, `[].splice_in_place(bytes("str"))`, nil, `invalid_argument_type: (splice_in_place) argument first expects type int, got bytes`)
@@ -5335,11 +5326,9 @@ func TestMemberFunctionSpliceInPlace(t *testing.T) {
 		out = [res, v]`, nil, ARR{ARR{"a", "d", "e", "c"}, ARR{"a", "d", "e", "c"}})
 }
 
-// TestMemberFunctionAppendDeleteSplice checks that the new member-call spellings for append/delete/splice
-// (P3-001) produce results identical to the existing builtin forms — a new spelling, no behavior change. The
-// append() cases were rewritten for P12/P5-001: append() is now pure/copy-default on all three types (was
-// Go-style/capacity-dependent for array only), 0 items is a legal no-op that still returns an independent copy,
-// and works regardless of the receiver's mutability — see TestMemberFunctionAppendInPlace for the mutating twin.
+// TestMemberFunctionAppendDeleteSplice checks the pure append/remove/splice members. append() copies on
+// array/bytes/runes alike: 0 items is a legal no-op that still returns an independent copy, and it works
+// regardless of the receiver's mutability — see TestMemberFunctionAppendInPlace for the mutating twin.
 func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	// append: array/bytes/runes
 	expectRun(t, `a := [1, 2, 3]; out = a.append(4) == a.append(4)`, nil, true)
@@ -5399,26 +5388,26 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectError(t, `{}.remove("x")`, nil, "type record has no method remove")
 	expectError(t, `{}.remove_in_place("x")`, nil, "type record has no method remove_in_place")
 
-	// splice: array (bytes/runes generalized in P5-002 — see TestMemberFunctionSpliceBytesRunes). splice() is
-	// pure now (P4-004/P4-005): returns the modified array, doesn't mutate the receiver, doesn't return the
-	// deleted items, and works regardless of the receiver's mutability. splice_in_place() is the mutating twin,
-	// returning deleted items — see TestMemberFunctionSpliceInPlace.
+	// splice: array (bytes/runes — see TestMemberFunctionSpliceBytesRunes). splice() is pure: returns the
+	// modified array, doesn't mutate the receiver, doesn't return the deleted items, and works regardless of the
+	// receiver's mutability. splice_in_place() is the mutating twin, returning the mutated receiver — see
+	// TestMemberFunctionSpliceInPlace.
 	expectRun(t, `v := [1, 2, 3]; result := v.splice(0, 1); out = [result, v]`, nil, ARR{ARR{2, 3}, ARR{1, 2, 3}})
 	expectRun(t, `v := [1, 2, 3]; result := v.splice(1, 0, "a", "b");
 		out = [result, v]`, nil, ARR{ARR{1, "a", "b", 2, 3}, ARR{1, 2, 3}})
-	expectRun(t, `out = [1, 2, 3].splice(0, 1) == [1, 2, 3].splice_in_place(0, 1)`, nil, true) // the twins correspond now
+	expectRun(t, `out = [1, 2, 3].splice(0, 1) == [1, 2, 3].splice_in_place(0, 1)`, nil, true) // the twins correspond
 	expectRun(t, `out = freeze_shallow([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})               // pure: works on immutable too
 	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: (splice) delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
 }
 
-// TestMemberFunctionAppendInPlace checks append_in_place() (P12/P5-001) — the mutating twin added alongside
-// append()'s new pure/copy-default behavior on all three Seq-shaped types. It mutates the receiver's own shared
-// struct directly (via Seq.Set), so the mutation is visible through every existing alias without needing
-// reassignment — unlike freeze_shallow(), whose Immutable flag lives on the Value header rather than behind
-// Ptr (see TestMemberFunctionFreeze). Today's old array.append's capacity-dependent reuse-vs-reallocate detail
-// is Go-internal and not itself asserted here (it's not part of the language contract) — only the guaranteed,
-// deterministic behavior (shared-struct mutation, immutable-receiver rejection, 0-arg no-op) is.
+// TestMemberFunctionAppendInPlace checks append_in_place() — the mutating twin of pure append() on
+// array/bytes/runes. It mutates the receiver's own shared struct directly (via the type's Set), so the mutation
+// is visible through every existing alias without needing reassignment — unlike freeze_shallow(), whose
+// Immutable flag lives on the Value header rather than behind Ptr (see TestMemberFunctionFreeze). Whether the
+// backing storage is reused or reallocated is Go-internal and not asserted here (it's not part of the language
+// contract) — only the guaranteed, deterministic behavior (shared-struct mutation, immutable-receiver
+// rejection, 0-arg no-op) is.
 func TestMemberFunctionAppendInPlace(t *testing.T) {
 	// array
 	expectRun(t, `a := [1, 2, 3]; a.append_in_place(4); out = a`, nil, ARR{1, 2, 3, 4})
@@ -5428,7 +5417,7 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectError(t, `freeze_shallow([1, 2, 3]).append_in_place(4)`, nil,
 		"not_mutable: (append_in_place) type immutable-array is immutable")
 
-	// bytes — genuinely new capability (P12): no mutating/sharing append form existed for bytes before this
+	// bytes
 	expectRun(t, `a := bytes("ab"); a.append_in_place('c'); out = a`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); a.append_in_place(); out = a`, nil, []byte("ab"))
@@ -10441,8 +10430,8 @@ func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 }
 
 func TestSplice_OnConstArray_Errors(t *testing.T) {
-	// splice() is pure now (P4-004/P4-005) and works regardless of receiver mutability; splice_in_place() is
-	// the twin that still requires a mutable receiver.
+	// splice() is pure and works regardless of receiver mutability; splice_in_place() is
+	// the twin that requires a mutable receiver.
 	expectError(t, `freeze_shallow([1,2,3]).splice_in_place(0)`, nil,
 		"not_mutable: (splice_in_place) type immutable-array is immutable")
 	expectRun(t, `out = freeze_shallow([1,2,3]).splice(0)`, nil, ARR{})

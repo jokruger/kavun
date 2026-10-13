@@ -1210,11 +1210,8 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 	})
 }
 
-// dict(x): 0 args -> empty dict. dict already a dict -> unchanged. dict(record) -> independent shallow copy
-// (P19: no longer shares storage with the source record). dict_view(record) is the explicit sharing opt-in.
-
 // dict_view(x): the `_view` twin of dict() — dict_view(record) shares backing storage with the source record
-// instead of copying (today's original dict(record) behavior, preserved under this new name; see P19).
+// where dict(record) builds an independent shallow copy.
 func builtinDictView(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
@@ -1235,10 +1232,6 @@ func builtinDictView(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("dict_view", "first", "dict or record", args[0].TypeName())
 	}
 }
-
-// record(x): 0 args -> empty record. record already a record -> unchanged. record(dict) -> independent shallow
-// copy, the same operation as dict_val.record(). Kept as a free function like dict() — record has no
-// CallNamedMethod switch (see P14), so this is also record's only reachable constructor-style spelling.
 
 // record_view(x): the `_view` twin of record() — record_view(dict) shares backing storage with the source dict
 // instead of copying, the same operation as dict_val.record_view().
