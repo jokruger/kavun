@@ -12,23 +12,23 @@ import (
 // hooks reach the module through moduleDefs[v.Type], never through Ptr, so an embedder factory may use Ptr.
 func moduleDescr() ValueTypeDescr {
 	d := DefaultValueType
-	d.Name = ConstHook("module")                                     // PURE by contract
-	d.String = moduleTypeString                                      // PURE by contract
-	d.Format = moduleTypeFormat                                      // PURE by contract
-	d.EncodeBinary = func(Value) ([]byte, error) { return nil, nil } // PURE by contract: the type byte is the module
-	d.DecodeBinary = moduleTypeDecodeBinary                          // IMPURE by contract (mutates target)
-	d.IsTrue = Const2Hook[bool, error](true, nil)                    // PURE by contract
-	d.Equal = moduleTypeEqual                                        // PURE by contract
-	d.Copy = func(v Value, _ bool) (Value, error) { return v, nil }  // PURE by contract
-	d.IsIterable = ConstHook(true)                                   // PURE by contract
-	d.Iterator = moduleTypeIterator                                  // PURE by contract (constructs fresh iterator)
-	d.Len = moduleTypeLen                                            // PURE by contract
-	d.Contains = moduleTypeContains                                  // PURE by contract
-	d.AccessNamedProperty = moduleTypeAccessNamedProperty            // PURE by contract
-	d.AssignNamedProperty = moduleTypeAssignNamedProperty            // IMPURE by contract (refuses: a module is read-only)
-	d.AssignIndex = moduleTypeAssignIndex                            // IMPURE by contract (refuses: a module is read-only)
-	d.CallNamedMethod = moduleTypeCallNamedMethod                    // METHOD-DEPENDENT by contract
-	d.IsNamedMethodPure = func(string) bool { return false }         // every member is in the table
+	d.Name = ConstHook("module")                                    // PURE by contract
+	d.String = moduleTypeString                                     // PURE by contract
+	d.Format = moduleTypeFormat                                     // PURE by contract
+	d.EncodeBinary = codeEncodeBinary                               // PURE by contract (refuses: code, not data)
+	d.DecodeBinary = codeDecodeBinary                               // IMPURE by contract (refuses: code, not data)
+	d.IsTrue = Const2Hook[bool, error](true, nil)                   // PURE by contract
+	d.Equal = moduleTypeEqual                                       // PURE by contract
+	d.Copy = func(v Value, _ bool) (Value, error) { return v, nil } // PURE by contract
+	d.IsIterable = ConstHook(true)                                  // PURE by contract
+	d.Iterator = moduleTypeIterator                                 // PURE by contract (constructs fresh iterator)
+	d.Len = moduleTypeLen                                           // PURE by contract
+	d.Contains = moduleTypeContains                                 // PURE by contract
+	d.AccessNamedProperty = moduleTypeAccessNamedProperty           // PURE by contract
+	d.AssignNamedProperty = moduleTypeAssignNamedProperty           // IMPURE by contract (refuses: a module is read-only)
+	d.AssignIndex = moduleTypeAssignIndex                           // IMPURE by contract (refuses: a module is read-only)
+	d.CallNamedMethod = moduleTypeCallNamedMethod                   // METHOD-DEPENDENT by contract
+	d.IsNamedMethodPure = func(string) bool { return false }        // every member is in the table
 	return d
 }
 
@@ -49,18 +49,6 @@ func moduleTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics("module", sp, fspec.AlignLeft), nil
 	}
 	return fspec.ApplyGenerics(ValueTypes[v.Type].String(v), sp, fspec.AlignLeft), nil // an embedder may amend String
-}
-
-func moduleTypeDecodeBinary(v *Value, data []byte) error {
-	def := moduleDefs[v.Type]
-	if def == nil {
-		return fmt.Errorf("no module registered at type %d", v.Type)
-	}
-	if len(data) != 0 {
-		return fmt.Errorf("module %s: trailing %d bytes", def.Name, len(data))
-	}
-	*v = def.New()
-	return nil
 }
 
 func moduleTypeEqual(v Value, other Value, final bool) bool {

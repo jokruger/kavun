@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,14 +17,21 @@ import (
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
+	"github.com/jokruger/kavun/core"
 	_ "github.com/jokruger/kavun/stdlib" // registers the builtin modules
 	"github.com/jokruger/kavun/vm"
 )
 
 const sourceFileExt = ".kvn"
 
+// keyFileEnv names the default key file: a compiled file is signed and verified with it unless -key says otherwise.
+const keyFileEnv = "KAVUN_KEY_FILE"
+
 var (
 	compileOutput string
+	keyFile       string
+	genKey        bool
+	showInfo      bool
 	showHelp      bool
 	showVersion   bool
 	resolvePath   bool
@@ -38,6 +48,9 @@ var (
 func init() {
 	flag.BoolVar(&showHelp, "help", false, "Show help")
 	flag.StringVar(&compileOutput, "o", "", "Compile output file")
+	flag.StringVar(&keyFile, "key", "", "Key file signing (-o) and verifying compiled files (default $"+keyFileEnv+")")
+	flag.BoolVar(&genKey, "genkey", false, "Generate a key file (-o)")
+	flag.BoolVar(&showInfo, "info", false, "Print a compiled file's metadata")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&resolvePath, "resolve", false, "Resolve relative import paths")
 	flag.BoolVar(&strictAssign, "strict-assign", false, "Require variables to be declared before '=' assignment")
@@ -45,10 +58,10 @@ func init() {
 	flag.BoolVar(&o1, "O1", false, "Optimization level 1")
 	flag.BoolVar(&o2, "O2", false, "Optimization level 2")
 	flag.BoolVar(&o3, "O3", false, "Optimization level 3")
-	flag.Parse()
 }
 
 func main() {
+	flag.Parse()
 	if showHelp {
 		doHelp()
 		os.Exit(2)
@@ -64,6 +77,25 @@ func main() {
 		return
 	}
 
+	if genKey {
+		if compileOutput == "" {
+			fmt.Fprintln(os.Stderr, "-genkey needs an output file: kavun -genkey -o app.key")
+			os.Exit(1)
+		}
+		if err := GenerateKey(compileOutput); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		fmt.Println(compileOutput)
+		return
+	}
+
+	signer, err := loadSigner(keyFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
 	oc := compiler.O0()
 	if o1 {
 		oc = compiler.O1()
@@ -76,6 +108,20 @@ func main() {
 	inputFile := flag.Arg(0)
 	if inputFile == "" {
 		fmt.Fprintln(os.Stderr, "No input file specified")
+		return
+	}
+
+	if showInfo {
+		f, err := os.Open(inputFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading input file: %s\n", err.Error())
+			os.Exit(1)
+		}
+		defer f.Close()
+		if err := PrintInfo(os.Stdout, f, signer); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -96,7 +142,7 @@ func main() {
 	}
 
 	if compileOutput != "" {
-		err := CompileOnly(inputData, inputFile, compileOutput, oc)
+		err := CompileOnly(inputData, inputFile, compileOutput, oc, signer)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
@@ -108,7 +154,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		if err := RunCompiled(inputData); err != nil {
+		if err := RunCompiled(inputData, signer); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
@@ -116,7 +162,7 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(data []byte, inputFile, outputFile string, oc *compiler.OptimizationConfig) (err error) {
+func CompileOnly(data []byte, inputFile, outputFile string, oc *compiler.OptimizationConfig, signer vm.Signer) (err error) {
 	bytecode, err := compileSrc(data, inputFile, oc)
 	if err != nil {
 		return
@@ -126,7 +172,7 @@ func CompileOnly(data []byte, inputFile, outputFile string, oc *compiler.Optimiz
 		outputFile = basename(inputFile) + ".out"
 	}
 
-	out, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	out, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
 	if err != nil {
 		return
 	}
@@ -138,7 +184,7 @@ func CompileOnly(data []byte, inputFile, outputFile string, oc *compiler.Optimiz
 		}
 	}()
 
-	err = bytecode.Encode(out)
+	err = bytecode.Encode(out, signer)
 	if err != nil {
 		return
 	}
@@ -163,9 +209,9 @@ func CompileAndRun(data []byte, inputFile string, oc *compiler.OptimizationConfi
 }
 
 // RunCompiled reads the compiled binary from file and executes it.
-func RunCompiled(data []byte) (err error) {
+func RunCompiled(data []byte, signer vm.Signer) (err error) {
 	bytecode := &vm.Bytecode{}
-	err = bytecode.Decode(bytes.NewReader(data))
+	err = bytecode.Decode(bytes.NewReader(data), signer)
 	if err != nil {
 		return
 	}
@@ -176,6 +222,93 @@ func RunCompiled(data []byte) (err error) {
 	err = machine.Run()
 
 	return
+}
+
+// GenerateKey writes a new random signing key — vm.MinHMACKeyLen bytes from crypto/rand, one line of hex — to path,
+// readable by its owner only. It never overwrites a file: a replaced key would orphan everything signed with it.
+func GenerateKey(path string) error {
+	key := make([]byte, vm.MinHMACKeyLen)
+	if _, err := rand.Read(key); err != nil {
+		return fmt.Errorf("generate key: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("generate key: %w", err)
+	}
+	if _, err := fmt.Fprintln(f, hex.EncodeToString(key)); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("generate key: %w", err)
+	}
+	return f.Close()
+}
+
+// loadSigner answers the HMAC signer of the key file at path, or of $KAVUN_KEY_FILE when path is empty; nil when
+// neither names one (compiled files are then written unsigned and run unchecked).
+func loadSigner(path string) (vm.Signer, error) {
+	if path == "" {
+		path = os.Getenv(keyFileEnv)
+	}
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("key file: %w", err)
+	}
+	key, err := hex.DecodeString(strings.TrimSpace(string(data)))
+	if err != nil {
+		return nil, fmt.Errorf("key file %s: not one line of hex: %w", path, err)
+	}
+	if len(key) < vm.MinHMACKeyLen {
+		return nil, fmt.Errorf("key file %s: key too short: %d bytes (min: %d); generate one with -genkey", path, len(key), vm.MinHMACKeyLen)
+	}
+	return vm.HMACSigner(key), nil
+}
+
+// PrintInfo prints a compiled file's metadata beside this engine's: the versions, whether it is signed (and, with a
+// signer, whether the signature verifies), the builtin modules it imports and its binding names. It reports what
+// Decode would refuse instead of refusing.
+func PrintInfo(w io.Writer, r io.Reader, signer vm.Signer) error {
+	info, err := vm.Inspect(r, signer)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "core version:  %s (this engine: %s)\n", info.Core, vm.CoreVersion())
+	fmt.Fprintf(w, "host version:  %s (this process: %s)\n", info.Host, core.HostVersion())
+	switch {
+	case !info.Signed && signer == nil:
+		fmt.Fprintln(w, "signed:        no")
+	case !info.Signed:
+		fmt.Fprintln(w, "signed:        no (refused with this key)")
+	case signer == nil:
+		fmt.Fprintln(w, "signed:        yes (not checked: no key)")
+	case info.Verify == nil:
+		fmt.Fprintln(w, "signed:        yes, signature valid")
+	default:
+		fmt.Fprintln(w, "signed:        yes, signature INVALID")
+	}
+	if info.Bytecode == nil {
+		fmt.Fprintf(w, "payload:       unreadable (%v)\n", info.PayloadErr)
+		return nil
+	}
+	imports := make([]string, 0, len(info.Bytecode.Imports))
+	for _, t := range info.Bytecode.Imports {
+		if def := core.ModuleByType(t); def != nil {
+			imports = append(imports, def.Name)
+		} else {
+			imports = append(imports, fmt.Sprintf("<unknown module %d>", t))
+		}
+	}
+	fmt.Fprintf(w, "imports:       %s\n", listOrNone(imports))
+	fmt.Fprintf(w, "bindings:      %s\n", listOrNone(info.Bytecode.Bindings))
+	return nil
+}
+
+func listOrNone(names []string) string {
+	if len(names) == 0 {
+		return "(none)"
+	}
+	return strings.Join(names, ", ")
 }
 
 func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (*vm.Bytecode, error) {
@@ -207,6 +340,10 @@ func doHelp() {
 	fmt.Println("Flags:")
 	fmt.Println()
 	fmt.Println("	-o        compile output file")
+	fmt.Println("	-key      key file: sign the compiled file (-o), verify a compiled file before running it")
+	fmt.Println("	          (default: $KAVUN_KEY_FILE; unset: unsigned, and run without a check)")
+	fmt.Println("	-genkey   generate a key file (-o), never overwriting one")
+	fmt.Println("	-info     print a compiled file's versions, signature, imports and bindings")
 	fmt.Println("	-strict-assign  require variables to be declared before '=' assignment")
 	fmt.Println("	-version  show version")
 	fmt.Println("   -OX       optimization level (X = 0, 1, 2, 3)")
@@ -229,6 +366,16 @@ func doHelp() {
 	fmt.Println("	kavun myapp")
 	fmt.Println()
 	fmt.Println("	          Run bytecode file (myapp)")
+	fmt.Println()
+	fmt.Println("	kavun -genkey -o app.key")
+	fmt.Println("	kavun -key app.key -o myapp myapp.kvn")
+	fmt.Println("	kavun -key app.key myapp")
+	fmt.Println()
+	fmt.Println("	          Sign the compiled file, and refuse to run it unless it verifies")
+	fmt.Println()
+	fmt.Println("	kavun -info [-key app.key] myapp")
+	fmt.Println()
+	fmt.Println("	          Show why a compiled file is refused (versions, signature)")
 	fmt.Println()
 	fmt.Println()
 }

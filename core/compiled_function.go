@@ -222,8 +222,8 @@ var TypeCompiledFunction = ValueTypeDescr{
 	Name:         compiledFunctionTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
 	Format:       callableFormat,                                              // PURE by contract
-	EncodeBinary: compiledFunctionTypeEncodeBinary,                            // PURE by contract
-	DecodeBinary: compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
+	EncodeBinary: codeEncodeBinary,                                            // PURE by contract (refuses: code, not data)
+	DecodeBinary: codeDecodeBinary,                                            // IMPURE by contract (refuses: code, not data)
 	IsTrue:       Const2Hook[bool, error](true, nil),                          // PURE by contract
 	IsCallable:   ConstHook(true),                                             // PURE by contract
 	IsVariadic:   compiledFunctionTypeIsVariadic,                              // PURE by contract
@@ -247,21 +247,6 @@ func compiledFunctionTypeName(v Value) string {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
 	}
 	return fmt.Sprintf("<compiled-function/%d>", o.NumParameters)
-}
-
-func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
-	return (*CompiledFunction)(v.Ptr).EncodeBinary()
-}
-
-func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
-	// the payload is the function's own encoding (no value header): decode through the CompiledFunction, not
-	// through Value.DecodeBinary, which would read the first payload byte as a type id
-	f := NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, 0, false)
-	if err := (*CompiledFunction)(f.Ptr).DecodeBinary(data); err != nil {
-		return fmt.Errorf("compiled function: %w", err)
-	}
-	*v = f
-	return nil
 }
 
 // CALLABLE-DEPENDENT: purity is a property of the specific user-defined function. The optimizer folds Call only

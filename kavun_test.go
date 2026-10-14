@@ -12120,9 +12120,9 @@ out.append_in_place(xs...)
 	}
 
 	var buf bytes.Buffer
-	require.NoError(t, b.Encode(&buf))
+	require.NoError(t, b.Encode(&buf, nil))
 	decoded := &vm.Bytecode{}
-	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes()), nil))
 
 	globals := make([]core.Value, vm.GlobalsSize)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -12154,7 +12154,7 @@ out = [string(p) == p.string(), string(y) == y.string(), string(y)]`, nil, ARR{t
 	expectError(t, `out = int(import("re").pattern("a"))`, nil, "conversion: cannot convert re.pattern to int")
 }
 
-// Values whose type id or builtin slot moved in bytecode 002 survive an encode/decode round trip: a builtin module,
+// Values carried by type id or builtin slot survive an encode/decode round trip: a builtin module,
 // a module-owned type, a container, a static primitive, a global builtin.
 func TestTypeIDsBytecodeRoundTrip(t *testing.T) {
 	src := `
@@ -12172,9 +12172,9 @@ out := [math.hypot(3, 4), yf.string(), type_name(yf), [1, 2].len(), 'x', 1.5]
 	require.NoError(t, c.CompileNode(file))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.Bytecode().Encode(&buf))
+	require.NoError(t, c.Bytecode().Encode(&buf, nil))
 	decoded := &vm.Bytecode{}
-	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes()), nil))
 
 	globals := make([]core.Value, vm.GlobalsSize)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -12246,15 +12246,18 @@ func TestModuleValue(t *testing.T) {
 	expectRun(t, `math := import("math"); out = [len(math), "pi" in math, "nope" in math]`, nil, ARR{61, true, false})
 	expectRun(t, `h := import("hex"); out = []; for k, v in h { out.push_in_place(k) }`, nil, ARR{"decode", "encode"})
 
-	// the value survives a binary round trip as the same module
+	// a module is code, not data: the value codec refuses it on encode, inside a container, and on decode
 	def, ok := core.LookupModule("math")
 	require.True(t, ok)
-	b, err := def.New().EncodeBinary()
-	require.NoError(t, err)
-	var decoded core.Value
-	require.NoError(t, decoded.DecodeBinary(b))
-	require.True(t, decoded.Equal(def.New()))
-	require.Equal(t, value.ModuleMath, decoded.Type)
+	const reason = "value type module does not support binary encoding"
+	_, err := def.New().EncodeBinary()
+	require.Equal(t, "binary_encoding: "+reason, err.Error())
+	_, err = core.NewArrayValue([]core.Value{def.New()}, false).EncodeBinary()
+	require.Equal(t, "binary_encoding: array element at index 0: "+reason, err.Error())
+	decoded := core.IntValue(7)
+	err = decoded.DecodeBinary([]byte{value.ModuleMath, 1})
+	require.Equal(t, "binary_encoding: "+reason, err.Error())
+	require.Equal(t, core.IntValue(7), decoded)
 }
 
 // An int counts nanoseconds when its member says so: int and float build a duration in a unit, an int reads one in a

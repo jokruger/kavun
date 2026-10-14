@@ -23,6 +23,10 @@ kavun hello.kvn
 ### CLI flags
 
 - `-o <file>`: write compiled bytecode to a file
+- `-key <file>`: sign the compiled file (with `-o`), and refuse to run a compiled file whose signature does not
+  verify with this key; default `$KAVUN_KEY_FILE`
+- `-genkey -o <file>`: write a new random key file (never overwriting one)
+- `-info <file>`: print a compiled file's versions, signature status, imports and bindings
 - `-version`: print the CLI version
 - `-strict-assign`: require variables to already exist for plain `=` assignment
 
@@ -31,6 +35,36 @@ Use `-strict-assign` to enforce explicit declaration before `=`.
 
 ```sh
 kavun -strict-assign hello.kvn
+```
+
+### Compiled files and signing
+
+`kavun -o app app.kvn` compiles to a bytecode file that `kavun app` runs. To be sure a compiled file is yours and
+unchanged, sign it with a key:
+
+```sh
+kavun -genkey -o app.key          # one line of hex, readable by you only; keep it secret
+kavun -key app.key -o app app.kvn # signed
+kavun -key app.key app            # runs only if the signature verifies
+```
+
+`KAVUN_KEY_FILE=app.key` sets the key for every command instead of `-key`. A key is never given on the command line
+itself. With a key, an unsigned file, a changed one or one signed with another key is refused; without one, every
+compiled file runs as given (a signed file too — its signature is just not checked).
+
+CLI keys are for development and tests: they exercise the signed path locally. In production the application
+compiles and signs itself, with a key that never leaves it (`docs/embedding.md` § Where the key lives).
+
+A compiled file also carries the bytecode version it was built for, and a newer engine may refuse it
+(`incompatible bytecode: … recompile from source`). `kavun -info app` (with `-key` to check the signature) shows
+why a file is refused instead of refusing:
+
+```text
+core version:  1.0 (this engine: 1.0)
+host version:  0.0 (this process: 0.0)
+signed:        yes, signature valid
+imports:       io
+bindings:      (none)
 ```
 
 ### Hashbang / shebang scripts

@@ -466,6 +466,10 @@ guarantee it.
 
 ## Extensibility for embedder types
 
+Registering an embedder type makes your **host version** mandatory: set it with `core.SetHostVersion` beside the
+registration and bump it when your types change, or encoding and decoding bytecode refuses (`docs/embedding.md`
+§ Bytecode: persisting, signing, compatibility).
+
 An embedder using `SetValueType` (type IDs 192–255, one space shared with embedder modules — `docs/embedding.md`
 § Your own builtin module) participates in this exact dispatch model with no
 special casing — but **rule 3 is no longer automatic**. There used to be a central dispatcher that

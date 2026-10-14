@@ -91,6 +91,8 @@ type VM struct {
 	// Host configuration, kept across Reset (vm/host.go)
 	grant     [4]uint64 // granted module type ids, when grantMode is grantNamed
 	grantMode uint8
+	granted   *Bytecode // the bytecode whose imports were last checked against the grant (Reset); nil: none
+	loadErr   error     // that check's refusal, answered by Run before the first instruction
 	stdin     *bufio.Reader
 	stdout    io.Writer
 
@@ -144,6 +146,11 @@ func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 
 	v.fileSet = bytecode.FileSet
 	v.err = nil
+
+	if bytecode != v.granted {
+		v.loadErr = v.checkImports(bytecode)
+		v.granted = bytecode
+	}
 }
 
 // Clear drops the VM's Go references to bytecode, globals, and per-frame state so the Go garbage collector can reclaim
@@ -152,6 +159,8 @@ func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 func (v *VM) Clear() {
 	v.static = nil
 	v.globals = nil
+	v.granted = nil
+	v.loadErr = nil
 	v.curInsts = nil
 	v.fileSet = nil
 	v.err = nil
@@ -404,6 +413,12 @@ func (v *VM) Run() (err error) {
 	v.frames[0].inFlightErr = core.Undefined
 	v.frames[0].deferredFor = nil
 	atomic.StoreInt64(&v.abort, 0)
+
+	// The grant was checked against the bytecode's imports at Reset: a refusal stops the run before any instruction.
+	if v.loadErr != nil {
+		v.err = v.loadErr
+		return v.runError()
+	}
 
 	// A call checks its callee's stack budget on entry; the main function has no caller, so its budget is checked
 	// here, before anything is pushed.
@@ -1194,21 +1209,8 @@ func (v *VM) run() {
 			v.stack[v.sp-1] = core.NewStringValue(s)
 
 		case opcodes.ImportBuiltinModule:
-			t := v.curInsts[v.ip].Op3
-			def := (*core.ModuleDef)(nil)
-			if t < 256 {
-				def = core.ModuleByType(uint8(t))
-			}
-			if def == nil {
-				// the bytecode and the registered modules disagree — a host setup mistake: fatal, kind "host"
-				v.err = errs.NewHostError(fmt.Sprintf("(import) builtin module not found for ID: %d", t))
-				return
-			}
-			if !v.moduleAllowed(def) {
-				v.err = errs.NewModuleNotAllowedError(def.Name)
-				return
-			}
-			v.stack[v.sp] = def.New()
+			// registered and granted: Reset checked every module the bytecode imports (Bytecode.Imports)
+			v.stack[v.sp] = core.ModuleByType(uint8(v.curInsts[v.ip].Op3)).New()
 			v.sp++
 
 		case opcodes.DefineLocal:

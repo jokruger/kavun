@@ -54,12 +54,36 @@ func (v Value) EncodeJSON() ([]byte, error) {
 // binaryCodecError is the SINGLE translation point for the EncodeBinary/DecodeBinary hooks. Those hooks may answer
 // raw Go errors internally — the nesting inside a container hook is theirs to shape — but exactly one binary_encoding
 // error comes back out, so nothing raw can reach errs.IsCritical and be read as fatal. An error already translated
-// by a nested level passes through untouched.
+// by a nested level passes through untouched; one a container wrapped with its own context ("array element at index
+// 0: %w") is folded into a single *errs.Error whose message is the element path and the nested reason.
 func binaryCodecError(typeName string, err error) error {
 	if e := errs.AsError(err); e != nil && e.Kind == errs.KindBinaryEncoding {
-		return err
+		if err == error(e) {
+			return err
+		}
+		return errs.NewBinaryEncodingError(strings.Replace(err.Error(), e.Error(), e.Message, 1))
 	}
 	return errs.NewBinaryEncodingError(fmt.Sprintf("(%s) %s", typeName, err.Error()))
+}
+
+// codeEncodeBinary and codeDecodeBinary are the codec hooks of every callable and of a module: the value codec
+// carries user DATA, and a function or module is code — it means something only inside one application and
+// configuration, and code travels only in bytecode, signed and versioned with it (docs/embedding.md). Both refuse,
+// directly or as an element of a container, naming the script-facing type and never the value: a decode target has
+// no body to name.
+func codeEncodeBinary(v Value) ([]byte, error) {
+	return nil, errs.NewNoBinaryEncodingError(codeTypeName(v))
+}
+
+func codeDecodeBinary(v *Value, _ []byte) error {
+	return errs.NewNoBinaryEncodingError(codeTypeName(*v))
+}
+
+func codeTypeName(v Value) string {
+	if v.IsCallable() {
+		return "function"
+	}
+	return "module"
 }
 
 // jsonPathPrefix prepends one path segment to a nested json_encoding failure, so the error names WHERE in the

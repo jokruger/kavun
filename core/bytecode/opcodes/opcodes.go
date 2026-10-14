@@ -1,7 +1,8 @@
 // Package opcodes is the enum of VM instruction opcodes: one untyped constant per instruction. It holds constants
 // only — the kind (bytecode.Opcode), the descriptor table (names, classes) and every function live in core/bytecode.
 //
-// Adding, removing or renumbering an opcode breaks bytecode compatibility: change vm.BytecodeMagic with it.
+// Adding an opcode is a minor bump of the core bytecode version (vm/bytecode.go); changing, removing or renumbering
+// one is a major bump.
 package opcodes
 
 const (
@@ -68,5 +69,5 @@ const (
 	LoadStaticRange            = 60 // Push a static int range; Op3 = static range index
 	LoadStaticCompiledFunction = 61 // Push a static compiled function; Op3 = static compiled function index
 	LoadStaticPrimitive        = 62 // Push a static primitive; Op3 = static primitive index
-	// 63...255 are reserved for future use; adding, removing or renumbering an opcode requires a new vm.BytecodeMagic
+	// 63...255 are reserved for future use; adding one bumps the core bytecode version (minor), renumbering it (major)
 )

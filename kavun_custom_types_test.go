@@ -170,6 +170,9 @@ func NewPanickerValue() core.Value {
 type Panicker struct{}
 
 func init() {
+	// an embedder with its own types sets its host version beside registering them (bytecode codec, docs/embedding.md)
+	core.SetHostVersion(1, 0)
+
 	member.Define(memberScaled, "scaled")
 	member.Define(memberLabel, "label")
 

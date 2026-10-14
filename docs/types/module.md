@@ -23,7 +23,7 @@ answers whatever it `export`s, frozen — a record keeps record rules. See
 
 Which builtin modules a script may import is the host's decision. By default only the **pure** ones (they only
 compute) are importable; a world-touching module (`clock`, `exec`, `fs`, `io`, `os`) needs a grant, checked at compile
-time and again by the VM (`module_not_allowed`). See [embedding.md § The module grant](../embedding.md#the-module-grant).
+time and again by the VM before the bytecode runs (`module_not_allowed`). See [embedding.md § The module grant](../embedding.md#the-module-grant).
 
 ## Operators
 

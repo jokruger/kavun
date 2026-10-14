@@ -62,11 +62,13 @@ type Compiler struct {
 	compilingInit   bool
 	trace           io.Writer
 	indent          int
+	imports         [256]bool // the builtin modules (type ids) the unit imports; kept by the root compiler only
 }
 
 // NewCompiler creates a Compiler. allowedModules is the builtin modules an import may name; nil allows only the
-// pure ones (core.PureModuleNames), and AllowAllModules lifts the gate. The VM checks the same grant again at run
-// time (vm.VM.SetAllowedModules), so precompiled bytecode cannot bypass it.
+// pure ones (core.PureModuleNames), and AllowAllModules lifts the gate. The VM checks the same grant again against
+// the bytecode's imports before running it (vm.VM.SetAllowedModules), so bytecode compiled under a wider grant
+// cannot run under a narrower one.
 func NewCompiler(
 	oc *OptimizationConfig,
 	sb *StaticBuilder,
@@ -208,8 +210,21 @@ func (c *Compiler) Bytecode() *vm.Bytecode {
 			MaxStack:     ComputeMaxStack(mainInsts),
 			SourceMap:    c.currentSourceMap(),
 		},
-		Static: c.sb.Build(),
+		Static:     c.sb.Build(),
+		Imports:    c.importList(),
+		NumGlobals: c.symbolTable.MaxSymbols() + 1,
 	}
+}
+
+// importList answers the builtin modules the unit imports, by type id, ascending.
+func (c *Compiler) importList() []uint8 {
+	var ids []uint8
+	for t, imported := range c.imports {
+		if imported {
+			ids = append(ids, uint8(t))
+		}
+	}
+	return ids
 }
 
 // EnableFileImport enables or disables module loading from local files.

@@ -231,8 +231,10 @@ func UnregisterModule(typeID uint8) error {
 	base := uint64(typeID) * ModuleSlotSize
 	clear(BuiltinFunctions[base : base+ModuleSlotSize])
 	ValueTypes[typeID] = DefaultValueType
+	embedderTypes[typeID] = false
 	for _, id := range def.types {
 		ValueTypes[id] = DefaultValueType
+		embedderTypes[id] = false
 		typeOwners[id] = nil
 	}
 	moduleDefs[typeID] = nil

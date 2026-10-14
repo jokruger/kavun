@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -360,6 +361,57 @@ func TestCompiler_CompileTimeLiteral(t *testing.T) {
 			static(v),
 		),
 	)
+}
+
+// The static primitive pool holds only data-only primitives, as the constructors make them: decoded bytecode is
+// trusted, not re-checked (docs/vm.md § Bytecode format), so the compiler's guarantee is pinned here. Anything else
+// reaching the pool is a compiler defect and panics at compile time.
+func TestStaticPrimitivePool(t *testing.T) {
+	src := `a := 1 << 40; b := 1.5; c := -7.25; e := [a, b, c, undefined, true, 'x', b'y']`
+	fileSet := ast.NewFileSet()
+	file := fileSet.AddFile("test", -1, len(src))
+	symbols := compiler.NewSymbolTable()
+	for idx, name := range vm.BuiltinFunctionNames {
+		symbols.DefineBuiltin(idx, name)
+	}
+	c := compiler.NewCompiler(compiler.O3(), nil, file, symbols, nil, nil, nil)
+	require.NoError(t, c.Compile(file, []byte(src), nil))
+	pool := c.Bytecode().Static.Primitives
+	types := map[uint8]bool{}
+	for _, p := range pool {
+		require.True(t, p.Type <= value.Date, "pool holds type %d", p.Type)
+		types[p.Type] = true
+	}
+	require.True(t, types[value.Int] && types[value.Float], "pool: %v", pool)
+
+	for _, v := range []core.Value{vm.BuiltinFunctions["len"], core.NewStringValue("s"), core.NewArrayValue(nil, false)} {
+		panicked := func() (p bool) {
+			defer func() { p = recover() != nil }()
+			compiler.NewStaticBuilder().AddPrimitive(v)
+			return
+		}()
+		require.True(t, panicked, "AddPrimitive accepted %s", v.TypeName())
+	}
+}
+
+// The bytecode lists every builtin module its code can import, once each, ascending by type id: the main function,
+// nested functions, unreached code and source modules alike (the VM checks the list against its grant at Reset).
+func TestCompilerImports(t *testing.T) {
+	src := `h := import("helpers"); f := func(x) { if x { return import("os") } }; m := import("math"); m2 := import("math")`
+	fileSet := ast.NewFileSet()
+	file := fileSet.AddFile("test", -1, len(src))
+	c := compiler.NewCompiler(compiler.O0(), nil, file, nil, nil, map[string][]byte{
+		"helpers": []byte(`j := import("json"); export {j: j}`),
+	}, nil)
+	c.AllowAllModules()
+	require.NoError(t, c.Compile(file, []byte(src), nil))
+	require.True(t, slices.Equal([]uint8{value.ModuleJson, value.ModuleMath, value.ModuleOs}, c.Bytecode().Imports),
+		"%v", c.Bytecode().Imports)
+
+	plain := fileSet.AddFile("plain", -1, len(`x := 1`))
+	c = compiler.NewCompiler(compiler.O0(), nil, plain, nil, nil, nil, nil)
+	require.NoError(t, c.Compile(plain, []byte(`x := 1`), nil))
+	require.Equal(t, 0, len(c.Bytecode().Imports))
 }
 
 func TestCompiler_Compile(t *testing.T) {

@@ -3,6 +3,7 @@ package kavun
 import (
 	"context"
 	"fmt"
+	"io"
 	"maps"
 
 	"github.com/jokruger/kavun/core"
@@ -35,6 +36,30 @@ func (c *Compiled) Clone() (*Compiled, error) {
 	}
 
 	return clone, nil
+}
+
+// Encode writes the compiled script — its code and its binding names, not the values bound to them — as a bytecode
+// envelope, tagged by signer (nil: unsigned). DecodeCompiled reads it back. See docs/embedding.md § Bytecode.
+func (c *Compiled) Encode(w io.Writer, signer vm.Signer) error {
+	return c.bytecode.Encode(w, signer)
+}
+
+// DecodeCompiled reads a script written by Compiled.Encode (or compiled by the kavun CLI, which has no bindings),
+// refusing it as vm.Bytecode.Decode does: untrusted, incompatible, not bytecode. Every binding starts undefined.
+func DecodeCompiled(r io.Reader, signer vm.Signer) (*Compiled, error) {
+	b := &vm.Bytecode{}
+	if err := b.Decode(r, signer); err != nil {
+		return nil, err
+	}
+	bindings := make(map[string]int, len(b.Bindings))
+	for i, name := range b.Bindings {
+		bindings[name] = i
+	}
+	return &Compiled{
+		bytecode: b,
+		bindings: bindings,
+		globals:  make([]core.Value, max(b.NumGlobals, len(b.Bindings))),
+	}, nil
 }
 
 // Reset sets all global variable values to Undefined.

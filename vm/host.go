@@ -19,9 +19,11 @@ const (
 	grantAll                 // AllowAllModules: every module
 )
 
-// SetAllowedModules grants exactly the named builtin modules to the scripts this VM runs; an import of any other
-// raises module_not_allowed. Without a call only the pure modules are granted. This is the run-time half of the
-// grant (the compiler checks the same rule), so bytecode compiled elsewhere or decoded cannot bypass it.
+// SetAllowedModules grants exactly the named builtin modules to the scripts this VM runs. Without a call only the
+// pure modules are granted. This is the VM's half of the grant (the compiler checks the same rule), so bytecode
+// compiled under a wider grant cannot run under a narrower one: Reset checks the modules the bytecode imports
+// (Bytecode.Imports), and Run refuses a bytecode importing any other with module_not_allowed, before its first
+// instruction. The list is part of the bytecode: the check holds for trusted bytecode only (vm.Signer).
 func (v *VM) SetAllowedModules(names ...string) error {
 	var grant [4]uint64
 	for _, name := range names {
@@ -34,12 +36,29 @@ func (v *VM) SetAllowedModules(names ...string) error {
 	}
 	v.grant = grant
 	v.grantMode = grantNamed
+	v.granted = nil
 	return nil
 }
 
 // AllowAllModules grants every builtin module, world-touching ones included.
 func (v *VM) AllowAllModules() {
 	v.grantMode = grantAll
+	v.granted = nil
+}
+
+// checkImports answers the refusal of the first module b imports that is not registered (a host setup mistake:
+// fatal, kind "host") or not granted (module_not_allowed), or nil.
+func (v *VM) checkImports(b *Bytecode) error {
+	for _, t := range b.Imports {
+		def := core.ModuleByType(t)
+		if def == nil {
+			return errs.NewHostError(fmt.Sprintf("(import) builtin module not found for ID: %d", t))
+		}
+		if !v.moduleAllowed(def) {
+			return errs.NewModuleNotAllowedError(def.Name)
+		}
+	}
+	return nil
 }
 
 func (v *VM) moduleAllowed(def *core.ModuleDef) bool {

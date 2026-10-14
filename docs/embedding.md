@@ -127,6 +127,19 @@ if err := dec.Decode(&payload); err != nil {
 v, err := kavun.ValueOf(payload) // {"id": 9007199254740993} -> id is the int 9007199254740993, exact
 ```
 
+### Encoding values
+
+`core.Value.EncodeBinary` / `DecodeBinary` — and `encoding/gob`, which goes through them — carry **data**. A
+function (builtin, member, script function) or a module value means something only inside one application and its
+configuration, so the codec refuses it on encode and on decode, alone or anywhere inside a container, with a
+`binary_encoding` error naming where:
+
+```text
+binary_encoding: dict value at key "f": value type function does not support binary encoding
+```
+
+Code travels only in bytecode.
+
 ## Modules and Imports
 
 ### The module grant
@@ -134,7 +147,10 @@ v, err := kavun.ValueOf(payload) // {"id": 9007199254740993} -> id is the int 90
 A builtin module either only computes (`math`, `json`, `fin`, … — *pure*) or touches the world (`clock`,
 `exec`, `fs`, `io`, `os`). By default a script may import **only the pure modules** (`core.PureModuleNames()`); anything
 else must be granted. The grant is checked twice — by the compiler, and again by the VM that runs the bytecode —
-so bytecode compiled elsewhere or decoded from a file cannot bypass it:
+so bytecode compiled elsewhere under a wider grant cannot run under a narrower one. The bytecode lists every builtin module its
+code can import (`Bytecode.Imports`, collected by the compiler, custom and file modules included); the VM checks
+that list once, when the bytecode first meets it (`Reset`), and nothing is checked while the script runs. The list
+is part of the bytecode, so the VM's check holds only for bytecode you trust — see "Bytecode" below:
 
 ```go
 script.SetAllowedModules("math", "os") // compile-time gate: exactly these
@@ -148,10 +164,16 @@ err = compiled.Run(machine)
 ```
 
 `Script.AllowAllModules()` and `VM.AllowAllModules()` grant everything (the `kavun` CLI does both). A refusal at
-compile time is a compile error (`module 'os' is not allowed to import`); at run time it is the recoverable kind
-`module_not_allowed` (`module 'os' is not allowed`). The VM keeps its grant across `Reset`. `kavun.Eval` runs with
+compile time is a compile error (`module 'os' is not allowed to import`); in the VM, `Run` answers
+`module_not_allowed` (`module 'os' is not allowed`) before the first instruction — none of the script runs, so it
+cannot `recover()` the refusal, and an import the script would never reach still counts. The VM keeps its grant
+across `Reset`. `kavun.Eval` runs with
 the default grant. The **grant is the security boundary** for what a script may do to the host: grant world
 modules only to scripts you trust with them.
+
+The grant governs what a script's code may import. A value the host builds or obtains in Go and hands to the VM —
+`Compiled.Set`, globals, `VM.Call` arguments, a builtin's result — is the host's own grant: a world module's
+function passed in this way is callable whatever the VM's grant, and nothing checks it at call time.
 
 ### Standard streams
 
@@ -174,6 +196,7 @@ var (
 )
 
 func init() {
+    core.SetHostVersion(1, 0) // required once you register types or modules: see "Bytecode" below
     member.Define(memberDouble, "double")
     member.Define(memberLabel, "label")
     err := core.NewModule(myModule, "mymod", true). // true: pure — granted by default
@@ -209,6 +232,144 @@ script.AddCustomModule("helpers", []byte(`
 export {add: func(a, b) { return a + b }}
 `))
 ```
+
+## Bytecode: persisting, signing, compatibility
+
+A compiled script can be stored and run later: `compiled.Encode(w, signer)` writes its code and its binding names
+(not the values bound to them), and `kavun.DecodeCompiled(r, signer)` answers a `*Compiled` whose bindings start
+undefined — `Set`, `Run`, `Get` as usual. It also reads a file the `kavun` CLI compiled (which has no bindings).
+Underneath are `(*vm.Bytecode).Encode` / `Decode`, with the same arguments (the envelope and the order of the
+checks: `docs/vm.md` § Bytecode format).
+
+**A loaded bytecode is trusted or refused — there is no verifier.** Decode does not inspect the code: bytecode
+our compiler produced is valid by construction. Bytecode anybody else produced or changed is not held to anything:
+it can import any registered module whatever the VM's grant, and malformed code can stop the run (Go stays
+memory-safe and `Run` contains the failure as a fatal `internal` error — the host survives, the script does not).
+There are deliberately no partial checks: a verifier that catches some forgeries would only make unsigned bytecode
+look safer than it is. So:
+
+- **Take source, not bytecode, from a party you do not trust**, and compile it under your own grant.
+- **Set a key to know a blob is yours.** Without a signer, every blob is trusted as given. With one, `Encode`
+  tags what it writes and `Decode` refuses a blob that is unsigned, changed by a single bit, or signed with
+  another key (`vm.ErrUntrusted`). Nothing built into the engine can do this for you: the engine is open source,
+  so a key compiled into it is public — the key must be your application's, and private to it.
+
+```go
+signer := vm.HMACSigner(key) // HMAC-SHA256; key: at least vm.MinHMACKeyLen (32) random bytes, kept secret
+if err := compiled.Encode(w, signer); err != nil {
+    return err
+}
+
+// ... later, possibly in another process of the same application
+loaded, err := kavun.DecodeCompiled(r, signer)
+if errors.Is(err, vm.ErrUntrusted) {
+    return err // not ours, or changed since
+}
+if err != nil {
+    return err // vm.ErrIncompatible: recompile from source; vm.ErrNotBytecode: not a compiled script
+}
+loaded.MustSet("x", core.IntValue(50))
+err = loaded.Run(machine)
+```
+
+### Where the key lives
+
+The signature answers one question — *did this application compile this blob?* — so it is only as good as the
+key's secrecy. HMAC signs and verifies with the same key: whoever holds it can produce code your application will
+run under its grant. Pick the shape by where code is compiled and where it runs:
+
+| shape | signer | why |
+| --- | --- | --- |
+| compile and run in one process, nothing stored | none | the blob never leaves memory: it is your compiler's output by construction |
+| a service compiles, stores, and runs later | HMAC, key only in the service | storage is outside the trust boundary; the key is not |
+| built in one place, run in many (shipped apps) | asymmetric, private key at build only | a key inside a shipped binary can be extracted |
+| development and tests (`kavun -key`) | HMAC, dev key | exercises the signed path; never a production key |
+
+**The service is the only compiler — the production shape.** Clients and authors send source; the service compiles
+it under its own grant, signs it, and stores it. Between compile and run the bytecode sits in a database, a cache or
+object storage, or moves between replicas — places other people and systems can write to. The signature makes write
+access to them worth nothing: a changed row is refused, not run. The key lives in the service's secret store (KMS,
+vault), is loaded at startup, and never reaches a client, a repository or a developer machine.
+
+```go
+// saveRule compiles an author's source under the service's grant, signs it, and stores both.
+func saveRule(ctx context.Context, db *sql.DB, signer vm.Signer, id string, src []byte) error {
+    compiled, err := kavun.NewScript(src, "input", "decision").Compile()
+    if err != nil {
+        return err // the author's mistake: report it, store nothing
+    }
+    var code bytes.Buffer
+    if err := compiled.Encode(&code, signer); err != nil {
+        return err
+    }
+    _, err = db.ExecContext(ctx, `UPDATE rules SET source = $2, bytecode = $3 WHERE id = $1`, id, src, code.Bytes())
+    return err
+}
+
+// loadRule answers a stored rule ready to run, or refuses one that was changed outside the service.
+func loadRule(ctx context.Context, db *sql.DB, signer vm.Signer, id string) (*kavun.Compiled, error) {
+    var src, code []byte
+    err := db.QueryRowContext(ctx, `SELECT source, bytecode FROM rules WHERE id = $1`, id).Scan(&src, &code)
+    if err != nil {
+        return nil, err
+    }
+    compiled, err := kavun.DecodeCompiled(bytes.NewReader(code), signer)
+    switch {
+    case errors.Is(err, vm.ErrUntrusted):
+        return nil, err // not compiled by this service, or changed since: alert, never run it
+    case errors.Is(err, vm.ErrIncompatible):
+        return kavun.NewScript(src, "input", "decision").Compile() // the engine or host moved on: recompile (and re-save)
+    }
+    return compiled, err
+}
+```
+
+Recompiling holds the stored source to your grant, but the source is only as trustworthy as the database it came
+from; if that matters, authenticate it too (an HMAC over it with the same key), or keep it where only the service
+writes.
+
+**Code built in one place and run in many.** When the runners are outside your control — a desktop or mobile app,
+an on-premise install — any key they hold can be extracted, so a shared HMAC key proves nothing there. Bring an
+asymmetric `vm.Signer`: the build holds the private key, the runners only the public one, so they can check that
+code is yours but cannot produce any. Key custody, rotation and a key id (it can travel inside the tag) are the
+signer's business:
+
+```go
+type ed25519Signer struct {
+    priv ed25519.PrivateKey // nil where code only runs
+    pub  ed25519.PublicKey
+}
+
+func (s ed25519Signer) Sign(data []byte) ([]byte, error) {
+    if s.priv == nil {
+        return nil, errors.New("this process cannot sign bytecode")
+    }
+    return ed25519.Sign(s.priv, data), nil
+}
+
+func (s ed25519Signer) Verify(data, tag []byte) error {
+    if !ed25519.Verify(s.pub, data, tag) {
+        return errors.New("signature mismatch")
+    }
+    return nil
+}
+```
+
+### Compatibility
+
+**Versions tell whether a trusted blob still means the same thing.** Every blob carries two: the engine's
+(`vm.CoreVersion()`) and yours (`core.SetHostVersion(major, minor)`). `Decode` runs a blob iff, for each, the
+major is equal and the blob's minor is not above the running one; otherwise `vm.ErrIncompatible` — recompile from
+source. Your version is **mandatory once you register types or modules** (`Encode` and `Decode` refuse with
+`vm.ErrHostVersionUnset` until it is set), and keeping it right is your duty — a stale version is undetectable:
+
+- bump the **minor** when you add — a type, a module, a function in a free slot, a wider default grant;
+- bump the **major** when something that exists changes meaning — you move `myFunc` from slot 3 to slot 4, and
+  put `otherFunc` in slot 3: old bytecode calling slot 3 would now call `otherFunc`;
+- a behaviour fix bumps nothing.
+
+A blob whose host version is `0.0` was produced with no extensions registered and references only the engine, so
+every application accepts it.
 
 ## Handling errors
 

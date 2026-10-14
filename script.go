@@ -3,6 +3,7 @@ package kavun
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
@@ -142,8 +143,10 @@ func (s *Script) Compile() (*Compiled, error) {
 		}
 	}
 
+	bytecode := c.Bytecode()
+	bytecode.Bindings = slices.Clone(s.bindings) // slot i is s.bindings[i] (checked above)
 	return &Compiled{
-		bytecode: c.Bytecode(),
+		bytecode: bytecode,
 		bindings: bindings,
 		globals:  globals,
 	}, nil

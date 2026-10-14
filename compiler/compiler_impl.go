@@ -737,6 +737,7 @@ func (c *Compiler) compileImportExpr(node *expression.Import) (err error) {
 		if err != nil {
 			return err
 		}
+		c.addImport(def.Type)
 	} else if src, ok := c.customModules[node.ModuleName]; ok { // user module from custom source
 		compiled, err := c.compileModule(node, node.ModuleName, src, true)
 		if err != nil {
@@ -1773,6 +1774,15 @@ func (c *Compiler) errorf(node ast.Node, format string, args ...any) error {
 		Node:    node,
 		Err:     fmt.Errorf(format, args...),
 	}
+}
+
+// addImport records a builtin module import on the root compiler, so the bytecode lists every module its code —
+// custom and file modules included — can import; the VM checks that list against its grant once, at Reset.
+func (c *Compiler) addImport(t uint8) {
+	for c.parent != nil {
+		c = c.parent
+	}
+	c.imports[t] = true
 }
 
 func (c *Compiler) addStaticPrimitive(v core.Value) int {

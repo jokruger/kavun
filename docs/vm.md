@@ -37,14 +37,44 @@ Each bytecode instruction has fixed size: 8 bytes total.
 
 ## Bytecode format
 
-Encoded bytecode (`Bytecode.Encode`) opens with `vm.BytecodeMagic`, currently `KVN002`; `Decode` refuses any
-other header, so bytecode from an incompatible build fails loudly. `002` regrouped the type ids, moved the
-builtin-function slots to *type id* × 128, made `ImportBuiltinModule`'s `Op3` a module type id, and added the
-encodings of bound members and module values. A builtin module's grant is checked by the VM when the import runs
-(`VM.SetAllowedModules`), so decoded bytecode cannot import a module the host did not grant. `Decode` also refuses
-a static pool entry the compiler never makes: the primitive pool holds only the data-only types (`undefined`,
-`bool`, `byte`, `rune`, `int`, `float`, `date`) with an in-range payload, so no other value — a module's builtin
-function in particular — can be forged into it.
+`Bytecode.Encode(w, signer)` writes an envelope around the gob stream of the `Bytecode`; integers are
+little-endian:
+
+```text
+"KVN" | tag length (u16) | tag | core major (u16) | core minor | host major | host minor | gob(Bytecode)
+                               |<----------------------- signed region ---------------------------->|
+```
+
+- **tag** — the embedder's `vm.Signer` output over the signed region, at most `vm.MaxTagLen` bytes; length 0 means
+  unsigned. The versions sit inside the signed region, so a changed version is a trust failure.
+- **core version** — `vm.CoreVersion()`, the engine's. A *minor* bump is an addition to a frozen, append-only table
+  (an opcode, a member id, a builtin-function slot, a type id, a static pool kind); a *major* bump is a change of
+  meaning (an operand layout, a moved or reused id or slot, a `Bytecode`/`core.Static`/`core.CompiledFunction`
+  field, the envelope or gob format). A behaviour fix bumps nothing.
+- **host version** — `core.SetHostVersion`, the embedder's, by the same two rules for its own types, modules and
+  grant policy. `0.0` means unset, which is legal only while no embedder type or module is registered.
+
+`Bytecode.Decode(r, signer)` reads to EOF and checks, in this order, each refusal a distinct sentinel error for
+`errors.Is`:
+
+1. **trust** — with a signer, the tag must be present and verify (`vm.ErrUntrusted`); with `nil`, the tag is
+   ignored.
+2. **host identity** — embedder types or modules registered and the host version unset: `vm.ErrHostVersionUnset`
+   (`Encode` refuses the same way).
+3. **compatibility** — the core version, then the host version: accepted iff the major is equal and the file's
+   minor is not above the engine's; a host version `0.0` is accepted everywhere, since such bytecode can reference
+   only what the engine provides. Otherwise `vm.ErrIncompatible`, naming both versions — recompile from source.
+   The pre-envelope format (`KVN002`) is refused the same way.
+4. **decode** — the gob stream (`vm.ErrNotBytecode` for a foreign, truncated or corrupt stream).
+
+Nothing else is checked: a loaded bytecode is **trusted or refused**, and trusted bytecode is our compiler's output,
+valid by construction (the compiler's invariants — the static primitive pool holds only `undefined`, `bool`,
+`byte`, `rune`, `int`, `float` and `date` — are pinned by tests, not re-checked at load). A party you do not trust
+hands you source, not bytecode. Code is serialized only here: the static pool holds no `core.Value`, and the value
+codec (`Value.EncodeBinary`) refuses every function and module value. The module grant is not part of the
+envelope: `Bytecode.Imports` lists the builtin modules the code can import, and the VM checks it against its own
+grant (`VM.SetAllowedModules`) at `Reset`, once per bytecode; `Run` answers a refusal before the first
+instruction, so no import is checked while a script runs.
 
 ## Defaults
 

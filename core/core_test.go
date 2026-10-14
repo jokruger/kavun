@@ -1,7 +1,9 @@
 package core_test
 
 import (
+	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -284,93 +286,66 @@ func TestTypeIDLayout(t *testing.T) {
 	require.Equal(t, uint8(192), value.FirstUserDefinedType)
 }
 
-// A bound member encodes as its receiver, member id and name; decoding answers a callable bound member again, and
-// refuses an id that is not the name's or a member the receiver's type does not have. A failed decode names the
-// type without its (absent) body.
-func TestBoundMemberBinary(t *testing.T) {
-	f := core.NewBoundMemberValue(core.NewStringValue("ab"), members.Upper, "upper")
-	b, err := f.EncodeBinary()
-	require.NoError(t, err)
-	var g core.Value
-	require.NoError(t, g.DecodeBinary(b))
-	require.True(t, f.Equal(g))
-	r, err := g.Call(nil, nil)
-	require.NoError(t, err)
-	got, _ := r.AsString()
-	require.Equal(t, "AB", got)
-
-	for _, bad := range []core.Value{
-		core.NewBoundMemberValue(core.NewStringValue("ab"), members.Upper, "lower"),               // id is not the name's
-		core.NewBoundMemberValue(core.NewStringValue("ab"), members.PushInPlace, "push_in_place"), // string has no such member
+// The value codec carries data: a callable — alone or as an element of a container — is refused on encode and on
+// decode with one binary_encoding error naming the script-facing type and, inside a container, the element's path.
+// A refused decode leaves the target untouched. A module value is refused the same way (TestModuleValue).
+func TestCodeIsNotData(t *testing.T) {
+	ins := bc.Instructions{{Op: opcodes.Return, Op1: 0}}
+	for _, c := range []struct {
+		v    core.Value
+		name string
+	}{
+		{vm.BuiltinFunctions["len"], "function"},
+		{core.NewBoundMemberValue(core.NewStringValue("ab"), members.Upper, "upper"), "function"},
+		{core.NewCompiledFunctionValue(ins, nil, nil, 0, 1, 0, 0, false), "function"},
 	} {
-		b, err := bad.EncodeBinary()
-		require.NoError(t, err)
-		var v core.Value
-		err = v.DecodeBinary(b)
+		reason := "value type " + c.name + " does not support binary encoding"
+
+		_, err := c.v.EncodeBinary()
 		e, ok := err.(*errs.Error)
+		require.True(t, ok, "%s: %v", c.v.TypeName(), err)
+		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
+		require.Equal(t, reason, e.Message)
+
+		for _, w := range []struct {
+			v    core.Value
+			path string
+		}{
+			{core.NewArrayValue([]core.Value{core.IntValue(1), c.v}, false), "array element at index 1: "},
+			{core.NewDictValue(map[string]core.Value{"f": c.v}, false), "dict"},
+			{core.NewRecordValue(map[string]core.Value{"f": c.v}, false), "record"},
+			{core.NewErrorValue(c.v, "user", errs.CategoryUser, false), "error"},
+		} {
+			_, err := w.v.EncodeBinary()
+			e, ok := err.(*errs.Error)
+			require.True(t, ok, "%s in %s: %v", c.v.TypeName(), w.v.TypeName(), err)
+			require.Equal(t, errs.KindBinaryEncoding, e.Kind)
+			require.True(t, strings.HasPrefix(e.Message, w.path) && strings.HasSuffix(e.Message, reason), "%q", e.Message)
+		}
+
+		// decode: the type byte alone decides, whatever the body
+		target := core.IntValue(7)
+		e, ok = target.DecodeBinary([]byte{c.v.Type, 1, 0, 0, 0, 0, 0, 0, 0, 0}).(*errs.Error)
 		require.True(t, ok)
 		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
-	}
+		require.Equal(t, reason, e.Message)
+		require.Equal(t, core.IntValue(7), target)
 
-	for _, typ := range []uint8{value.BoundMember, value.CompiledFunction} {
-		var v core.Value
-		e := errs.AsError(v.DecodeBinary([]byte{typ, 1, 0xff}))
-		require.True(t, e != nil)
-		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
-	}
-}
-
-// A builtin function encodes as its slot; decoding answers the same callable again, and refuses a slot that is out
-// of range or holds no function — with a binary_encoding error, not a panic, even while naming the refused value.
-func TestBuiltinFunctionBinary(t *testing.T) {
-	f := vm.BuiltinFunctions["len"]
-	b, err := f.EncodeBinary()
-	require.NoError(t, err)
-	var g core.Value
-	require.NoError(t, g.DecodeBinary(b))
-	require.True(t, f.Equal(g))
-	r, err := g.Call(nil, []core.Value{core.NewStringValue("abc")})
-	require.NoError(t, err)
-	require.Equal(t, core.IntValue(3), r)
-
-	for _, slot := range []uint64{
-		core.ModuleSlotSize - 1,                          // the global builtins' last slot: reserved, empty
-		uint64(value.ModuleOs)*core.ModuleSlotSize + 127, // a module's unused slot
-		256 * core.ModuleSlotSize,                        // past the registry
-		1 << 63,
-	} {
-		b := core.BuiltinFunctionValue(slot)
-		data, err := b.EncodeBinary()
+		// ... and as an element: an array whose second element is forged as code
+		data, err := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false).EncodeBinary()
 		require.NoError(t, err)
+		elem, err := core.IntValue(2).EncodeBinary()
+		require.NoError(t, err)
+		i := bytes.LastIndex(data, elem)
+		require.True(t, i > 0)
+		data[i] = c.v.Type
 		var v core.Value
-		e, ok := v.DecodeBinary(data).(*errs.Error)
-		require.True(t, ok, "slot %d", slot)
+		e, ok = v.DecodeBinary(data).(*errs.Error)
+		require.True(t, ok)
 		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
-		require.Equal(t, core.Undefined, v) // the target is left untouched
+		require.Equal(t, "array element at index 1: "+reason, e.Message)
+		require.Equal(t, core.Undefined, v)
 	}
-}
-
-func TestCompiledFunctionValueBinary(t *testing.T) {
-	// a compiled-function VALUE round-trips through the value codec, not only through the static pool's gob path
-	ins := bc.Instructions{
-		{Op: opcodes.Jump, Op3: 7},
-		{Op: opcodes.Return, Op1: 1},
-	}
-	f := core.NewCompiledFunctionValue(ins, nil, map[int]core.Pos{0: 3, 1: 9}, 2, 4, 1, 0, true)
-	data, err := f.EncodeBinary()
-	require.NoError(t, err)
-
-	var g core.Value
-	require.NoError(t, g.DecodeBinary(data))
-	require.Equal(t, value.CompiledFunction, g.Type)
-	require.True(t, g.Immutable)
-	o := (*core.CompiledFunction)(g.Ptr)
-	require.True(t, o.Instructions.Equal(ins))
-	require.True(t, reflect.DeepEqual(o.SourceMap, map[int]core.Pos{0: 3, 1: 9}))
-	require.Equal(t, 2, o.NumLocals)
-	require.Equal(t, 4, o.MaxStack)
-	require.Equal(t, 1, o.NumParameters)
-	require.True(t, o.VarArgs)
 }
 
 func TestValuePtrTypeName(t *testing.T) {

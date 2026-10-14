@@ -244,8 +244,8 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.Error(t, err)
 }
 
-// The module grant is checked twice: by the compiler (a compile error) and by the VM that runs the bytecode (a
-// recoverable module_not_allowed). Without a grant only the pure modules pass either gate.
+// The module grant is checked twice: by the compiler (a compile error) and by the VM that runs the bytecode (Run
+// answers module_not_allowed before the first instruction). Without a grant only the pure modules pass either gate.
 func TestModuleGrant(t *testing.T) {
 	compileWith := func(src string, grant func(*kavun.Script)) (*kavun.Compiled, error) {
 		s := kavun.NewScript([]byte(src), "out")
@@ -271,20 +271,25 @@ func TestModuleGrant(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "module 'os' is not allowed to import"), err.Error())
 
-	// a compile-time grant alone is not enough: the VM refuses, recoverably
+	// a compile-time grant alone is not enough: the VM refuses the bytecode before running any of it
 	c, err = compileWith(`out = import("os")`, func(s *kavun.Script) { s.SetAllowedModules("os") })
 	require.NoError(t, err)
 	err = runIn(c, newVM())
 	require.Error(t, err)
 	requireKind(err, "module_not_allowed")
 	require.True(t, strings.Contains(err.Error(), "module 'os' is not allowed"), err.Error())
-	c, err = compileWith(`f := func() r { defer func() { r = recover().kind() }(); return import("os") }; out = f()`,
-		func(s *kavun.Script) { s.SetAllowedModules("os") })
-	require.NoError(t, err)
-	require.NoError(t, runIn(c, newVM()))
-	out, err := c.Get("out")
-	require.NoError(t, err)
-	require.Equal(t, "module_not_allowed", out.Interface())
+	// ... so nothing runs: not the code before the import, not a recover() around it
+	for _, src := range []string{
+		`out = 1; f := func() r { defer func() { r = recover().kind() }(); return import("os") }; out = f()`,
+		`out = 1; f := func(x) { if x { return import("os") } }; f(false)`, // an import never reached
+	} {
+		c, err = compileWith(src, func(s *kavun.Script) { s.SetAllowedModules("os") })
+		require.NoError(t, err)
+		requireKind(runIn(c, newVM()), "module_not_allowed")
+		out, err := c.Get("out")
+		require.NoError(t, err)
+		require.Equal(t, core.Undefined, out)
+	}
 
 	// granted at both gates: by name, or everything
 	c, err = compileWith(`out = type_name(import("os"))`, func(s *kavun.Script) { s.SetAllowedModules("os") })
@@ -292,7 +297,11 @@ func TestModuleGrant(t *testing.T) {
 	machine := newVM()
 	require.NoError(t, machine.SetAllowedModules("os"))
 	require.NoError(t, runIn(c, machine))
-	require.NoError(t, runIn(c, machine)) // the grant survives Reset
+	require.NoError(t, runIn(c, machine))                 // the grant survives Reset
+	require.NoError(t, machine.SetAllowedModules("math")) // a changed grant is checked again, same bytecode
+	requireKind(runIn(c, machine), "module_not_allowed")
+	machine.AllowAllModules()
+	require.NoError(t, runIn(c, machine))
 	c, err = compileWith(`out = type_name(import("clock"))`, func(s *kavun.Script) { s.AllowAllModules() })
 	require.NoError(t, err)
 	machine = newVM()
@@ -313,12 +322,59 @@ func TestModuleGrant(t *testing.T) {
 	cc.AllowAllModules()
 	require.NoError(t, cc.CompileNode(file))
 	var buf bytes.Buffer
-	require.NoError(t, cc.Bytecode().Encode(&buf))
+	require.NoError(t, cc.Bytecode().Encode(&buf, nil))
 	decoded := &vm.Bytecode{}
-	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes()), nil))
 	machine = newVM()
 	machine.Reset(decoded, nil)
 	requireKind(machine.Run(), "module_not_allowed")
+}
+
+// A compiled script round-trips through its bytecode envelope with its binding names: Set and Get work by name on
+// the decoded copy, which runs like the original; the signer is checked as in vm.Bytecode.Decode.
+func TestCompiledEncode(t *testing.T) {
+	s := kavun.NewScript([]byte(`helper := func(x) { return x * k }; out = helper(a) + len(name)`), "a", "k", "name", "out")
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	signer := vm.HMACSigner(bytes.Repeat([]byte{1}, vm.MinHMACKeyLen))
+	var buf bytes.Buffer
+	require.NoError(t, c.Encode(&buf, signer))
+	data := buf.Bytes()
+
+	d, err := kavun.DecodeCompiled(bytes.NewReader(data), signer)
+	require.NoError(t, err)
+	require.Equal(t, core.Undefined, d.MustGet("out"))
+	d.MustSet("a", core.IntValue(4))
+	d.MustSet("k", core.IntValue(10))
+	d.MustSet("name", core.NewStringValue("abc"))
+	require.NoError(t, d.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)))
+	require.Equal(t, core.IntValue(43), d.MustGet("out"))
+	require.Equal(t, 4, len(d.GetAll()))
+	require.Error(t, d.Set("helper", core.IntValue(1))) // a script's own global is not a binding
+
+	clone, err := d.Clone()
+	require.NoError(t, err)
+	clone.MustSet("a", core.IntValue(5))
+	require.NoError(t, clone.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)))
+	require.Equal(t, core.IntValue(53), clone.MustGet("out"))
+	require.Equal(t, core.IntValue(43), d.MustGet("out"))
+
+	_, err = kavun.DecodeCompiled(bytes.NewReader(data), vm.HMACSigner(bytes.Repeat([]byte{2}, vm.MinHMACKeyLen)))
+	require.True(t, errors.Is(err, vm.ErrUntrusted), "%v", err)
+	_, err = kavun.DecodeCompiled(bytes.NewReader([]byte("nope")), nil)
+	require.True(t, errors.Is(err, vm.ErrNotBytecode), "%v", err)
+
+	// bytecode without bindings (the kavun CLI's) decodes too: it runs, and has nothing to Set or Get
+	file := parse(t, `x := 1 + 2`)
+	cc := compiler.NewCompiler(compiler.O0(), nil, file.InputFile, nil, nil, nil, nil)
+	require.NoError(t, cc.CompileNode(file))
+	buf.Reset()
+	require.NoError(t, cc.Bytecode().Encode(&buf, nil))
+	d, err = kavun.DecodeCompiled(&buf, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(d.GetAll()))
+	require.NoError(t, d.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)))
 }
 
 func TestCompiled_Get(t *testing.T) {

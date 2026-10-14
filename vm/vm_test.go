@@ -2,6 +2,8 @@ package vm_test
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -56,11 +58,11 @@ func concatInsts(instructions ...bc.Instruction) bc.Instructions {
 
 func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
 	var buf bytes.Buffer
-	err := b.Encode(&buf)
+	err := b.Encode(&buf, nil)
 	require.NoError(t, err)
 
 	r := &vm.Bytecode{}
-	err = r.Decode(bytes.NewReader(buf.Bytes()))
+	err = r.Decode(bytes.NewReader(buf.Bytes()), nil)
 	require.NoError(t, err)
 
 	require.Equal(t, b.FileSet, r.FileSet)
@@ -500,64 +502,170 @@ func Test_builtinFormat(t *testing.T) {
 	}
 }
 
-// Encoded bytecode opens with vm.BytecodeMagic; Decode refuses another version, a foreign stream and a short one.
-func TestBytecodeHeader(t *testing.T) {
-	var buf bytes.Buffer
-	require.NoError(t, bytecode(concatInsts(), core.Static{}).Encode(&buf))
-	encoded := buf.Bytes()
-	require.Equal(t, vm.BytecodeMagic, string(encoded[:len(vm.BytecodeMagic)]))
+// The envelope: "KVN", a length-prefixed tag, four versions, the gob stream. Decode refuses a foreign or truncated
+// stream (ErrNotBytecode) and the pre-envelope format (ErrIncompatible, "recompile").
+func TestBytecodeEnvelope(t *testing.T) {
+	encoded := encodeBytecode(t, nil)
+	require.Equal(t, "KVN", string(encoded[:3]))
+	require.Equal(t, 0, int(binary.LittleEndian.Uint16(encoded[3:]))) // unsigned: no tag
+	coreV, host := envelopeVersions(encoded)
+	require.Equal(t, vm.CoreVersion().String(), coreV.String())
+	require.Equal(t, "0.0", host.String())
 
-	decode := func(data []byte) error { return (&vm.Bytecode{}).Decode(bytes.NewReader(data)) }
-
-	other := append([]byte{}, encoded...)
-	copy(other[len(vm.BytecodeMagic)-3:], "999")
-	err := decode(other)
-	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "incompatible bytecode version 999"), err.Error())
-
-	err = decode(append([]byte("XYZ001"), encoded[len(vm.BytecodeMagic):]...))
-	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "not Kavun bytecode"), err.Error())
-
-	err = decode(encoded[:3])
-	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "missing header"), err.Error())
-}
-
-// The static pool holds only data-only primitives in canonical form. Decode refuses a pool entry the compiler never
-// makes: another type forged into the pool (a builtin-function slot would reach a module without its grant, a heap
-// type would arrive without its pointer) or a payload no constructor produces.
-func TestBytecodeForgedPrimitive(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		p    core.Primitive
-		want string
+		data []byte
+		want error
+		text string
 	}{
-		{"builtin function (world module)", core.Primitive{Type: value.BuiltinFunction, Data: uint64(value.ModuleOs) * core.ModuleSlotSize}, "not a static primitive"},
-		{"builtin function (out of range)", core.Primitive{Type: value.BuiltinFunction, Data: 1 << 40}, "not a static primitive"},
-		{"heap type", core.Primitive{Type: value.Array}, "not a static primitive"},
-		{"string", core.Primitive{Type: value.String, Data: 3}, "not a static primitive"},
-		{"reserved primitive", core.Primitive{Type: value.Reserved7}, "not a static primitive"},
-		{"unregistered type", core.Primitive{Type: 250}, "not a static primitive"},
-		{"undefined", core.Primitive{Type: value.Undefined, Data: 1}, "out of range"},
-		{"bool", core.Primitive{Type: value.Bool, Data: 2}, "out of range"},
-		{"byte", core.Primitive{Type: value.Byte, Data: 0x100}, "out of range"},
-		{"rune past U+10FFFF", core.Primitive{Type: value.Rune, Data: 0x110000}, "out of range"},
-		{"rune surrogate", core.Primitive{Type: value.Rune, Data: 0xD800}, "out of range"},
-		{"rune wide", core.Primitive{Type: value.Rune, Data: 1<<32 + 'A'}, "out of range"},
-		{"date out of range", core.Primitive{Type: value.Date, Data: 0x7FFFFFFF}, "out of range"},
-		{"date wide", core.Primitive{Type: value.Date, Data: 1 << 32}, "out of range"},
+		{"empty", nil, vm.ErrNotBytecode, "missing header"},
+		{"foreign", append([]byte("XYZ"), encoded[3:]...), vm.ErrNotBytecode, "missing header"},
+		{"magic only", encoded[:3], vm.ErrNotBytecode, "truncated header"},
+		{"no versions", encoded[:9], vm.ErrNotBytecode, "truncated header"},
+		{"tag too long", append([]byte("KVN\xff\x7f"), encoded[5:]...), vm.ErrNotBytecode, "tag length 32767"},
+		{"legacy format", append([]byte("KVN002"), encoded[5:]...), vm.ErrIncompatible, "format KVN002 predates versioned bytecode; recompile from source"},
+		{"corrupt payload", encoded[:len(encoded)-4], vm.ErrNotBytecode, ""},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			require.NoError(t, bytecode(concatInsts(), core.Static{Primitives: []core.Primitive{primitive(core.IntValue(1)), tc.p}}).Encode(&buf))
-			err := (&vm.Bytecode{}).Decode(&buf)
-			require.Error(t, err)
-			require.True(t, strings.Contains(err.Error(), "primitive at static index 1") && strings.Contains(err.Error(), tc.want), err.Error())
-		})
+		err := decodeBytecode(tc.data, nil)
+		require.True(t, errors.Is(err, tc.want), "%s: %v", tc.name, err)
+		require.True(t, strings.Contains(err.Error(), tc.text), "%s: %v", tc.name, err)
+	}
+}
+
+// Core and host versions: accepted iff the major is equal and the file's minor is not above the engine's; a host
+// version 0.0 (no extensions) is accepted by every application.
+func TestBytecodeVersions(t *testing.T) {
+	t.Cleanup(func() { core.SetHostVersion(0, 0) })
+	core0 := vm.CoreVersion()
+	withVersions := func(coreV, host core.Version) []byte {
+		data := encodeBytecode(t, nil)
+		for i, n := range []uint16{coreV.Major, coreV.Minor, host.Major, host.Minor} {
+			binary.LittleEndian.PutUint16(data[5+2*i:], n)
+		}
+		return data
 	}
 
-	// the canonical edges still decode
+	require.NoError(t, decodeBytecode(withVersions(core0, core.Version{}), nil))
+	err := decodeBytecode(withVersions(core.Version{Major: core0.Major + 1}, core.Version{}), nil)
+	require.True(t, errors.Is(err, vm.ErrIncompatible), "%v", err)
+	require.Equal(t, fmt.Sprintf("incompatible bytecode: core version %d.0 (this engine: %s); recompile from source", core0.Major+1, core0), err.Error())
+	err = decodeBytecode(withVersions(core.Version{Major: core0.Major, Minor: core0.Minor + 1}, core.Version{}), nil)
+	require.True(t, errors.Is(err, vm.ErrIncompatible), "%v", err)
+	// Inspect reports what Decode refuses
+	info, err := vm.Inspect(bytes.NewReader(withVersions(core.Version{Major: core0.Major + 1}, core.Version{Major: 5, Minor: 1})), nil)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf("%d.0", core0.Major+1), info.Core.String())
+	require.Equal(t, "5.1", info.Host.String())
+	require.True(t, !info.Signed && info.Verify == nil && info.PayloadErr == nil && info.Bytecode != nil)
+
+	core.SetHostVersion(3, 2)
+	require.NoError(t, decodeBytecode(withVersions(core0, core.Version{}), nil)) // 0.0: readable everywhere
+	require.NoError(t, decodeBytecode(withVersions(core0, core.Version{Major: 3}), nil))
+	require.NoError(t, decodeBytecode(withVersions(core0, core.Version{Major: 3, Minor: 2}), nil))
+	for _, host := range []core.Version{{Major: 3, Minor: 3}, {Major: 2, Minor: 2}, {Major: 4}} {
+		err := decodeBytecode(withVersions(core0, host), nil)
+		require.True(t, errors.Is(err, vm.ErrIncompatible), "%v", err)
+		require.Equal(t, "incompatible bytecode: host version "+host.String()+" (this application: 3.2); recompile from source", err.Error())
+	}
+	core.SetHostVersion(0, 0)
+	err = decodeBytecode(withVersions(core0, core.Version{Major: 3}), nil) // produced with extensions, read without
+	require.True(t, errors.Is(err, vm.ErrIncompatible), "%v", err)
+
+	// the host version written is this process's
+	core.SetHostVersion(7, 1)
+	data := encodeBytecode(t, nil)
+	_, host := envelopeVersions(data)
+	require.Equal(t, "7.1", host.String())
+}
+
+// With embedder types or modules registered, encoding and decoding need a host version.
+func TestBytecodeHostVersionRequired(t *testing.T) {
+	data := encodeBytecode(t, nil)
+	require.True(t, !core.HasExtensions())
+	require.NoError(t, core.NewModule(250, "host_version_probe", true).Register())
+	t.Cleanup(func() {
+		require.NoError(t, core.UnregisterModule(250))
+		core.SetHostVersion(0, 0)
+	})
+	require.True(t, core.HasExtensions())
+
+	err := bytecode(concatInsts(), core.Static{}).Encode(&bytes.Buffer{}, nil)
+	require.True(t, errors.Is(err, vm.ErrHostVersionUnset), "%v", err)
+	require.Equal(t, "host version unset: embedder types or modules are registered; call core.SetHostVersion", err.Error())
+	err = decodeBytecode(data, nil)
+	require.True(t, errors.Is(err, vm.ErrHostVersionUnset), "%v", err)
+
+	core.SetHostVersion(1, 0)
+	require.NoError(t, decodeBytecode(data, nil))
+	require.NoError(t, decodeBytecode(encodeBytecode(t, nil), nil))
+}
+
+// A signer tags the signed region; Decode with a signer refuses an unsigned, tampered or foreign-key blob, and
+// Decode without one ignores the tag.
+func TestBytecodeSigner(t *testing.T) {
+	key := bytes.Repeat([]byte{7}, vm.MinHMACKeyLen)
+	signer := vm.HMACSigner(key)
+	signed := encodeBytecode(t, signer)
+	tagLen := int(binary.LittleEndian.Uint16(signed[3:]))
+	require.Equal(t, 32, tagLen)
+
+	require.NoError(t, decodeBytecode(signed, signer))
+	require.NoError(t, decodeBytecode(signed, nil)) // no key configured: trusted as given
+
+	err := decodeBytecode(encodeBytecode(t, nil), signer)
+	require.True(t, errors.Is(err, vm.ErrUntrusted), "%v", err)
+	require.Equal(t, "untrusted bytecode: unsigned, and this application requires a signature", err.Error())
+
+	other := vm.HMACSigner(bytes.Repeat([]byte{8}, vm.MinHMACKeyLen))
+	err = decodeBytecode(signed, other)
+	require.True(t, errors.Is(err, vm.ErrUntrusted), "%v", err)
+	require.Equal(t, "untrusted bytecode: signature does not verify: HMAC mismatch", err.Error())
+
+	// every byte after the tag is covered: a version, the payload
+	for _, at := range []int{5 + tagLen, 5 + tagLen + 6, len(signed) - 1} {
+		tampered := append([]byte{}, signed...)
+		tampered[at] ^= 1
+		err := decodeBytecode(tampered, signer)
+		require.True(t, errors.Is(err, vm.ErrUntrusted), "byte %d: %v", at, err)
+	}
+	// ... and so is the tag itself
+	tampered := append([]byte{}, signed...)
+	tampered[5] ^= 1
+	require.True(t, errors.Is(decodeBytecode(tampered, signer), vm.ErrUntrusted))
+
+	// trust is checked before compatibility: a forged version is a trust failure
+	forged := append([]byte{}, signed...)
+	binary.LittleEndian.PutUint16(forged[5+tagLen:], 99)
+	require.True(t, errors.Is(decodeBytecode(forged, signer), vm.ErrUntrusted))
+	require.True(t, errors.Is(decodeBytecode(forged, nil), vm.ErrIncompatible))
+
+	// a short key refuses to sign and to verify
+	short := vm.HMACSigner(key[:vm.MinHMACKeyLen-1])
+	err = bytecode(concatInsts(), core.Static{}).Encode(&bytes.Buffer{}, short)
+	require.Error(t, err)
+	require.Equal(t, "failed to sign bytecode: HMAC key too short: 31 bytes (min: 32)", err.Error())
+	require.True(t, errors.Is(decodeBytecode(signed, short), vm.ErrUntrusted))
+}
+
+func encodeBytecode(t *testing.T, signer vm.Signer) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, bytecode(concatInsts(), core.Static{Strings: []string{"abc"}}).Encode(&buf, signer))
+	return buf.Bytes()
+}
+
+// envelopeVersions reads the core and host versions of an unsigned envelope.
+func envelopeVersions(data []byte) (coreV, host core.Version) {
+	u := func(i int) uint16 { return binary.LittleEndian.Uint16(data[i:]) }
+	return core.Version{Major: u(5), Minor: u(7)}, core.Version{Major: u(9), Minor: u(11)}
+}
+
+func decodeBytecode(data []byte, signer vm.Signer) error {
+	return (&vm.Bytecode{}).Decode(bytes.NewReader(data), signer)
+}
+
+// The canonical edges of the static primitives round-trip.
+func TestBytecodePrimitiveEdges(t *testing.T) {
 	first, _ := civil.New(civil.MinYear, civil.January, 1)
 	last, _ := civil.New(civil.MaxYear, civil.December, 31)
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{Primitives: []core.Primitive{

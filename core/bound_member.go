@@ -7,7 +7,6 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/internal/binary"
 )
 
 // BoundMember is a member function read as a value: x.name without a call. The receiver is captured by value at
@@ -28,8 +27,8 @@ var TypeBoundMember = ValueTypeDescr{
 	Name:         boundMemberTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return boundMemberTypeName(v) }, // PURE by contract
 	Format:       callableFormat,                                         // PURE by contract
-	EncodeBinary: boundMemberTypeEncodeBinary,                            // PURE by contract
-	DecodeBinary: boundMemberTypeDecodeBinary,                            // IMPURE by contract (mutates target)
+	EncodeBinary: codeEncodeBinary,                                       // PURE by contract (refuses: code, not data)
+	DecodeBinary: codeDecodeBinary,                                       // IMPURE by contract (refuses: code, not data)
 	IsTrue:       Const2Hook[bool, error](true, nil),                     // PURE by contract
 	Equal:        boundMemberTypeEqual,                                   // PURE by contract
 	IsCallable:   ConstHook(true),                                        // PURE by contract
@@ -94,55 +93,4 @@ func boundMemberTypeEqual(v Value, other Value, final bool) bool {
 		return false
 	}
 	return ValueTypes[other.Type].Equal(other, v, true)
-}
-
-// The receiver's own encoding, the member id, the name. A receiver that does not encode makes the bound member not
-// encode, with the receiver's error.
-func boundMemberTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*BoundMember)(v.Ptr)
-	rb, err := o.Receiver.EncodeBinary()
-	if err != nil {
-		return nil, err
-	}
-	b := binary.AppendBytes(nil, rb)
-	b = binary.AppendUint64(b, uint64(o.ID))
-	b = binary.AppendBytes(b, []byte(o.Name))
-	return b, nil
-}
-
-func boundMemberTypeDecodeBinary(v *Value, data []byte) error {
-	offset := 0
-	rb, err := binary.ReadBytes(data, &offset, "bound member (receiver)")
-	if err != nil {
-		return err
-	}
-	var recv Value
-	if err := recv.DecodeBinary(rb); err != nil {
-		return err
-	}
-	id, err := binary.ReadUint64(data, &offset, "bound member (id)")
-	if err != nil {
-		return err
-	}
-	name, err := binary.ReadBytes(data, &offset, "bound member (name)")
-	if err != nil {
-		return err
-	}
-	if offset != len(data) {
-		return fmt.Errorf("bound member: trailing %d bytes", len(data)-offset)
-	}
-	if id >= uint64(member.Max) {
-		return fmt.Errorf("bound member: member id %d out of range", id)
-	}
-	o := &BoundMember{Receiver: recv, ID: member.ID(id), Name: string(name)}
-	if o.ID != member.Unknown {
-		if o.ID.String() != o.Name {
-			return fmt.Errorf("bound member: member id %d is not %q", id, o.Name)
-		}
-		if o.entry().Fn == nil {
-			return fmt.Errorf("bound member: type %s has no member %q", recv.TypeName(), o.Name)
-		}
-	}
-	*v = Value{Type: value.BoundMember, Immutable: true, Ptr: unsafe.Pointer(o)}
-	return nil
 }

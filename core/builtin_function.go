@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/jokruger/kavun/core/member/members"
 
@@ -48,8 +47,8 @@ var TypeBuiltinFunction = ValueTypeDescr{
 	Name:         builtinFunctionTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return builtinFunctionTypeName(v) }, // PURE by contract
 	Format:       callableFormat,                                             // PURE by contract
-	EncodeBinary: builtinFunctionTypeEncodeBinary,                            // PURE by contract
-	DecodeBinary: builtinFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
+	EncodeBinary: codeEncodeBinary,                                           // PURE by contract (refuses: code, not data)
+	DecodeBinary: codeDecodeBinary,                                           // IMPURE by contract (refuses: code, not data)
 	IsTrue:       Const2Hook[bool, error](true, nil),                         // PURE by contract
 	IsCallable:   ConstHook(true),                                            // PURE by contract
 	IsVariadic:   builtinFunctionTypeIsVariadic,                              // PURE by contract
@@ -87,24 +86,6 @@ func builtinFunctionTypeName(v Value) string {
 		return fmt.Sprintf("<builtin-function:%s.%s/%d>", o.Module, o.Name, o.Arity)
 	}
 	return fmt.Sprintf("<builtin-function:%s/%d>", o.Name, o.Arity)
-}
-
-func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
-	out := make([]byte, 8)
-	binary.LittleEndian.PutUint64(out, v.Data)
-	return out, nil
-}
-
-func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
-	if len(data) != 8 {
-		return fmt.Errorf("builtin function: expected 8 bytes, got %d", len(data))
-	}
-	slot := binary.LittleEndian.Uint64(data)
-	if builtinFunctionAt(slot) == nil {
-		return fmt.Errorf("builtin function: no function registered at slot %d", slot)
-	}
-	v.Data = slot
-	return nil
 }
 
 func builtinFunctionTypeIsVariadic(v Value) bool {
