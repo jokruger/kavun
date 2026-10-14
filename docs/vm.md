@@ -41,7 +41,10 @@ Encoded bytecode (`Bytecode.Encode`) opens with `vm.BytecodeMagic`, currently `K
 other header, so bytecode from an incompatible build fails loudly. `002` regrouped the type ids, moved the
 builtin-function slots to *type id* × 128, made `ImportBuiltinModule`'s `Op3` a module type id, and added the
 encodings of bound members and module values. A builtin module's grant is checked by the VM when the import runs
-(`VM.SetAllowedModules`), so decoded bytecode cannot import a module the host did not grant.
+(`VM.SetAllowedModules`), so decoded bytecode cannot import a module the host did not grant. `Decode` also refuses
+a static pool entry the compiler never makes: the primitive pool holds only the data-only types (`undefined`,
+`bool`, `byte`, `rune`, `int`, `float`, `date`) with an in-range payload, so no other value — a module's builtin
+function in particular — can be forged into it.
 
 ## Defaults
 

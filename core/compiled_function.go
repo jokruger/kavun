@@ -254,8 +254,10 @@ func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 }
 
 func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
+	// the payload is the function's own encoding (no value header): decode through the CompiledFunction, not
+	// through Value.DecodeBinary, which would read the first payload byte as a type id
 	f := NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, 0, false)
-	if err := f.DecodeBinary(data); err != nil {
+	if err := (*CompiledFunction)(f.Ptr).DecodeBinary(data); err != nil {
 		return fmt.Errorf("compiled function: %w", err)
 	}
 	*v = f

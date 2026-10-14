@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 type VM interface {
@@ -54,6 +55,34 @@ type Primitive struct {
 
 func (p Primitive) Value() Value {
 	return Value{Type: p.Type, Immutable: true, Data: p.Data}
+}
+
+// Validate reports whether p is a value the static pool can hold: a data-only primitive type whose Data is in that
+// type's canonical form. Decoded bytecode is checked with it, so a crafted pool entry can neither forge a value of
+// another type (a builtin-function slot, a heap type without its pointer) nor carry a payload no constructor makes.
+// PURE by contract.
+func (p Primitive) Validate() error {
+	ok := true
+	switch p.Type {
+	case value.Undefined:
+		ok = p.Data == 0
+	case value.Bool:
+		ok = p.Data <= 1
+	case value.Byte:
+		ok = p.Data <= 0xFF
+	case value.Rune:
+		ok = text.IntInRuneDomain(int64(p.Data))
+	case value.Int, value.Float:
+	case value.Date:
+		_, ok = civil.FromDays(int32(uint32(p.Data)))
+		ok = ok && p.Data <= 0xFFFFFFFF
+	default:
+		return fmt.Errorf("type %d is not a static primitive", p.Type)
+	}
+	if !ok {
+		return fmt.Errorf("%s: payload %#x out of range", ValueTypes[p.Type].Name(p.Value()), p.Data)
+	}
+	return nil
 }
 
 // Static variables

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/fin128/civil"
+
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
@@ -520,6 +522,52 @@ func TestBytecodeHeader(t *testing.T) {
 	err = decode(encoded[:3])
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "missing header"), err.Error())
+}
+
+// The static pool holds only data-only primitives in canonical form. Decode refuses a pool entry the compiler never
+// makes: another type forged into the pool (a builtin-function slot would reach a module without its grant, a heap
+// type would arrive without its pointer) or a payload no constructor produces.
+func TestBytecodeForgedPrimitive(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		p    core.Primitive
+		want string
+	}{
+		{"builtin function (world module)", core.Primitive{Type: value.BuiltinFunction, Data: uint64(value.ModuleOs) * core.ModuleSlotSize}, "not a static primitive"},
+		{"builtin function (out of range)", core.Primitive{Type: value.BuiltinFunction, Data: 1 << 40}, "not a static primitive"},
+		{"heap type", core.Primitive{Type: value.Array}, "not a static primitive"},
+		{"string", core.Primitive{Type: value.String, Data: 3}, "not a static primitive"},
+		{"reserved primitive", core.Primitive{Type: value.Reserved7}, "not a static primitive"},
+		{"unregistered type", core.Primitive{Type: 250}, "not a static primitive"},
+		{"undefined", core.Primitive{Type: value.Undefined, Data: 1}, "out of range"},
+		{"bool", core.Primitive{Type: value.Bool, Data: 2}, "out of range"},
+		{"byte", core.Primitive{Type: value.Byte, Data: 0x100}, "out of range"},
+		{"rune past U+10FFFF", core.Primitive{Type: value.Rune, Data: 0x110000}, "out of range"},
+		{"rune surrogate", core.Primitive{Type: value.Rune, Data: 0xD800}, "out of range"},
+		{"rune wide", core.Primitive{Type: value.Rune, Data: 1<<32 + 'A'}, "out of range"},
+		{"date out of range", core.Primitive{Type: value.Date, Data: 0x7FFFFFFF}, "out of range"},
+		{"date wide", core.Primitive{Type: value.Date, Data: 1 << 32}, "out of range"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			require.NoError(t, bytecode(concatInsts(), core.Static{Primitives: []core.Primitive{primitive(core.IntValue(1)), tc.p}}).Encode(&buf))
+			err := (&vm.Bytecode{}).Decode(&buf)
+			require.Error(t, err)
+			require.True(t, strings.Contains(err.Error(), "primitive at static index 1") && strings.Contains(err.Error(), tc.want), err.Error())
+		})
+	}
+
+	// the canonical edges still decode
+	first, _ := civil.New(civil.MinYear, civil.January, 1)
+	last, _ := civil.New(civil.MaxYear, civil.December, 31)
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{Primitives: []core.Primitive{
+		primitive(core.RuneValue(0x10FFFF)),
+		primitive(core.RuneValue(0xDCFF)), // an octet escape is a rune
+		primitive(core.ByteValue(0xFF)),
+		primitive(core.FloatValue(math.NaN())),
+		primitive(core.DateValue(first)), // before the epoch: a negative day count
+		primitive(core.DateValue(last)),
+	}}))
 }
 
 func TestBytecodeEmpty(t *testing.T) {

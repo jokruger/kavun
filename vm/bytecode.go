@@ -91,6 +91,13 @@ func (b *Bytecode) Decode(r io.Reader) error {
 		}
 	}
 
+	// validate static - primitives are not decoded through a type's hook, so check what the compiler guarantees
+	for i, p := range b.Static.Primitives {
+		if err := p.Validate(); err != nil {
+			return fmt.Errorf("failed to decode bytecode: primitive at static index %d: %w", i, err)
+		}
+	}
+
 	// derived data the hot loop relies on (the cached string rune counts); idempotent
 	b.Static.BuildStringLens()
 

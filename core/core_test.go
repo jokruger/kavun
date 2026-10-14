@@ -8,11 +8,14 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
+	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/vm"
 )
 
 func TestValueMarkImmutableDeep(t *testing.T) {
@@ -315,4 +318,63 @@ func TestBoundMemberBinary(t *testing.T) {
 		require.True(t, e != nil)
 		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
 	}
+}
+
+// A builtin function encodes as its slot; decoding answers the same callable again, and refuses a slot that is out
+// of range or holds no function — with a binary_encoding error, not a panic, even while naming the refused value.
+func TestBuiltinFunctionBinary(t *testing.T) {
+	f := vm.BuiltinFunctions["len"]
+	b, err := f.EncodeBinary()
+	require.NoError(t, err)
+	var g core.Value
+	require.NoError(t, g.DecodeBinary(b))
+	require.True(t, f.Equal(g))
+	r, err := g.Call(nil, []core.Value{core.NewStringValue("abc")})
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(3), r)
+
+	for _, slot := range []uint64{
+		core.ModuleSlotSize - 1,                          // the global builtins' last slot: reserved, empty
+		uint64(value.ModuleOs)*core.ModuleSlotSize + 127, // a module's unused slot
+		256 * core.ModuleSlotSize,                        // past the registry
+		1 << 63,
+	} {
+		b := core.BuiltinFunctionValue(slot)
+		data, err := b.EncodeBinary()
+		require.NoError(t, err)
+		var v core.Value
+		e, ok := v.DecodeBinary(data).(*errs.Error)
+		require.True(t, ok, "slot %d", slot)
+		require.Equal(t, errs.KindBinaryEncoding, e.Kind)
+		require.Equal(t, core.Undefined, v) // the target is left untouched
+	}
+}
+
+func TestCompiledFunctionValueBinary(t *testing.T) {
+	// a compiled-function VALUE round-trips through the value codec, not only through the static pool's gob path
+	ins := bc.Instructions{
+		{Op: opcodes.Jump, Op3: 7},
+		{Op: opcodes.Return, Op1: 1},
+	}
+	f := core.NewCompiledFunctionValue(ins, nil, map[int]core.Pos{0: 3, 1: 9}, 2, 4, 1, 0, true)
+	data, err := f.EncodeBinary()
+	require.NoError(t, err)
+
+	var g core.Value
+	require.NoError(t, g.DecodeBinary(data))
+	require.Equal(t, value.CompiledFunction, g.Type)
+	require.True(t, g.Immutable)
+	o := (*core.CompiledFunction)(g.Ptr)
+	require.True(t, o.Instructions.Equal(ins))
+	require.True(t, reflect.DeepEqual(o.SourceMap, map[int]core.Pos{0: 3, 1: 9}))
+	require.Equal(t, 2, o.NumLocals)
+	require.Equal(t, 4, o.MaxStack)
+	require.Equal(t, 1, o.NumParameters)
+	require.True(t, o.VarArgs)
+}
+
+func TestValuePtrTypeName(t *testing.T) {
+	x := core.IntValue(1)
+	require.Equal(t, "<value-ptr:int>", core.NewValuePtrValue(&x).TypeName())
+	require.Equal(t, "<value-ptr:nil>", core.NewValuePtrValue(nil).TypeName())
 }

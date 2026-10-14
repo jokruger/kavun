@@ -17,5 +17,15 @@ func NewValuePtrValue(p *Value) Value {
 }
 
 var TypeValuePtr = ValueTypeDescr{
-	Name: func(v Value) string { return fmt.Sprintf("<%s:%s>", valuePtrTypeName, v.TypeName()) }, // PURE by contract
+	Name: valuePtrName, // PURE by contract
+}
+
+// valuePtrName names the POINTEE: naming the pointer value itself would recurse without end (a Go stack
+// overflow no recover catches), and the name is read on error paths that must never make things worse.
+func valuePtrName(v Value) string {
+	p := (*Value)(v.Ptr)
+	if p == nil {
+		return fmt.Sprintf("<%s:nil>", valuePtrTypeName)
+	}
+	return fmt.Sprintf("<%s:%s>", valuePtrTypeName, p.TypeName())
 }
