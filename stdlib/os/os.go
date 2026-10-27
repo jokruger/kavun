@@ -6,7 +6,6 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member/members"
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
 	"github.com/jokruger/kavun/stdlib/rand"
@@ -15,44 +14,36 @@ import (
 // The os module is the process and its environment: arguments, exit, environment variables, identity, the
 // working directory. Files are the fs module's, processes the exec module's, path text the path module's.
 
-func init() {
-	m := core.NewModule(value.ModuleOs, "os", false)
+// The process and its environment: arguments, exit, environment variables, identity, the working directory.
+//
+// Files are [`fs`](fs.md)'s, other processes [`exec`](exec.md)'s, path text [`path`](path.md)'s.
+//
+// ```go
+// os := import("os")
+// os.get_env("HOME")
+// os.platform              // "linux", "darwin", …
+// ```
+//
+// Constants: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separator`.
+//
+// **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
+// `(os.chdir) chdir /nope: no such file or directory`. A function whose success has no result answers `undefined`.
+//
+//kavun:module os impure
+
+// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+func moduleExtras(m *core.ModuleBuilder) {
 	m.Const(members.Platform, core.NewStringValue(runtime.GOOS))
 	m.Const(members.Arch, core.NewStringValue(runtime.GOARCH))
 	m.Const(members.PathSeparator, core.RuneValue(os.PathSeparator))
 	m.Const(members.PathListSeparator, core.RuneValue(os.PathListSeparator))
 	m.Const(members.DevNull, core.NewStringValue(os.DevNull))
-	m.Fn(members.Args, 0, osArgs, 0, core.Fixed)
-	m.Fn(members.Exit, 1, osExit, 1, core.Fixed)
-	m.Fn(members.Environ, 2, osEnviron, 0, core.Fixed)
-	m.Fn(members.GetEnv, 3, osGetenv, 1, core.Fixed)
-	m.Fn(members.SetEnv, 4, osSetenv, 2, core.Fixed)
-	m.Fn(members.UnsetEnv, 5, osUnsetenv, 1, core.Fixed)
-	m.Fn(members.LookupEnv, 6, osLookupEnv, 1, core.Fixed)
-	m.Fn(members.ExpandEnv, 7, osExpandEnv, 1, core.Fixed)
-	m.Fn(members.ClearEnv, 8, osClearenv, 0, core.Fixed)
-	m.Fn(members.Hostname, 9, osHostname, 0, core.Fixed)
-	m.Fn(members.GetWd, 10, osGetwd, 0, core.Fixed)
-	m.Fn(members.Chdir, 11, osChdir, 1, core.Fixed)
-	m.Fn(members.GetPID, 12, osGetpid, 0, core.Fixed)
-	m.Fn(members.GetPpid, 13, osGetppid, 0, core.Fixed)
-	m.Fn(members.GetUID, 14, osGetuid, 0, core.Fixed)
-	m.Fn(members.GetEuid, 15, osGeteuid, 0, core.Fixed)
-	m.Fn(members.GetGid, 16, osGetgid, 0, core.Fixed)
-	m.Fn(members.GetEgid, 17, osGetegid, 0, core.Fixed)
-	m.Fn(members.GetGroups, 18, osGetgroups, 0, core.Fixed)
-	m.Fn(members.GetPageSize, 19, osGetpagesize, 0, core.Fixed)
-	m.Fn(members.RandGenerator, 20, osRandGenerator, 0, core.Fixed)
-	// 21..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
 }
 
+// Answer the command-line arguments.
+//
+//kavun:fn args slot=0 impure () -> [string]
 func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
-	}
 	arr := make([]core.Value, 0, len(os.Args))
 	for _, osArg := range os.Args {
 		arr = append(arr, core.NewStringValue(osArg))
@@ -60,10 +51,12 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewArrayValue(arr, false), nil
 }
 
+// Exit the process with `code`.
+//
+// `code` is an `int`.
+//
+//kavun:fn exit slot=1 impure (code) -> undefined
 func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.exit", "1", len(args))
-	}
 	i1, ok := args[0].AsInt()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0].TypeName())
@@ -72,10 +65,10 @@ func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.Undefined, nil
 }
 
+// Answer the environment as `KEY=VALUE` strings.
+//
+//kavun:fn environ slot=2 impure () -> [string]
 func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
-	}
 	env := os.Environ()
 	arr := make([]core.Value, 0, len(env))
 	for _, elem := range env {
@@ -84,10 +77,12 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.NewArrayValue(arr, false), nil
 }
 
+// Answer an environment variable's value, `""` when it is missing.
+//
+// `key` is a `string`.
+//
+//kavun:fn get_env slot=3 impure (key) -> string
 func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_env", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
@@ -96,10 +91,12 @@ func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(s), nil
 }
 
+// Set an environment variable.
+//
+// `key` and `value` are `string`s.
+//
+//kavun:fn set_env slot=4 impure (key, value) -> undefined
 func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.set_env", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "first", "string(compatible)", args[0].TypeName())
@@ -111,10 +108,12 @@ func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("os.set_env", os.Setenv(s1, s2))
 }
 
+// Unset an environment variable.
+//
+// `key` is a `string`.
+//
+//kavun:fn unset_env slot=5 impure (key) -> undefined
 func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.unset_env", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
@@ -122,10 +121,12 @@ func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("os.unset_env", os.Unsetenv(s1))
 }
 
+// Answer an environment variable's value, or `false` when it is missing.
+//
+// `key` is a `string`.
+//
+//kavun:fn lookup_env slot=6 impure (key) -> string | false
 func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0].TypeName())
@@ -137,10 +138,12 @@ func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(res), nil
 }
 
+// Expand the `$VAR` references in `s`.
+//
+// `s` is a `string`.
+//
+//kavun:fn expand_env slot=7 impure (s) -> string
 func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0].TypeName())
@@ -151,18 +154,18 @@ func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(s), nil
 }
 
+// Clear every environment variable.
+//
+//kavun:fn clear_env slot=8 impure () -> undefined
 func osClearenv(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.clear_env", "0", len(args))
-	}
 	os.Clearenv()
 	return core.Undefined, nil
 }
 
+// Answer the host name.
+//
+//kavun:fn hostname slot=9 impure () -> string
 func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.hostname", "0", len(args))
-	}
 	res, err := os.Hostname()
 	if err != nil {
 		return modkit.RaiseIO("os.hostname", err)
@@ -170,10 +173,10 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.NewStringValue(res), nil
 }
 
+// Answer the current working directory.
+//
+//kavun:fn get_wd slot=10 impure () -> string
 func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_wd", "0", len(args))
-	}
 	res, err := os.Getwd()
 	if err != nil {
 		return modkit.RaiseIO("os.get_wd", err)
@@ -181,10 +184,12 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.NewStringValue(res), nil
 }
 
+// Change the current working directory.
+//
+// `dir` is a `string`.
+//
+//kavun:fn chdir slot=11 impure (dir) -> undefined
 func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.chdir", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
@@ -192,52 +197,52 @@ func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("os.chdir", os.Chdir(s1))
 }
 
+// Answer the current process id.
+//
+//kavun:fn get_pid slot=12 impure () -> int
 func osGetpid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_pid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getpid())), nil
 }
 
+// Answer the parent process id; see [`get_pid`](#get_pid).
+//
+//kavun:fn get_ppid slot=13 impure () -> int
 func osGetppid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_ppid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getppid())), nil
 }
 
+// Answer the real user id.
+//
+//kavun:fn get_uid slot=14 impure () -> int
 func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_uid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getuid())), nil
 }
 
+// Answer the effective user id; see [`get_uid`](#get_uid).
+//
+//kavun:fn get_euid slot=15 impure () -> int
 func osGeteuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_euid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Geteuid())), nil
 }
 
+// Answer the real group id; see [`get_uid`](#get_uid).
+//
+//kavun:fn get_gid slot=16 impure () -> int
 func osGetgid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_gid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getgid())), nil
 }
 
+// Answer the effective group id; see [`get_uid`](#get_uid).
+//
+//kavun:fn get_egid slot=17 impure () -> int
 func osGetegid(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_egid", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getegid())), nil
 }
 
+// Answer the supplementary group ids.
+//
+//kavun:fn get_groups slot=18 impure () -> [int]
 func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_groups", "0", len(args))
-	}
 	res, err := os.Getgroups()
 	if err != nil {
 		return modkit.RaiseIO("os.get_groups", err)
@@ -249,18 +254,21 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.NewArrayValue(arr, false), nil
 }
 
+// Answer the memory page size.
+//
+//kavun:fn get_page_size slot=19 impure () -> int
 func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
-	}
 	return core.IntValue(int64(os.Getpagesize())), nil
 }
 
-// rand_generator(): a rand.generator over crypto/rand — the one entropy source. It is a world read, so it lives here
-// and not in the pure rand module; a reproducible run seeds rand.generator(…) instead.
+// Answer a [`rand.generator`](../types/rand_generator.md) over `crypto/rand` — the one entropy source.
+//
+// `os.rand_generator().int(1, 7)` rolls an unpredictable die.
+//
+// It is a world read, so it lives here and not in the pure `rand` module; a reproducible run seeds `rand.generator(…)`
+// instead.
+//
+//kavun:fn rand_generator slot=20 impure () -> rand.generator
 func osRandGenerator(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("os.rand_generator", "0", len(args))
-	}
 	return rand.NewEntropyValue(), nil
 }

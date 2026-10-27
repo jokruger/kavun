@@ -1,7 +1,6 @@
 package fin
 
 import (
-	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
@@ -88,6 +87,23 @@ func rateBandValue(b fin128.RateBand) core.Value {
 	return core.NewRecordValue(map[string]core.Value{"from": core.NewDecimalValue(b.From), "rate": core.NewDecimalValue(b.Rate)}, false)
 }
 
+// An immutable amount-banded rate table, such as a savings ladder.
+//
+// ## Overview
+//
+// `fin.tiered_rates` is owned by the [`fin`](../stdlib/fin.md) module (see [Rate and charge
+// tables](../stdlib/fin.md#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
+// form or from band records:
+//
+// | text form | band record |
+// | --- | --- |
+// | `"0:0.005, 1000:0.007, 10000:0.009"` — from 0, open at the top | `{from, rate}` |
+//
+// `rule` is `"whole"` (the band the amount lands in applies to all of it) or `"marginal"` (each slice at its own band's
+// rate).
+//
+//kavun:type fin.tiered_rates
+
 // TypeTieredRates is the fin.tiered_rates type descriptor.
 var TypeTieredRates = core.ValueTypeDescr{
 	Name:   core.ConstHook(tieredRatesTypeName),                                                              // PURE by contract
@@ -121,17 +137,5 @@ var TypeTieredRates = core.ValueTypeDescr{
 	},
 	AsString: func(v core.Value) (string, bool) { return TieredRatesOf(v).String(), true }, // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:      core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String:      core.NewPureMethod(tieredRatesString, 0, core.Variadic),
-		members.Format:      core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:        core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:      core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.At:          core.NewPureMethod(tieredRatesAt, 1, core.Fixed),
-		members.Bands:       core.NewPureMethod(tieredRatesBands, 0, core.Fixed),
-		members.Rate:        core.NewPureMethod(tieredRatesRate, 4, core.Fixed),
-		members.Charge:      core.NewPureMethod(tieredRatesCharge, 4, core.Fixed),
-		members.ChargeParts: core.NewPureMethod(tieredRatesChargeParts, 4, core.Fixed),
-		members.Accrue:      core.NewPureMethod(tieredRatesAccrue, 5, core.Fixed),
-	},
+	Methods: tieredRatesMethods,
 }

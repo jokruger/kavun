@@ -1,0 +1,37 @@
+package core
+
+import "github.com/jokruger/kavun/core/member"
+
+//kavun:member pad_end pure (n[, fill]) -> widget
+// Pad at the back
+// until length `n`.
+//
+// - a list item
+// with an unindented continuation line
+// - a second item
+//
+// | width | result |
+// | --- | --- |
+// | below the length | unchanged |
+//
+// ### A third-level heading
+//
+// ```go
+// w.pad_end(3)
+//
+// w.pad_end(3, 0)
+// ```
+//
+// ```go
+//	w.each(func(x) {
+//	    print(x)
+//
+//	})
+// ```
+//
+// #### A fourth-level heading
+func widgetPadEnd(_ VM, v Value, id member.ID, args []Value) (Value, error) { return v, nil }
+
+// Pad at the front until length `n`.
+//kavun:member pad_start pure (n[, fill]) -> widget
+func widgetPadStart(_ VM, v Value, id member.ID, args []Value) (Value, error) { return v, nil }

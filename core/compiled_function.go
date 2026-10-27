@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
@@ -50,6 +51,25 @@ func (o *CompiledFunction) Set(instructions bc.Instructions, free []*Value, sour
 	o.NumParameters = numParameters
 	o.NamedResult = namedResult
 	o.VarArgs = varArgs
+}
+
+// Arity answers the count of FIXED parameters: NumParameters is the slot count, which includes the rest slot of a
+// variadic function, so `func(a, b, ...c)` has NumParameters 3 and arity 2 (variadic: accepts 2 or more).
+// A VarArgs function with NumParameters 0 cannot be compiled; a forged one is out of contract (bytecode is trusted
+// or refused, never partially checked).
+func (o *CompiledFunction) Arity() int {
+	if o.VarArgs {
+		return o.NumParameters - 1
+	}
+	return o.NumParameters
+}
+
+// ArgCountError is the wrong_num_arguments error of a call (context "call" or "defer") that passed n arguments to
+// this function. It states the model's pair in the native spelling — "(call) expected 2 arguments, got 1 argument",
+// "(call) expected 2 or more arguments, got 0 arguments" — never counting the rest slot: parameter names are not in the
+// bytecode, so a script function has no template to quote.
+func (o *CompiledFunction) ArgCountError(context string, n int) error {
+	return ArgCountError(SignatureOf(o.Arity(), o.VarArgs), context, n)
 }
 
 func (o *CompiledFunction) HasNamedResult() bool {
@@ -231,11 +251,40 @@ var TypeCompiledFunction = ValueTypeDescr{
 	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
 
 	Methods: []Method{
-		members.IsTrue: NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.Format: NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:   NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze: NewPureMethod(MemberSelf, 0, Fixed),
+		members.IsTrue: NewPureMethod("()", compiledFunctionIsTrue),
+		members.Format: NewPureMethod("([spec])", compiledFunctionFormat),
+		members.Copy:   NewPureMethod("()", compiledFunctionCopy),
+		members.Freeze: NewPureMethod("()", compiledFunctionFreeze),
 	},
+}
+
+// compiledFunctionIsTrue is a compiled function's is_true(): the type's IsTrue hook, as a bool.
+// PURE by contract
+func compiledFunctionIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	t, err := ValueTypes[v.Type].IsTrue(v)
+	if err != nil {
+		return Undefined, err
+	}
+	return BoolValue(t), nil
+}
+
+// compiledFunctionFormat is a compiled function's format([spec]).
+// PURE by contract
+func compiledFunctionFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return FormatWithSpec(v, id, args)
+}
+
+// compiledFunctionCopy is a compiled function's copy(): the receiver — a compiled function is immutable, so a copy of any depth is the
+// value itself.
+// PURE by contract
+func compiledFunctionCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	return v, nil
+}
+
+// compiledFunctionFreeze is a compiled function's freeze(): the receiver — a compiled function is immutable already.
+// PURE by contract
+func compiledFunctionFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	return v, nil
 }
 
 func compiledFunctionTypeName(v Value) string {
@@ -244,9 +293,9 @@ func compiledFunctionTypeName(v Value) string {
 		return "<compiled-function>"
 	}
 	if o.VarArgs {
-		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
+		return fmt.Sprintf("<compiled-function/%d+>", o.Arity())
 	}
-	return fmt.Sprintf("<compiled-function/%d>", o.NumParameters)
+	return fmt.Sprintf("<compiled-function/%d>", o.Arity())
 }
 
 // CALLABLE-DEPENDENT: purity is a property of the specific user-defined function. The optimizer folds Call only
@@ -270,6 +319,7 @@ func compiledFunctionTypeIsVariadic(v Value) bool {
 	return (*CompiledFunction)(v.Ptr).VarArgs
 }
 
+// compiledFunctionTypeArity answers the fixed-parameter count, never the rest slot (see CompiledFunction.Arity).
 func compiledFunctionTypeArity(v Value) int {
-	return (*CompiledFunction)(v.Ptr).NumParameters
+	return (*CompiledFunction)(v.Ptr).Arity()
 }

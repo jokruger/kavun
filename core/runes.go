@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strconv"
 	"time"
@@ -51,6 +50,283 @@ func NewRunesValue(r []rune, immutable bool) Value {
 	return Value{Type: value.Runes, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
+// Unicode text as a materialized symbol array — the mutable, O(1)-indexing sibling of `string`.
+//
+// ## Overview
+//
+// `runes` and `string` hold the same thing: Unicode text, a sequence of **runes** (code points). They are
+// semantically interchangeable — the same members, the same operators, the same results. They differ in
+// representation and mutability:
+//
+// | type | representation | mutability | indexing |
+// | --- | --- | --- | --- |
+// | `string` | compact UTF-8 | immutable | O(n) by symbol |
+// | `runes` | one machine word per symbol | **mutable** | **O(1)** by symbol |
+// | `bytes` | raw octets, no symbol interpretation | mutable | O(1) by octet — see [bytes](bytes.md) |
+//
+// Choose `runes` for heavy positional work (indexing/slicing in loops) or for in-place mutation; choose
+// `string` everywhere else. The element is the [`rune`](rune.md); every offset a member answers or
+// accepts is a **symbol position**, never an octet position.
+//
+// Symbols are **code points, not grapheme clusters**. A combining sequence counts as several symbols — what a
+// reader sees as one character may occupy several positions:
+//
+// ```go
+// u"héllo".len()      // => 5
+// u"e\u0301".len()    // => 2 — e + combining acute: two code points, one on-screen glyph
+// ```
+//
+// The edge members `first([d])`, `last([d])`, `min([d])` and `max([d])` take the optional trailing default; an
+// empty receiver has no answer to give, so without one they raise `invalid_value`. `min`/`max` compare by code point.
+// There is no `sum`/`avg`.
+//
+// ```go
+// u"abc".first()      // => 'a'
+// u"bca".min()        // => 'a'
+// u"".first('?')      // => '?'
+// u"".first()         // Error: invalid_value: (first) empty sequence
+// ```
+//
+// The casing members need symbol classes and case mappings, so they live on `runes`/`string` only — `bytes` must
+// decode first.
+//
+// The parsing conversions (`int`, `float`, `decimal`, `bool`, `time`, `date`) **parse the text** and follow the
+// uniform failure policy: `x.T()` raises on failure, `x.T(d)` answers `d`; `time` and `date` read the canonical
+// grammar. Reading under a [layout](time.md#text-layouts) is `r.parse_time(layout[, default])` /
+// `r.parse_date(layout[, default])`, and a malformed layout is the caller's error, which raises even with a default.
+// The re-representations `string()`, `bytes()` and `array()` are total: they take the default for interface
+// uniformity and never use it.
+//
+// There is no `.byte()` or `.rune()` on `runes`: text parses into the numeric domain only — write
+// `u"65".int().byte()`.
+//
+// ## Literals and construction
+//
+// The literal form is `u"..."`, with the same escape sequences as `string` literals (`\n`, `\t`, `\u00a0`,
+// `\U0001F680`, ...):
+//
+// ```go
+// u"привіт"           // Cyrillic
+// u"🚀"               // any code point
+// ```
+//
+// **`runes` is a mutable sequence — but a literal is an immutable constant.** The *type* is writable; `u"..."`
+// is a compile-time constant of that type. Its content is fixed in the source, so the compiler stores it once
+// in the bytecode's static pool and every evaluation loads that one shared value — a value that could be
+// written into would stop being a constant, since `l[0] = 'X'` would rewrite the program's own literal for
+// every later evaluation. Hence `immutable-runes`, and hence a raise on assignment. It also fits how the type
+// is used: `runes` is most often constant text, which is what the short `u"..."` form is for; when you want a
+// mutable buffer you construct one:
+//
+// ```go
+// type_name(u"ab")    // => "immutable-runes"
+// l := u"abc"
+// l[0] = 'X'          // Error: not_assignable: type immutable-runes does not support assignment ...
+//
+// a := runes(u"abc")  // a constructor always builds a new, writable body
+// a[0] = 'X'
+// a                   // => u"Xbc" — the literal is untouched
+// a = u"abc".copy()  // the same thing, spelled as a copy
+// ```
+//
+// `runes(x)` is the conversion constructor — the free spelling of `x.runes()`, one meaning, two forms. It
+// takes anything with a text reading; a numeric argument converts to its **text**, never a buffer size. The
+// two-argument `runes(x, n)` is the count form — `runes(x).repeat(n)`:
+//
+// ```go
+// runes("héllo")                  // => u"héllo" — mutable
+// runes(42)                       // => u"42" — the number's text — NOT a 42-symbol buffer
+// runes("ab", 2)                  // => u"abab" — the count form: runes(x).repeat(n)
+// runes('x', 3)                   // => u"xxx"
+// (42).runes()                    // => u"42"
+// true.runes()                    // => u"true"
+// bytes([104, 105]).runes()       // => u"hi" — UTF-8 decode
+// bytes([255]).runes()            // => u"\xff" — the octet's escape — never raises, never loses it
+// ```
+//
+// Decoding is total: `bytes` → `runes` never raises — an octet that is not part of valid UTF-8 rides through as its
+// escape rune (U+DC80–U+DCFF). Encoding is total: anything text-ish becomes `runes` unconditionally.
+//
+// ## Indexing and slicing
+//
+// All positions are symbol positions. Negative indices count from the end; slices clamp; three-part slices
+// take a step:
+//
+// ```go
+// u"abc"[-1]          // => 'c'
+// u"abcdef"[1:5:2]    // => u"bd"
+// u"abc"[::-1]        // => u"cba"
+// ```
+//
+// Element writes (`s[i] = 'x'`) mutate the shared body and are visible through every alias; on a frozen or
+// literal value they raise.
+//
+// ## Operators
+//
+// | operator | meaning |
+// | --- | --- |
+// | `+` | concatenation; the **receiver** (left operand) decides the result type; the operand's symbols stay apart from the receiver's, escapes included |
+// | `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping), symbol by symbol as `remove` does; acceptance equals `+`'s |
+// | `*` | exactly `repeat(n)`: the right operand is a **count**, not content. No reflected direction — `n * u` raises |
+// | `==` `!=` `<` `<=` `>` `>=` | content-based, symbol by symbol — compares across `string`/`runes`/`bytes` by text content |
+// | `in` | membership: `x in r` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
+//
+// Operand acceptance — every accepted operand is text content, decoded into symbols:
+//
+// | right operand | reading |
+// | --- | --- |
+// | `runes` / `string` | its text, verbatim |
+// | `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](string.md#undecodable-octets) |
+// | `rune` | one symbol |
+// | `byte` | one symbol **only in ASCII** (`0x00`–`0x7F`); above that raises |
+// | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
+// | `bool` / `float` / `decimal` | raises — ambiguous as text |
+// | `int` (`*` only) | a repeat **count** — `u * n` is exactly `u.repeat(n)`; there is no reflected `n * u` |
+// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `u"ab" + [1, 2]` → `[u"ab", 1, 2]` is not an exception to that: `runes` declines and the array answers `+` by prepending it (see [array](array.md)) |
+//
+// ```go
+// u"ab" + "cd"            // => u"abcd" — runes receiver → runes
+// u"ab" + bytes("cd")     // => u"abcd" — decodes
+// u"ab" + bytes([255])    // => u"ab\xff" — the octet is carried through as its escape
+// "ab" + u"cd"            // => "abcd" — string receiver → string
+// 'a' + u"bc"             // => u"abc" — a scalar on the left takes the sequence's type
+// u"ab" + 'é'             // => u"abé"
+// u"ab" + b'A'            // => u"abA" — ASCII byte
+// u"ab" + b'\xff'         // Error: invalid_value — an octet reads as a symbol only in ASCII
+// u"ab" + 99              // Error: invalid_binary_operator: immutable-runes + int
+// u"ab" + [1, 2]          // => [u"ab", 1, 2] — runes declines; the array prepends it as one element
+// u"ab" - [1, 2]          // Error: invalid_binary_operator: immutable-runes - array
+//
+// u"abcabc" - "bc"        // => u"aa" — every occurrence
+// u"banana" - 'a'         // => u"bnn"
+// u"aaa" - "aa"           // => u"a" — leftmost, non-overlapping
+// u"abc" - "zz"           // => u"abc" — a miss is a no-op
+// u"abcb" - bytes("b")    // => u"ac"
+//
+// u"ab" * 3               // => u"ababab" — the count form of repeat
+// 3 * u"ab"               // Error: invalid_binary_operator: int * immutable-runes   (no reflected direction)
+//
+// u"ab" == "ab"           // => true
+// u"ab" == bytes("ab")    // => true
+// u"ab" < "b"             // => true
+//
+// 'b' in u"abc"           // => true — element
+// "bc" in u"abc"          // => true — run
+// 98 in u"abc"            // => true — 98 is 'b'; a valid code point reads as one symbol
+// 999999999 in u"abc"     // Error: invalid_value — not a code point — never a silent false
+// true in u"abc"          // Error: invalid_argument_type — not text content
+// ```
+//
+// A callable on the right of `in` raises: an operator operand is always a value — the predicate reading is
+// spelled `contains(f)` / `any(f)`.
+//
+// ## Argument dispatch — the argument's type selects the reading
+//
+// Every member that matches or adds content reads its arguments from one menu:
+//
+// | argument | reading |
+// | --- | --- |
+// | absent | the **blank set** (below) |
+// | function | predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
+// | `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](string.md#undecodable-octets)) |
+// | `rune` / `byte` / `int` | one **element** (byte in ASCII only; int must be a valid code point — members only, operators refuse int) |
+// | several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
+// | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
+//
+// Run matching is leftmost and non-overlapping; in a variadic run set where one run is a prefix of another,
+// the longest wins:
+//
+// ```go
+// u"abcd".remove("ab", "abc")     // => u"d" — the longer "abc" wins at the tie
+// u"abc".contains('x', "bc")      // Error: invalid_argument_type — mixed element + run set
+// ```
+//
+// ## Undecodable octets
+//
+// `runes` holds the same text `string` does, so it holds undecodable octets the same way: each becomes its
+// reserved escape rune (U+DC80–U+DCFF), `is_valid()` finds them, and `.bytes()` returns the original octets.
+// See [string: Undecodable octets](string.md#undecodable-octets) for the full model.
+//
+// ```go
+// u = bytes([0x61, 0xFF, 0x62]).runes()
+// u.len()                         // => 3
+// u[1].int()                      // => 56575 — the escape for 0xFF
+// u.is_valid()                    // => false
+// u[1].byte()                     // => byte(255)
+// u.bytes() == bytes([0x61, 0xFF, 0x62])   // => true
+// ```
+//
+// ## The blank set
+//
+// The text types share one notion of insignificant content — **NUL ∪ whitespace** — projected into each
+// type's element domain. For `runes` that is NUL plus the full **Unicode White_Space class** (NBSP, ideographic
+// space, ... included). The default pad fill is the canonical member of the same set: the space `' '`.
+//
+// The no-argument form of a member reads through this set:
+//
+// - `trim()` / `trim_start()` / `trim_end()` strip blank elements; `split()` separates on runs of them.
+// - The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
+// **significant** (non-blank) elements.
+// - `keep()` keeps the significant elements; `remove()` removes the blank ones — two actions, same answer.
+//
+// ```go
+// u"   hi \t ".trim()         // => u"hi"
+// u"\u00a0x\u00a0".trim()     // => u"x" — NBSP is Unicode whitespace — blank here, content on bytes
+// u"  a b \t c ".split()      // => [u"a", u"b", u"c"]
+// u"a b".contains()           // => true — has a significant symbol
+// u"  ".contains()            // => false
+// u" a b ".count()            // => 2 — significant symbols
+// u"a b".all()                // => false — the space is blank
+// u"  ab".index()             // => 2 — first significant symbol
+// u" a b ".remove()           // => u"ab"
+// u"42".pad_start(5)          // => u"   42" — default fill = the space
+// ```
+//
+// ## In-place twins
+//
+// `runes` is a mutable-body type, so every eligible transform has an `_in_place` twin that mutates the shared
+// body (visible through every alias), **returns the receiver** (so mutators chain, and
+// `y = x.m(args)` / `x.m_in_place(args)` leave the same content in `x`), and raises kind `not_mutable` on a
+// frozen receiver:
+//
+// ```go
+// t := u"  hi  ".copy()
+// alias := t
+// t.trim_in_place()               // => u"hi" — returns the receiver
+// // alias is now u"hi" too
+//
+// fz := u"abc".freeze()
+// fz.push_in_place('x')           // Error: not_mutable: (push_in_place) type immutable-runes is immutable
+// fz.append("d")                  // => u"abcd" — the copying form works on a frozen receiver
+// ```
+//
+// The unsuffixed name is always the safe, copying form. `slice` has no twin (`slice_view` already names the
+// saving); `repeat` has none (its result is n × the receiver, not the receiver reused); `map`/`split`/
+// `partition`/`chunk` have none (their result is not the receiver's own single value).
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the match members, `map`, `flat_map`, `for_each`, `reduce`
+// — calls it in the **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from
+// what kind of callable it is:
+//
+// - a per-element callback gets the element when it accepts one argument, else `(index, element)`; anything else
+// raises;
+// - a `reduce` callback gets `(acc, element)` when it accepts two arguments, else `(acc, index, element)`; anything
+// else raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the element, and a builtin or a bound member is a callback like any
+// other (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form —
+// choose the form, reorder, fix or drop arguments:
+//
+// ```go
+// u"abc".count(func(i, c) { return i > 0 })              // => 2 — accepts two, not one
+// u"abc".index(func(c, ...rest) { return c == 'b' })    // => 1 — accepts one: the element
+// u"abcd".keep("bd".contains)                           // => u"bd"
+// ```
+//
+//kavun:type runes
+
 var TypeRunes = ValueTypeDescr{
 	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                      // PURE by contract
 	String:              func(v Value) string { return "u" + strconv.Quote(text.EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
@@ -90,98 +366,7 @@ var TypeRunes = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
-	Methods: []Method{
-		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:              NewPureMethod(runesString, 0, Fixed),
-		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:                NewPureMethod(runesCopy, 0, Fixed),
-		members.Freeze:              NewPureMethod(runesFreeze, 0, Fixed),
-		members.Runes:               NewPureMethod(runesRunes, 0, Variadic),
-		members.Int:                 NewPureMethod(runesInt, 0, Variadic),
-		members.Bool:                NewPureMethod(runesBool, 0, Variadic),
-		members.Float:               NewPureMethod(runesFloat, 0, Variadic),
-		members.Time:                NewPureMethod(runesTime, 1, Variadic),
-		members.Decimal:             NewPureMethod(runesDecimal, 0, Variadic),
-		members.Date:                NewPureMethod(runesDate, 1, Variadic),
-		members.Array:               NewPureMethod(runesArray, 0, Fixed),
-		members.Bytes:               NewPureMethod(runesBytes, 0, Fixed),
-		members.Len:                 NewPureMethod(runesLen, 0, Fixed),
-		members.IsEmpty:             NewPureMethod(runesIsEmpty, 0, Fixed),
-		members.Contains:            NewPureMethod(runesContains, 0, Variadic),
-		members.Index:               NewPureMethod(runesIndex, 0, Variadic),
-		members.Count:               NewPureMethod(runesCount, 0, Variadic),
-		members.All:                 NewPureMethod(runesAll, 0, Variadic),
-		members.Any:                 NewPureMethod(runesAny, 0, Variadic),
-		members.ForEach:             NewPureMethod(runesForEach, 1, Fixed),
-		members.Reduce:              NewPureMethod(runesReduce, 2, Fixed),
-		members.Keep:                NewPureMethod(runesKeep, 0, Variadic),
-		members.Map:                 NewPureMethod(runesMap, 1, Fixed),
-		members.Remove:              NewPureMethod(runesRemove, 0, Variadic),
-		members.First:               NewPureMethod(runesFirst, 0, Variadic),
-		members.Last:                NewPureMethod(runesLast, 0, Variadic),
-		members.IndexLast:           NewPureMethod(runesIndexLast, 0, Variadic),
-		members.Min:                 NewPureMethod(runesMin, 0, Variadic),
-		members.Max:                 NewPureMethod(runesMax, 0, Variadic),
-		members.Slice:               NewPureMethod(memberSlice, 0, Variadic),
-		members.Reverse:             NewPureMethod(runesReverse, 0, Fixed),
-		members.Sort:                NewPureMethod(runesSort, 0, Fixed),
-		members.Unique:              NewPureMethod(runesUnique, 0, Fixed),
-		members.Dedup:               NewPureMethod(runesDedup, 0, Fixed),
-		members.Chunk:               NewPureMethod(runesChunk, 1, Fixed),
-		members.Append:              NewPureMethod(runesAppend, 0, Variadic),
-		members.Prepend:             NewPureMethod(runesPrepend, 0, Variadic),
-		members.Push:                NewPureMethod(runesPush, 0, Variadic),
-		members.PushFirst:           NewPureMethod(runesPushFirst, 0, Variadic),
-		members.Insert:              NewPureMethod(runesInsert, 1, Variadic),
-		members.Splice:              NewPureMethod(runesSplice, 0, Variadic),
-		members.Repeat:              NewPureMethod(runesRepeat, 1, Fixed),
-		members.PadStart:            NewPureMethod(runesPadStart, 1, Variadic),
-		members.PadEnd:              NewPureMethod(runesPadEnd, 1, Variadic),
-		members.Trim:                NewPureMethod(runesTrim, 0, Variadic),
-		members.TrimStart:           NewPureMethod(runesTrimStart, 0, Variadic),
-		members.TrimEnd:             NewPureMethod(runesTrimEnd, 0, Variadic),
-		members.HasPrefix:           NewPureMethod(runesHasPrefix, 1, Variadic),
-		members.HasSuffix:           NewPureMethod(runesHasSuffix, 1, Variadic),
-		members.RemovePrefix:        NewPureMethod(runesRemovePrefix, 1, Variadic),
-		members.RemoveSuffix:        NewPureMethod(runesRemoveSuffix, 1, Variadic),
-		members.Replace:             NewPureMethod(runesReplace, 2, Fixed),
-		members.Split:               NewPureMethod(runesSplit, 0, Variadic),
-		members.FlatMap:             NewPureMethod(runesFlatMap, 1, Fixed),
-		members.IsASCII:             NewPureMethod(runesIsASCII, 0, Fixed),
-		members.IsValid:             NewPureMethod(runesIsValid, 0, Fixed),
-		members.SplitLines:          NewPureMethod(runesSplitLines, 0, Fixed),
-		members.Partition:           NewPureMethod(runesPartition, 0, Variadic),
-		members.Lower:               NewPureMethod(runesLower, 0, Fixed),
-		members.Upper:               NewPureMethod(runesUpper, 0, Fixed),
-		members.CaseFold:            NewPureMethod(runesCaseFold, 0, Fixed),
-		members.TitleCase:           NewPureMethod(runesTitleCase, 0, Fixed),
-		members.CamelCase:           NewPureMethod(runesCamelCase, 0, Fixed),
-		members.PascalCase:          NewPureMethod(runesPascalCase, 0, Fixed),
-		members.SnakeCase:           NewPureMethod(runesSnakeCase, 0, Fixed),
-		members.KebabCase:           NewPureMethod(runesKebabCase, 0, Fixed),
-		members.KeepInPlace:         NewMethod(runesKeepInPlace, 0, Variadic),
-		members.RemoveInPlace:       NewMethod(runesRemoveInPlace, 0, Variadic),
-		members.AppendInPlace:       NewMethod(runesAppendInPlace, 0, Variadic),
-		members.PrependInPlace:      NewMethod(runesPrependInPlace, 0, Variadic),
-		members.PushInPlace:         NewMethod(runesPushInPlace, 0, Variadic),
-		members.PushFirstInPlace:    NewMethod(runesPushFirstInPlace, 0, Variadic),
-		members.InsertInPlace:       NewMethod(runesInsertInPlace, 1, Variadic),
-		members.SpliceInPlace:       NewMethod(runesSpliceInPlace, 0, Variadic),
-		members.PadStartInPlace:     NewMethod(runesPadStartInPlace, 1, Variadic),
-		members.PadEndInPlace:       NewMethod(runesPadEndInPlace, 1, Variadic),
-		members.TrimInPlace:         NewMethod(runesTrimInPlace, 0, Variadic),
-		members.TrimStartInPlace:    NewMethod(runesTrimStartInPlace, 0, Variadic),
-		members.TrimEndInPlace:      NewMethod(runesTrimEndInPlace, 0, Variadic),
-		members.RemovePrefixInPlace: NewMethod(runesRemovePrefixInPlace, 1, Variadic),
-		members.RemoveSuffixInPlace: NewMethod(runesRemoveSuffixInPlace, 1, Variadic),
-		members.ReplaceInPlace:      NewMethod(runesReplaceInPlace, 2, Fixed),
-		members.ReverseInPlace:      NewMethod(runesReverseInPlace, 0, Fixed),
-		members.SortInPlace:         NewMethod(runesSortInPlace, 0, Fixed),
-		members.UniqueInPlace:       NewMethod(runesUniqueInPlace, 0, Fixed),
-		members.DedupInPlace:        NewMethod(runesDedupInPlace, 0, Fixed),
-		members.SliceView:           NewPureMethod(runesSliceView, 0, Variadic),
-		members.ChunkView:           NewPureMethod(runesChunkView, 1, Fixed),
-	},
+	Methods: runesMethods,
 }
 
 // runesEncodeMatchArg: acceptance on a symbol receiver — text content as
@@ -761,7 +946,7 @@ func runesRemaining(vm VM, name string, v Value, args []Value) ([]rune, error) {
 // runesLocate is the body of index and index_last; name is the member called, for the errors.
 func runesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
 	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+		return Undefined, ErrArgCount
 	}
 	elems := (*Runes)(v.Ptr).Elements
 
@@ -924,9 +1109,6 @@ func runesTrimmed(name string, v Value, args []Value, start, end bool) ([]rune, 
 // the end) of the receiver, or -1 when none is. The empty run is anchored everywhere. The name is the member
 // called, for the errors.
 func runesAnchoredRun(name string, v Value, args []Value, suffix bool) (int, error) {
-	if len(args) == 0 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
-	}
 	runs, err := runesReadRunSet(name, args, "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)")
 	if err != nil {
 		return 0, err
@@ -969,9 +1151,6 @@ func runesWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]ru
 // runesReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); each
 // argument is read on its own, an element being a run of one. The name is the member called, for the errors.
 func runesReplaced(name string, v Value, args []Value) ([]rune, error) {
-	if len(args) != 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "2", len(args))
-	}
 	if args[0].IsCallable() || args[1].IsCallable() {
 		return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
 	}
@@ -1000,8 +1179,8 @@ func runesReplaced(name string, v Value, args []Value) ([]rune, error) {
 // runesPadded answers the receiver filled at the front (start) or the end up to n symbols; a width at or below the
 // length leaves it unchanged. The name is the member called, for the errors.
 func runesPadded(name string, v Value, args []Value, start bool) ([]rune, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 2 {
+		return nil, ErrArgCount
 	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {
@@ -1030,11 +1209,10 @@ func runesPadded(name string, v Value, args []Value, start bool) ([]rune, error)
 	return slices.Concat(elems, pad), nil
 }
 
-// ---------------------------------------------------------------------------
-// split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
-// of runs, a predicate on single symbols, or — no argument — the blank set (text.IsBlankRune). Runs match leftmost-longest
-// and never overlap; an empty run matches nothing.
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------- split(...seps) and partition(...seps): a
+// separator is a run (an element being a run of one), a homogeneous set of runs, a predicate on single symbols, or — no
+// argument — the blank set (text.IsBlankRune). Runs match leftmost-longest and never overlap; an empty run matches
+// nothing. ---------------------------------------------------------------------------
 
 // runesPiece is one piece of split/partition: new runes, independent of the receiver.
 func runesPiece(elems []rune) Value {

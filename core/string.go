@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +50,303 @@ func stringASCIIFastPath(_ Value, s string) bool {
 	return text.IsASCIIText(s)
 }
 
+// Immutable Unicode text.
+//
+// ## Overview
+//
+// A `string` is a sequence of **symbols** (Unicode code points). The symbol is the element everywhere on the
+// type: `len()` counts symbols, `s[i]` yields a `rune`, `s[i:j]` slices at symbol boundaries, and every member
+// offset — `index()`, `slice()`, `splice()`, `insert()` — is symbol-based.
+//
+// ```go
+// "héllo".len()        // => 5 — symbols, not bytes
+// "héllo"[1]           // => 'é' — a rune
+// "héllo"[1:3]         // => "él"
+// "abc"[-1]            // => 'c' — negative indices count from the end
+// "кавун".len()        // => 5
+// ```
+//
+// Symbols are code points, **not** grapheme clusters. A flag emoji is two regional-indicator symbols; a
+// combining sequence is a base symbol plus combining marks. What a reader perceives as one character can be
+// several symbols:
+//
+// ```go
+// "🇺🇦".len()          // => 2 — two regional indicators
+// "e\u0301".len()     // => 2 — é written as e + U+0301 (combining acute)
+// ```
+//
+// **Storage and cost.** A `string` is stored as compact UTF-8 with a cached symbol count and an ASCII fast
+// path: indexing and slicing are O(1) on pure-ASCII strings and O(n) worst case on multibyte content. For heavy
+// positional work on non-ASCII text, convert to [`runes`](runes.md) first — `runes` is the O(1)-indexing,
+// materialized form of the same text.
+// Members whose answer depends on the ends of the text or on the argument alone — `first`/`last`, the anchored pair
+// and their `remove_` twins, the `trim` family, the pads, and `contains`/`count`/`index`/`index_last`/`replace` —
+// read the text in place and never decode the whole receiver; the members that visit or rebuild every symbol decode
+// it once per call.
+//
+// **Immutability.** A `string` is immutable by construction. It is the only sequence type with no mutating
+// member at all: no `_in_place` twins, and no `slice_view`/`chunk_view` (on an immutable value sharing is
+// unobservable, so `slice` *is* the view). Element assignment raises:
+//
+// ```go
+// s := "abc"
+// s[0] = 'x'           // Error: not_assignable: type string does not support assignment
+// ```
+//
+// A `string` literal is a compile-time constant as well: its content is fixed in the source, so the compiler
+// stores it once in the bytecode's static pool and every evaluation loads that one shared value. For `string`
+// this is invisible — the type has no mutating member either way — but it is the same mechanism that makes
+// `b"..."` and `u"..."` immutable *constants* of otherwise mutable types, and the reason all three short forms
+// exist: text written down in a program is usually constant text. See [Constant literals and constructed
+// literals](../../language.md#constant-literals-and-constructed-literals); when you want a mutable buffer of the
+// same content, construct one — `runes("abc")` or `bytes("abc")`.
+//
+// **`string` and `runes` are semantically interchangeable** — the same text, the same member surface, the same
+// operator behavior, and they compare equal on equal content (`"ab" == u"ab"` is `true`). The difference is
+// storage (UTF-8 vs. a symbol array) and mutability. Choose `string` by default; choose `runes` when you need
+// in-place mutation or guaranteed O(1) indexing.
+//
+// Every transforming member returns a new `string`; partitioning members (`split`, `partition`, `split_lines`,
+// `chunk`) return an `array` of strings.
+//
+// The edge members `first([d])`, `last([d])`, `min([d])` and `max([d])` answer a `rune`; an empty string has no edge
+// to give, so without the optional trailing default they raise `invalid_value`:
+//
+// ```go
+// "abc".first()        // => 'a'
+// "".first()           // Error: invalid_value: (first) empty sequence
+// "".first('?')        // => '?'
+// "banana".min()       // => 'a'
+// "banana".max()       // => 'n'
+// ```
+//
+// The parsing conversions (`int`, `float`, `decimal`, `bool`, `time`, `date`, `nanoseconds`) follow the uniform
+// failure policy: a valid result or a catchable raise, and with the optional trailing default, the default when the
+// text does not parse. A malformed `time`/`date` layout is the caller's error, not the data's, and raises even with a
+// default. The re-representations `runes()`, `bytes()` and `array()` are total — they cannot fail — so they take no
+// default.
+//
+// ## Literals
+//
+// ```go
+// s := "hello"
+// esc := "line1\nline2 \"quoted\" \u00a0"   // escape sequences
+// raw := r"C:\Users\Bob \d+"                 // raw string: backslashes literal
+// uni := u"кавун"                             // a runes literal — same text, runes type
+// ```
+//
+// The free `string(x)` constructor is the conversion — the free spelling of `x.string()`. The two-argument
+// `string(x, n)` is the count form: the conversion repeated `n` times, `string(x).repeat(n)`:
+//
+// ```go
+// string()             // => ""
+// string("ab", 2)      // => "abab" — the count form: string(x).repeat(n)
+// string('x', 3)       // => "xxx"
+// string(65, 2)        // => "6565" — the conversion first: string(65) is "65"
+// ```
+//
+// F-strings interpolate expressions and format specs into a `string`: `f"n={n:5d}"`. See
+// [f-strings](../../f_strings.md) and the [format mini-language](../../format_mini_language.md).
+//
+// ## Operators
+//
+// | operator | meaning |
+// | --- | --- |
+// | `+` | concatenation of text content |
+// | `-` | remove every occurrence of the run (leftmost, non-overlapping), read as symbols as `remove` reads it — the octets of an escape never match inside a symbol; acceptance equals `+`'s |
+// | `*` | exactly `repeat(n)`: the right operand is a **count**, not text. No reflected direction — `n * s` raises |
+// | `==` `!=` | content equality; `string` and `runes` with the same text are equal |
+// | `<` `<=` `>` `>=` | lexicographic by symbol |
+// | `x in s` | membership — runs `contains`' value readings |
+// | `s[i]` | the symbol at `i`, as a `rune` |
+// | `s[i:j]` | symbol-boundary slice, a `string` |
+//
+// Both operands must carry **text content**. The **receiver (left operand) decides the result type**; a scalar
+// on the left takes the sequence's type:
+//
+// ```go
+// "ab" + "cd"          // => "abcd"
+// "ab" + u"cd"         // => "abcd" — string — the left operand decides
+// u"ab" + "cd"         // => u"abcd" — runes on the left
+// "ab" + bytes("cd")   // => "abcd" — the bytes decode; the decode never fails
+// b'a' + "bc"          // => "abc" — scalar left takes the sequence's type
+// 'é' + "bc"           // => "ébc"
+// "abc" + b'\xff'      // Error: invalid_value: a byte is a symbol only in ASCII (0x00–0x7F)
+// "ab" + 1             // Error: invalid_binary_operator: operators never take int — arithmetic keeps its reading
+// "ab" + 1.5           // Error: invalid_binary_operator
+// "ab" + true          // Error: invalid_binary_operator
+// "ab" + ["cd"]        // => ["ab", "cd"] — string declines; the array prepends it as one element
+// "ab" - ["cd"]        // Error: invalid_binary_operator: string - array (there is no reflected form for removal)
+// ```
+//
+// `-` removes runs or single symbols, never set-difference:
+//
+// ```go
+// "banana" - "na"      // => "ba" — every occurrence, leftmost non-overlapping
+// "banana" - 'a'       // => "bnn"
+// "banana" - 97        // Error: invalid_binary_operator: operators never take int
+//
+// "-" * 20             // => "--------------------" — the count form of repeat
+// "ab" * 2.0           // => "abab" — a whole-valued count converts; 1.5 raises
+// 2 * "ab"             // Error: invalid_binary_operator: int * string   (no reflected direction)
+// ```
+//
+// `in` accepts exactly the values `contains` accepts and raises on anything else — a callable raises, because
+// an operator operand is always a value, never a predicate:
+//
+// ```go
+// 'a' in "abc"                       // => true
+// "bc" in "abc"                      // => true
+// 97 in "abc"                        // => true — 'a' — members read a valid int as the symbol
+// 1.5 in "abc"                       // Error: invalid_argument_type
+// (func(c) { return true }) in "abc" // Error: invalid_value — the predicate spelling is contains(f)
+// ```
+//
+// Comparisons are lexicographic by symbol, not by length:
+//
+// ```go
+// "abc" < "abd"        // => true
+// "b" > "aaaa"         // => true
+// ```
+//
+// ## Argument dispatch
+//
+// Every member and operator on `string` reads its arguments the same way. An argument is accepted iff it is
+// **text content encoded into the receiver's representation**:
+//
+// | argument | reading |
+// | --- | --- |
+// | `string` / `runes` | text, verbatim — a contiguous **run** |
+// | `bytes` | decoded as UTF-8; **total** — an octet that is not a symbol becomes its [escape](#undecodable-octets) |
+// | `rune` | itself — one symbol |
+// | `byte` | one symbol iff ASCII (`0x00`–`0x7F`); beyond raises |
+// | `int` (members only) | one symbol iff a valid code point; **operators never take `int`** |
+// | `bool` / `float` / `decimal` | raise — a number as text is ambiguous (`65` could be `"65"` or `'A'`) |
+// | `int` (`*` only) | a repeat **count** — `s * n` is exactly `s.repeat(n)`; there is no reflected `n * s` |
+// | `array` / `range` / `dict` / callables / `undefined` | raise — the text family is closed. One exception is not `string`'s doing: `"ab" + [1, 2]` → `["ab", 1, 2]`, because a left operand that declines hands `+` to the array, which prepends it as one element (see [array](array.md)) |
+//
+// The match members (`contains`, `count`, `index`, `index_last`, `keep`, `remove`, `any`, `all`, `split`, …)
+// share one argument menu:
+//
+// - **no argument** — the [blank set](#the-blank-set);
+// - **a function** — a predicate: it gets the element, or `(index, element)` when it does not accept one argument
+// ([callbacks](#callbacks));
+// - **`string`/`runes`/`bytes`** — a contiguous run;
+// - **`rune`/`byte`/valid `int`** — one element;
+// - **variadic** — a homogeneous set: all elements or all runs. Mixing the two classes raises, and a function
+// among several arguments raises.
+//
+// ```go
+// "abc".contains('x', 'b')                       // => true — element set
+// "abc".count(func(i, c) { return i > 0 })       // => 2 — accepts two, not one: gets (index, element)
+// "abcd".remove("ab", "abc")                     // => "d" — run set; at a tie the longest run wins
+// "banana".remove("na", 'b')                     // Error: invalid_argument_type: mixed element and run classes
+// "abc".remove("a", func(c) { return true })     // Error: invalid_argument_type: a function among several arguments
+// ```
+//
+// The one exception is the **add side** (`append`/`prepend`), where operands mix freely in order:
+// `x.append("ab", 'c')` ≡ `x + "ab" + 'c'`.
+//
+// Run matching is leftmost and non-overlapping: `"aaa".count("aa")` is `1`.
+//
+// ## Undecodable octets
+//
+// Text that is not valid UTF-8 is data too — a file off disk, a legacy export, a truncated frame. So **every
+// conversion among `byte`, `bytes`, `string` and `runes` is total and lossless**: nothing raises, nothing is
+// substituted, and the octets you started with are the octets you get back.
+//
+// An octet no decoder can read as a symbol becomes its own reserved rune — **U+DC80–U+DCFF, one per octet
+// 0x80–0xFF** — and encoding turns that rune straight back into the octet it came from.
+//
+// ```go
+// b = bytes([0x61, 0xFF, 0x62])   // 'a', a stray octet, 'b'
+// s = b.string()                  // no raise
+// s.len()                         // => 3 — the octet is one symbol
+// s[1].int()                      // => 56575 — U+DCFF, the escape for 0xFF
+// s.bytes() == b                  // => true
+// s.runes().bytes() == b          // => true — through runes and back, unchanged
+// ```
+//
+// Asking, and repairing:
+//
+// ```go
+// s := bytes([0x61, 0xFF, 0x62]).string()
+// s.is_valid()                    // => false — some symbol is an escape
+// "abc".is_valid()                // => true
+// s[1].is_valid()                 // => false — this one
+// s[1].byte()                     // => byte(255) — the escape converts back to its octet
+// s.replace(s[1], '?')            // => "a?b"
+// s.keep(c => c.is_valid())     // => "ab"
+// ```
+//
+// **Why this range, and why it cannot go wrong.** Only an octet ≥ 0x80 can ever be undecodable — an ASCII octet
+// is always a symbol — so 128 values suffice. Every undecodable octet decodes with width 1, so *n* bad octets
+// always become *n* escapes. And U+DC80–U+DCFF are low surrogates: never Unicode scalar values, so well-formed
+// text can never produce one and an escape can never be mistaken for content. (The scheme is Python's
+// `surrogateescape`, PEP 383; Rust's WTF-8 answers the same problem the same way.)
+//
+// **A string is its octets, so building one joins octets.** Every member and operator that builds a string — `+`,
+// `append`, `prepend`, `push`, `replace`, `pad_start`/`pad_end`, f-strings — concatenates the octets, and the result is
+// read afresh: escapes whose octets meet to complete a sequence read as the one symbol they spell.
+// [`runes`](runes.md) holds symbols, so the same building keeps them apart; the octets are the same either
+// way.
+//
+// ```go
+// a = bytes([0xE2, 0x82]).string()  // two escapes: the first two octets of "₩"
+// b = bytes([0xA9]).string()        // one escape: its last octet
+// (a + b).len()                     // => 1 — the octets meet and read "₩"
+// a + b == "₩"                      // => true
+// a.runes().append(b).len()         // => 3 — runes keeps the three escapes
+// ```
+//
+// **The two places this is visible elsewhere.** A [`rune`](rune.md)'s domain is exactly what can be encoded
+// — scalar values plus the 128 escapes — so `rune(0xDCFF)` exists while `rune(0xD800)` raises where it is written, and
+// no conversion *out* of `rune`/`runes` can fail. And the boundary **out** of the language is not total: `json.encode`
+// raises on text holding escapes, because JSON text is UTF-8 by definition. Encode the `bytes` instead (they go as
+// base64), or repair the text first.
+//
+// ## The blank set
+//
+// The no-argument form of the match members acts on the type's **blank set** — its notion of insignificant
+// content. For `string` that is **NUL ∪ Unicode whitespace** (the Unicode `White_Space` class): this is what
+// no-arg `trim()`, `split()`, `partition()`, `index()`, `count()`, `keep()`, and `remove()` act on, and the
+// default `pad_start`/`pad_end` fill is the set's canonical member, the space.
+//
+// Being the Unicode class, it includes the non-breaking space and every other Unicode space — not just ASCII
+// whitespace:
+//
+// ```go
+// "\u00a0x".trim()     // => "x" — the NBSP is blank
+// "\x00x\x00".trim()   // => "x" — NUL is blank
+// ```
+//
+// `bytes` projects the same notion into its element domain (the ASCII subset — all the whitespace an octet can
+// express); the sets agree wherever the domains overlap.
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the match members, `map`, `flat_map`, `for_each`, `reduce`
+// — calls it in the **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from
+// what kind of callable it is:
+//
+// - a per-element callback gets the element when it accepts one argument, else `(index, element)`; anything else
+// raises;
+// - a `reduce` callback gets `(acc, element)` when it accepts two arguments, else `(acc, index, element)`; anything
+// else raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the element, and a builtin or a bound member is a callback like any
+// other (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form —
+// choose the form, reorder, fix or drop arguments:
+//
+// ```go
+// "abc".count(func(i, c) { return i > 0 })               // => 2 — accepts two, not one
+// "abc".index(func(c, ...rest) { return c == 'b' })     // => 1 — accepts one: the element
+// "abcd".keep("bd".contains)                            // => "bd"
+// "abc".reduce("", (s, c) => c + s)                      // => "cba"
+// ```
+//
+//kavun:type string
+
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
 	Name:                ConstHook(stringTypeName),                                                                             // PURE by contract
@@ -82,77 +378,7 @@ var TypeString = ValueTypeDescr{
 	AsBytes:             func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },                               // PURE by contract
 	AsArray:             stringTypeAsArray,                                                                                     // PURE by contract
 
-	Methods: []Method{
-		members.IsTrue:       NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:       NewPureMethod(stringString, 0, Variadic),
-		members.Format:       NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:         NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze:       NewPureMethod(MemberSelf, 0, Fixed),
-		members.Runes:        NewPureMethod(stringRunes, 0, Fixed),
-		members.Int:          NewPureMethod(stringInt, 0, Variadic),
-		members.Bool:         NewPureMethod(stringBool, 0, Variadic),
-		members.Float:        NewPureMethod(stringFloat, 0, Variadic),
-		members.Time:         NewPureMethod(stringTime, 1, Variadic),
-		members.Decimal:      NewPureMethod(stringDecimal, 0, Variadic),
-		members.Date:         NewPureMethod(stringDate, 1, Variadic),
-		members.Array:        NewPureMethod(stringArray, 0, Fixed),
-		members.Bytes:        NewPureMethod(stringBytes, 0, Fixed),
-		members.Len:          NewPureMethod(stringLen, 0, Fixed),
-		members.IsEmpty:      NewPureMethod(stringIsEmpty, 0, Fixed),
-		members.Contains:     NewPureMethod(stringContains, 0, Variadic),
-		members.Index:        NewPureMethod(stringIndex, 0, Variadic),
-		members.Count:        NewPureMethod(stringCount, 0, Variadic),
-		members.All:          NewPureMethod(stringAll, 0, Variadic),
-		members.Any:          NewPureMethod(stringAny, 0, Variadic),
-		members.ForEach:      NewPureMethod(stringForEach, 1, Fixed),
-		members.Reduce:       NewPureMethod(stringReduce, 2, Fixed),
-		members.Keep:         NewPureMethod(stringKeep, 0, Variadic),
-		members.Map:          NewPureMethod(stringMap, 1, Fixed),
-		members.Remove:       NewPureMethod(stringRemove, 0, Variadic),
-		members.First:        NewPureMethod(stringFirst, 0, Variadic),
-		members.Last:         NewPureMethod(stringLast, 0, Variadic),
-		members.IndexLast:    NewPureMethod(stringIndexLast, 0, Variadic),
-		members.Min:          NewPureMethod(stringMin, 0, Variadic),
-		members.Max:          NewPureMethod(stringMax, 0, Variadic),
-		members.Slice:        NewPureMethod(memberSlice, 0, Variadic),
-		members.Reverse:      NewPureMethod(stringReverse, 0, Fixed),
-		members.Sort:         NewPureMethod(stringSort, 0, Fixed),
-		members.Unique:       NewPureMethod(stringUnique, 0, Fixed),
-		members.Dedup:        NewPureMethod(stringDedup, 0, Fixed),
-		members.Chunk:        NewPureMethod(stringChunk, 1, Fixed),
-		members.Append:       NewPureMethod(stringAppend, 0, Variadic),
-		members.Prepend:      NewPureMethod(stringPrepend, 0, Variadic),
-		members.Push:         NewPureMethod(stringPush, 0, Variadic),
-		members.PushFirst:    NewPureMethod(stringPushFirst, 0, Variadic),
-		members.Insert:       NewPureMethod(stringInsert, 1, Variadic),
-		members.Splice:       NewPureMethod(stringSplice, 0, Variadic),
-		members.Repeat:       NewPureMethod(stringRepeat, 1, Fixed),
-		members.PadStart:     NewPureMethod(stringPadStart, 1, Variadic),
-		members.PadEnd:       NewPureMethod(stringPadEnd, 1, Variadic),
-		members.Trim:         NewPureMethod(stringTrim, 0, Variadic),
-		members.TrimStart:    NewPureMethod(stringTrimStart, 0, Variadic),
-		members.TrimEnd:      NewPureMethod(stringTrimEnd, 0, Variadic),
-		members.HasPrefix:    NewPureMethod(stringHasPrefix, 1, Variadic),
-		members.HasSuffix:    NewPureMethod(stringHasSuffix, 1, Variadic),
-		members.RemovePrefix: NewPureMethod(stringRemovePrefix, 1, Variadic),
-		members.RemoveSuffix: NewPureMethod(stringRemoveSuffix, 1, Variadic),
-		members.Replace:      NewPureMethod(stringReplace, 2, Fixed),
-		members.Split:        NewPureMethod(stringSplit, 0, Variadic),
-		members.FlatMap:      NewPureMethod(stringFlatMap, 1, Fixed),
-		members.IsASCII:      NewPureMethod(stringIsASCII, 0, Fixed),
-		members.IsValid:      NewPureMethod(stringIsValid, 0, Fixed),
-		members.SplitLines:   NewPureMethod(stringSplitLines, 0, Fixed),
-		members.Partition:    NewPureMethod(stringPartition, 0, Variadic),
-		members.Lower:        NewPureMethod(stringLower, 0, Fixed),
-		members.Upper:        NewPureMethod(stringUpper, 0, Fixed),
-		members.CaseFold:     NewPureMethod(stringCaseFold, 0, Fixed),
-		members.TitleCase:    NewPureMethod(stringTitleCase, 0, Fixed),
-		members.CamelCase:    NewPureMethod(stringCamelCase, 0, Fixed),
-		members.PascalCase:   NewPureMethod(stringPascalCase, 0, Fixed),
-		members.SnakeCase:    NewPureMethod(stringSnakeCase, 0, Fixed),
-		members.KebabCase:    NewPureMethod(stringKebabCase, 0, Fixed),
-		members.Nanoseconds:  NewPureMethod(stringNanoseconds, 0, Variadic),
-	},
+	Methods: stringMethods,
 }
 
 // PURE by contract

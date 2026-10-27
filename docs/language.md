@@ -11,25 +11,25 @@ Kavun values are grouped into scalar and container types.
 
 Scalar types:
 
-- [`undefined`](types.md#undefined)
-- [`bool`](types.md#bool)
-- [`int`](types.md#int)
-- [`float`](types.md#float)
-- [`decimal`](types.md#decimal)
-- [`rune`](types.md#rune)
-- [`string`](types.md#string)
-- [`runes`](types.md#runes)
-- [`bytes`](types.md#bytes)
-- [`time`](types.md#time)
-- [`date`](types/date.md)
-- [`error`](types.md#error)
+- [`undefined`](reference/types/undefined.md)
+- [`bool`](reference/types/bool.md)
+- [`int`](reference/types/int.md)
+- [`float`](reference/types/float.md)
+- [`decimal`](reference/types/decimal.md)
+- [`rune`](reference/types/rune.md)
+- [`string`](reference/types/string.md)
+- [`runes`](reference/types/runes.md)
+- [`bytes`](reference/types/bytes.md)
+- [`time`](reference/types/time.md)
+- [`date`](reference/types/date.md)
+- [`error`](reference/types/error.md)
 
 Container types:
 
-- [`array`](types.md#array)
-- [`record`](types.md#record)
-- [`dict`](types.md#dict)
-- [`range`](types.md#range)
+- [`array`](reference/types/array.md)
+- [`record`](reference/types/record.md)
+- [`dict`](reference/types/dict.md)
+- [`range`](reference/types/range.md)
 
 Every value in Kavun is shared, not copied, when you assign it to a new name or pass it as a function argument —
 the new name and the original refer to the very same value. Mutating that value — through indexed assignment
@@ -45,13 +45,13 @@ Literal examples:
 i = 42
 f = 3.14
 d = 1.23d
-c = 'A'              // rune (Unicode code point, or an octet escape — see docs/types/string.md)
+c = 'A'              // rune (Unicode code point, or an octet escape — see docs/reference/types/string.md)
 bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 bs = b"hello"        // bytes, b"..." syntax
-ts = t"2024-01-01"   // time, t"..." syntax — the strict grammar of docs/types/time.md; a bad literal is a compile error
-ds = d"2024-01-01"   // date, d"YYYY-MM-DD" syntax — a civil day, no clock or zone (docs/types/date.md)
+ts = t"2024-01-01"   // time, t"..." syntax — the strict grammar of docs/reference/types/time.md; a bad literal is a compile error
+ds = d"2024-01-01"   // date, d"YYYY-MM-DD" syntax — a civil day, no clock or zone (docs/reference/types/date.md)
 r = `raw string`     // raw string, backtick-quoted
 raw_re = r"\d+\w*"   // raw string (no escape processing), r"..." syntax
 fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax
@@ -59,9 +59,9 @@ b = true
 u = undefined
 ```
 
-See [F-Strings](f-strings.md) and [Format Mini-Language](format-mini-language.md) for the full f-string syntax
+See [F-Strings](f_strings.md) and [Format Mini-Language](format_mini_language.md) for the full f-string syntax
 (expression interpolation, format specs, escape rules, semantics, and differences from Python's f-strings).
-For runtime templating with the same placeholder syntax see the [`format(template, args)` builtin](format-function.md).
+For runtime templating with the same placeholder syntax see the [`format(template, args)` builtin](format_function.md).
 
 ### Truthiness and equality
 
@@ -503,7 +503,7 @@ future dotted family (`.+ .- .* ./`).
 `undefined` propagates through every operator; an `error` operand raises. Use `.string()`, an f-string
 (`f"value: {42}"`), or `print()`/`format()` to convert explicitly. See
 [Type Reference](types.md) for the full cross-type operator map and
-[Extending types: operators](extending-types.md) for the dispatch mechanism behind it.
+[Extending types: operators](extending_types.md) for the dispatch mechanism behind it.
 
 Indexing works on strings, runes, arrays, bytes, and ranges. Slicing works on strings, runes, arrays, and bytes.
 Single-element indexing supports negative indices: `[-1]` is the last element, `[-2]` the second from the end, and
@@ -528,7 +528,7 @@ a[::-1]    // [5,4,3,2,1]
 ### Range literals
 
 `low..high` and `low..high:step` are syntax sugar for `range(low, high)` / `range(low, high, step)` (see
-[Built-in functions](#built-in-functions)) — `step` defaults to whatever the builtin itself defaults to (currently
+[`range`](reference/builtins.md#range)) — `step` defaults to whatever the builtin itself defaults to (currently
 `1`), not something the syntax hardcodes. `low` and `high` can be any expression, not just literals, and the range
 is exclusive of `high`, matching `range()`, Python's `range()`, and Go slice semantics — see
 [Range/Slice Bounds](conventions.md#rangeslice-bounds-inclusive-start-exclusive-stop) for why this was a deliberate
@@ -715,12 +715,20 @@ f = func(x, y) {
 }
 ```
 
-Variadic parameters collect extra arguments into an immutable array:
+A variadic parameter — the last one, spelled `...rest` — collects the arguments past the fixed ones into an
+immutable array, `[]` when there are none:
 
 ```go
 f = func(a, b, ...rest) { return rest }
-f(1, 2, 3, 4)   // rest == [3, 4]
+f(1, 2, 3, 4)   // [3, 4]
+f(1, 2)         // []
+format(f)       // "<compiled-function/2+>"
 ```
+
+A function's **arity** is the count of its fixed parameters, and a variadic one accepts that many **or more**:
+`func(a, b, ...rest)` has arity 2 and renders `/2+`. Every callable — builtins and bound members included —
+answers the same pair, and a member that takes a callback calls it in the fewest form it accepts
+([types.md § Lambda callbacks](types.md#lambda-callbacks)).
 
 To spread an array into a call, use `...` after the last argument:
 
@@ -877,7 +885,7 @@ without reading messages.
 
 ### Errors, severity, and category
 
-Kavun has a built-in `error` value type (see [types/error.md](types/error.md)). Two ways an error can flow:
+Kavun has a built-in `error` value type (see [reference/types/error.md](reference/types/error.md)). Two ways an error can flow:
 
 1. **As a value** — built with `error(payload)` and passed around explicitly. `is_error(v)` checks for one.
 2. **As a raised error** — the runtime aborts the current execution and unwinds frames until a `recover()` catches it.
@@ -892,7 +900,7 @@ Errors are split into two **severities**:
 
 Independently, every error has a **category** saying where it came from — `is_runtime()`, `is_user()`,
 `is_requirement()`, and a fourth, *system*, that is always fatal and therefore never reaches a script. See
-[types/error.md § Categories](types/error.md#categories).
+[reference/types/error.md § Categories](reference/types/error.md#categories).
 
 ### `raise(err)`
 
@@ -1016,8 +1024,9 @@ is recoverable by construction.
 `import("name")` is an expression that loads a module and returns its exported value. Module source can be a builtin
 module or a Kavun source file.
 
-A **builtin module** answers a value of type [`module`](types/module.md): its functions and constants are
-members (`math.hypot(3, 4)`, `math.pi`, `arr.map(math.cbrt)`), it is read-only, and a name it does not have raises
+A **builtin module** answers a value of type [`module`](reference/types/module.md) whose functions and constants
+are its members (`math.hypot(3, 4)`, `math.pi`, `arr.map(math.cbrt)`), each listed on the module's page under
+[reference/stdlib/](reference/stdlib.md); it is read-only, and a name it does not have raises
 (`math.pii` → `module 'math' has no member 'pii'`). `len`, `in` and `for k, v in m` see its members, sorted by
 name. Which builtin modules a script may import is the host's decision: by default only the pure ones (no world
 access); `clock`, `exec`, `fs`, `io` and `os` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI
@@ -1057,211 +1066,12 @@ a function is callable — and it is frozen.
 
 ## Built-in functions
 
-This section is the complete, authoritative list of global built-in functions (everything callable without an
-`import(...)`). For the full list of *member* functions on each type (e.g. `[1,2,3].sort()`), see
-[Detailed type documentation](#detailed-type-documentation) below — this section only covers top-level functions.
-
-### Value constructors / conversions
-
-`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict`,
-`record`, and `range` are all callable as top-level functions named after the type. Conversion is
-construction — the free form `T(x)` and the member form `x.T()` are one operation, and they share one
-failure contract:
-
-- **0 args** — the type's zero value (`int()` → `0`, `array()` → `[]`, `range()` → the empty range).
-- **1 arg, already the target type** — a **new, independent value**: a constructor constructs. For the five
-  types with a mutable body (`array`, `dict`, `record`, `bytes`, `runes`) the result is a fresh **mutable**
-  **shallow** copy — exactly `x.copy_shallow()` — so `b := array(a)` never writes through to `a`, and
-  `bytes(b"ab")` gives a writable body built from a constant literal's content. The elements are the values
-  handed in, so a frozen element stays frozen; `x.copy()` is the deep spelling. `string` and the scalars are
-  immutable and carry no identity, so there is nothing to observe: they answer the same value.
-- **1 arg, any other type** — converted. A conversion that cannot succeed **raises** a catchable error — it
-  never answers a silent `undefined` or a silent zero.
-- **The explicit fallback is the member form's**: `x.T(default)` answers the default instead of raising on a
-  failed conversion. The fallback is the *opt-out*, so it is not type-checked, and it is answered **as-is** —
-  a container default is **not** copied, unlike a converted value: nothing was converted, so nothing was
-  built. `undefined.array(def)` answers `def` itself; `array(def)` answers a new array. The free form takes
-  no fallback — `int("bad", 0)` raises `wrong_num_arguments`.
-- **A free constructor's second argument is a construction parameter, never a default.** Only two families
-  take one: the sequence constructors' **count** (`T(x, n)`, below) and `time`'s **layout** for text
-  (`time("29/08/2026", "%d/%m/%Y")`). Text has no single way to become a time, so on a text receiver the
-  member form takes the layout too, *before* its default: `s.time(layout[, default])` — `s.time()` raises. This
-  is the one place the member and free forms differ in arity; see [types/time.md](types/time.md#text-layouts).
-
-```go
-int("42")             // 42
-array([1, 2])         // [1, 2]       <- a NEW array: writing into it never touches the argument
-bytes(b"ab")          // bytes([97, 98])  <- mutable; the literal itself stays an immutable constant
-int("bad")            // runtime error: cannot convert string to int
-"bad".int(0)          // 0            <- explicit fallback: the member form's trailing default
-float("3.14")         // 3.14
-string(99)            // "99"
-string(undefined)     // runtime error -- absence has no textual form
-bool(0.0)             // false        <- bool(x) is a numeric zero test / text parse
-bool("false")         // false        <- parses; distinct from is_true("false"), which is true (non-empty)
-byte(999)             // runtime error -- out of the octet range
-decimal("bad")        // runtime error -- parse always raises on invalid input
-runes("abc")          // u"abc"
-time("2024-01-01")    // time value (the canonical grammar; anything else names its layout)
-time("01/02/2024", "%d/%m/%Y")  // time value -- the second argument is the layout
-range({start: 1, stop: 4})  // range(1, 4) -- rebuilds from a components record
-```
-
-Parsing always raises on invalid input, for every type — there is no in-band NaN-on-failed-parse:
-`decimal("bad")` raises exactly like `int("bad")` does (use the member form's default when a bad parse is
-expected: `"bad".decimal(0d)` → `0`).
-
-#### Building a sequence from copies: `T(x, count)`
-
-The four sequence constructors — `array`, `string`, `bytes`, `runes` — take a second **count** argument:
-`T(x, n)` builds a sequence of `n` copies of `x`, with `x` kept whole whatever its type (like `push`/`insert`,
-never spreading). For the text types, whose elements are scalars, this degenerates to content repetition —
-`T(x, n)` equals `T(x).repeat(n)`; for `array` it equals `[x].repeat(n)`. There is no sizing form — a single
-argument is always the conversion (`array(3)` → `[3]`, `runes(10)` → `u"10"`); preallocation is the explicit
-`undefined` fill:
-
-```go
-array(undefined, 3)    // [undefined, undefined, undefined]  <- preallocation, fill explicit
-array(0, 3)            // [0, 0, 0]
-array([1, 2], 2)       // [[1, 2], [1, 2]]  <- x stays whole, never spreads
-bytes(b'A', 3)         // bytes([65, 65, 65])
-string("ab", 2)        // "abab"
-runes("ab", 2)         // u"abab"
-array(3)               // [3]           <- arity 1 is the conversion, never a size
-runes(10)              // u"10"
-array([1, 2])          // [1, 2]        <- passthrough
-array(range(1, 4))     // [1, 2, 3]     <- conversion
-```
-
-The count must be a lossless whole number (`2.0` is fine, `1.5` raises) and non-negative (a negative count
-raises a recoverable `invalid_value` error); a count of `0` answers the empty sequence.
-
-#### `dict`/`record` are outliers
-
-`dict()` does not follow the shared convention above, and `record()` — its mirror-image counterpart, converting
-the other direction — follows the same outlier shape:
-
-- `dict()` / `record()` — empty dict / record.
-- `dict(d)` / `record(r)` where the argument is already the target type — returned unchanged.
-- `dict(r)` where `r` is a `record`, and `record(d)` where `d` is a `dict` — converted to an independent
-  **shallow** copy: a fresh top-level container, but nested values are not recursively cloned (same convention
-  every other type's own `.record()`/`.dict()` conversion already follows). Mutating the result's own keys never
-  affects the source's keys, or vice versa; mutating a *nested* container reachable from both still affects both
-  (shallow, not deep). Result is always mutable, regardless of the source's mutability — same convention as
-  `copy()`.
-- `dict_view(r)` / `record_view(d)` are the explicit `_view` twins: share the source's underlying storage
-  directly instead of copying — both the top-level key set and nested values are the *same* backing map, so
-  mutating either side through either wrapper is visible through both. Result's mutability is inherited from
-  the source's (shares its immutability, not always-mutable like the copying form). Maximum performance when
-  you've confirmed nothing else needs to observe the source independently.
-- `dict(entries)` / `record(entries)` where `entries` is an array — the ENTRIES reading: each element must be
-  exactly a 2-element array `[key, value]` (`dict([["a", 1]])` → `dict({"a": 1})`); keys go through their
-  string conversion, later entries overwrite earlier ones. The same reading powers `arr.dict()` and
-  `d.array()` (which answers key-sorted entries), so the two directions round-trip up to ordering.
-- `dict(x)` / `record(x)` for any other type — **raises a runtime error**, like every failed conversion.
-
-The same member-call spellings exist on the relevant receiver: `dict_val.record()` / `dict_val.record_view()`.
-`record` has no member functions at all (a dot on a record is field access — see
-`docs/types/record.md`), so `record_val.dict()` doesn't exist; `dict(record_val)`/`dict_view(record_val)` are
-its only spellings for that direction.
-
-```go
-dict()                 // dict({})
-dict({a: 1})            // dict({"a": 1})   <- from record, independent shallow copy
-record(dict({a: 1}))    // {"a": 1}         <- from dict, independent shallow copy
-dict_view({a: 1})       // dict({"a": 1})   <- shares storage with the record literal
-dict(42)                // Runtime Error: invalid_argument_type
-```
-
-### Collections and helpers
-
-```go
-len(x)                                       // length of a collection/text/range; raises on types with no length
-copy(x)                                      // deep mutable copy
-copy_shallow(x)                              // shallow mutable copy (array/dict/record only — elsewhere unobservable)
-remove(obj, "key")                           // returns obj without "key"; does not mutate obj
-remove_in_place(obj, "key")                  // mutates a record/dict in place
-freeze(x)                                    // deep copy, then deep-immutable; source untouched
-freeze_shallow(x)                            // x, header marked immutable; needs `x = freeze_shallow(x)` to stick
-is_view(x)                                   // is x a borrowing header — a `_view` result?
-range(0, 10)                                 // range([start,] stop[, step]) — sugar: 0..10, 0..10:step
-min(a, b, ...); max(a, b, ...)               // smallest/largest ARGUMENT (see below)
-is_true(x)                                   // truthiness (the free spelling of x.is_true())
-error("msg")                                 // error value with a string payload
-error({code: 42})                            // error value with a structured payload
-raise(err)                                   // raise an error so a deferred recover() can catch it
-require(cond, payload)                       // input check: undefined if cond is true, else raise kind "requirement"
-recover()                                    // inside a deferred function, return & clear the in-flight error
-type_name(x)                                 // runtime type name ("function" for every callable)
-format(x); format(template, args)            // render one value / runtime template formatting (see below)
-```
-
-A free function exists exactly where a member cannot do the job: nullary construction (`int()`), a multi-input
-subject (`min(a, b, c)` selects among its ARGUMENTS; `arr.min()` aggregates over elements — one meaning, two
-delivery mechanisms), or a receiver that cannot have members — `record` has no member surface at all, which is
-why `len`, the copy/freeze family, `remove`/`remove_in_place`, `format`, `is_true` and `is_view` all keep free
-spellings. A free form that would merely duplicate a member does not exist (there is no free `append`).
-
-`freeze`/`freeze_shallow` differ in shape because immutability lives on the value header, not the shared body:
-`freeze(x)` detaches first (a deep copy) and marks the clone immutable, never affecting other bindings;
-`freeze_shallow(x)` returns `x` with its own header flagged — the caller must reassign
-(`x = freeze_shallow(x)`), and a sibling binding that still points at the same body stays mutable.
-
-`error(...)` requires at least one argument (an error without a payload carries no information — and note every
-error value is truthy). `copy`/`freeze` work on every type except `undefined` (absence has no identity to copy).
-`len(x)` raises on a type with no length — it never answers a made-up number.
-
-`min`/`max` are variadic selection over their **arguments** — deliberately never looking inside one:
-
-```go
-min(3, 1, 2)           // 1
-min("banana", "apple") // "apple"
-min([3, 1, 2])         // [3, 1, 2] -- ONE argument, returned unchanged; not a lookup inside it
-min([3, 1, 2]...)      // 1        -- spread it, which always agrees with [3, 1, 2].min()
-min()                  // runtime error -- there is nothing to select
-```
-
-Formatting:
-
-```go
-format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"})  // "hello Kavun from Kherson!"
-format("hello {0} from {1}!", ["Kavun", "Kherson"])        // "hello Kavun from Kherson!"
-format("pi = {x:.3f}", {x: 3.14159})                       // "pi = 3.142"
-format("n = {x:{fmt}}", {x: 42, fmt: "05d"})               // "n = 00042"
-```
-
-`format(template, args)` is the runtime counterpart to f-strings. The template uses the same `{name}` / `{0}`
-placeholder syntax and the same [Format Mini-Language](format-mini-language.md) for `:fspec`. `args` must be an
-`array` (for indexed placeholders) or a `dict` / `record` (for named placeholders); the two modes cannot be mixed
-in one template, and expressions are not allowed inside `{...}`. See [`format`](format-function.md) for the full
-reference.
-
-### Type predicates
-
-`is_bool`, `is_byte`, `is_rune`, `is_int`, `is_float`, `is_decimal`, `is_string`, `is_runes`, `is_bytes`, `is_array`,
-`is_record`, `is_dict`, `is_range`, `is_time`, `is_date`, `is_error`, `is_undefined`, `is_function`, `is_callable`,
-`is_iterable`, `is_immutable`
-
-Each `is_T` predicate (except `is_callable`/`is_iterable`/`is_immutable`) checks the value's *exact*
-runtime type — no coercion, and no "is-a" relationship between related types (e.g. `is_int(byte(1))` is `false`).
-`is_function(x)` is the type predicate (`type_name(x) == "function"`, true for functions, closures and builtin
-functions alike); `is_callable(x)` is the capability predicate — it additionally covers host-defined callable
-types, which keep their own `type_name`. `is_view(x)` reports whether `x` is a **borrowing header** — a value produced by
-`slice_view`/`chunk_view`/`dict_view`/`record_view`, which reads and writes another value's body instead of
-owning one. It is a property of `x` alone: it does not say whether anything is viewing `x` (after
-`r = d.record_view()`, `is_view(r)` is `true` and `is_view(d)` is `false`), and it is not a general "is this
-body shared" test — plain assignment (`e := d`) and `freeze_shallow` also share a body without producing a
-view. `is_immutable(x)` answers true unless the value can be mutated **through that reference** — it reads
-the header, exceptionlessly, so `is_immutable(undefined)` is `true`. It is not a promise that the content
-cannot change: a frozen header over a body something else still owns (a frozen view, or any
-`freeze_shallow`ed sibling) refuses *your* writes while the other holder's writes remain visible through it —
-see [container semantics: views](types/container-semantics.md#views).
-
-```go
-is_array([1, 2])   // true
-is_callable(len)   // true
-type_name({})      // "record"
-```
+A built-in function is callable everywhere without an `import(...)`: the value constructors / conversions named after
+the types (`int(x)`, `array(x, n)`, `range(a, b)`, …), the type predicates (`is_int(x)`, …), and the helpers a member
+cannot provide (`len`, `copy`, `freeze`, `remove`, `format`, `min`/`max`, `error`/`raise`/`recover`/`require`, …).
+Conversion is construction: the free form `T(x)` and the member form `x.T()` are one operation with one failure
+contract. The complete list, with each function's signature, contract and examples, is
+[reference/builtins.md](reference/builtins.md), generated from the source.
 
 ## Errors and diagnostics
 
@@ -1278,7 +1088,11 @@ or member (`a.b.c` reports `c` when `.c` fails). For runtime errors that bubble 
 frame is shown, at the call that entered the next one. Common runtime errors:
 
 - `invalid_binary_operator: T op T` - operator not supported for the given types
-- `wrong_num_arguments: (call) expected N argument(s), got M`
+- `wrong_num_arguments: (call) expected 2 arguments, got 1 argument` - a script function called with the wrong
+  count (`expected 2 or more arguments` for a variadic one; `(defer)` for a deferred call)
+- `wrong_num_arguments: (join) expected ([sep]), got 2 arguments` - a builtin, module function or member called
+  with a count its signature template does not accept; the template is quoted verbatim, several readings joined
+  with ` | ` (`(range) expected () | (components) | (start, stop[, step]), got 4 arguments`)
 - `not_callable: type T is not callable` - tried to call a non-function value
 - `unresolved reference 'x'` - variable not declared
 - `redeclared: 'x'` - `:=` used on an already-declared variable in the same scope

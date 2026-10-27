@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"maps"
 	"slices"
 	"strings"
@@ -39,6 +38,133 @@ func DateOf(v Value) civil.Date {
 	return d
 }
 
+// A civil calendar day — `0001-01-01` … `9999-12-31` — with no clock and no zone.
+//
+// ## Overview
+//
+// `date` is a domain scalar for the questions that are about *days*, not instants: a due date, a value date, a
+// birthday, the day a posting is booked. It has no time of day and no zone, so two dates compare and subtract
+// exactly, and nothing about them depends on where the script runs. When a day has to meet the clock, the
+// conversion names the zone (see [the time bridge](#the-time-bridge)).
+//
+// Key rules, each expanded below:
+//
+// - Next to a `date`, a bare `int` **operand** is a number of **days**; a bare `int` in a **conversion** is a day
+// count since `1970-01-01` (epoch days). Operator = days, conversion = epoch days.
+// - One strict text form, `YYYY-MM-DD`, for `d"…"`, `date(s)`, `.string()`, f-strings and JSON. Any other text
+// shape names its layout: `date(s, layout)`, `s.parse_date(layout[, default])`.
+// - Month and year arithmetic states its end-of-month rule — `"clamp"` or `"last_day"` — with no default.
+// - `date` and `time` / `int` deliberately do **not** order against each other; `==` across them is `false`.
+//
+// `date` values are immutable. A date is a primitive: it never allocates, and a `d"…"` literal is a compile-time
+// constant.
+//
+// ## Construction
+//
+// ```go
+// d"2026-01-31"                       // literal: a compile-time constant; a bad literal is a compile error
+// date("2026-01-31")                  // the canonical text
+// date("31/01/2026", "%d/%m/%Y")      // a layout — the free form's second argument
+// "2026-01-31".date()                 // member form on text: the canonical text, as date(s) reads it
+// "31/01/2026".parse_date("%d/%m/%Y") // member form under a layout: the layout is required
+// "bad".parse_date("date", undefined) // => undefined — the default comes after the layout
+// date({year: 2026, month: 1, day: 31})   // components (every key optional, defaulting to date()'s part)
+// (20484).date()                      // epoch days: d"2026-01-31"
+// date(t"2026-03-31T23:30:00Z")       // a time's civil day, in the time's own zone
+// date()                              // => date("1970-01-01") — the zero value
+// undefined.date(d"2026-01-01")       // => date("2026-01-01") — the maybe-missing form
+// ```
+//
+// The text form is exactly `YYYY-MM-DD`: fixed width, a day that exists, nothing after it. Everything else raises
+// `conversion`; nothing normalizes:
+//
+// ```go
+// date("2026-1-31")                   // Error: conversion: cannot convert string to date: expected a 2-digit month at offset 5
+// date("2026-02-30")                  // Error: conversion: ...: day 30 out of range 1..28
+// date("2026-01-31T00:00:00Z")        // Error: conversion: ...: unexpected text (a date has no clock or zone) at offset 10
+// date({year: 2026, month: 2, day: 29})   // Error: invalid_value: (date) day 29 out of range 1..28
+// date(3652059)                       // Error: conversion: cannot convert int to date — one day past 9999-12-31
+// ```
+//
+// **Layouts** for text are the `date` alias (the canonical form) or a `%`-template of **date directives**:
+// `%Y %m %d %e %j %B %b %A %a %n %t %%` (fixed width; English names, exact case; a weekday that contradicts the
+// date raises). Clock and zone directives (`%H %M %S %z` …) raise on a date, and so do the ambiguous `%y %Z` and
+// the week-based `%G %V %u %w %C`. A wrong layout raises `invalid_value` even when a default is given — it is a
+// mistake in the script, not a miss in the data:
+//
+// ```go
+// date("Saturday 31 January 2026", "%A %d %B %Y")   // => date("2026-01-31")
+// date("2026-031", "%Y-%j")                         // => date("2026-01-31") — day of year
+// "x".parse_date("%H", undefined)                   // Error: invalid_value: directive %H is not available on a date
+// "x".parse_date("%d/%m/%Y", undefined)             // => undefined — the data missed, the layout is fine
+// ```
+//
+// ## Operators
+//
+// | expression | result | meaning |
+// | --- | --- | --- |
+// | `d + n` / `n + d` | `date` | `n` days later |
+// | `d - n` | `date` | `n` days earlier |
+// | `d2 - d1` | `int` | the days between (negative when `d2` is earlier) |
+// | `d1 < d2` (`<=` `>` `>=`) | `bool` | calendar order |
+// | `d == x` / `d != x` | `bool` | the same day; `false`/`true` against any non-date |
+// | a result outside `0001-01-01` … `9999-12-31` | raises | `invalid_value` |
+// | `n - d`, `d + d`, `d * n`, `d / n`, `d ± float` | raises | no meaning for a day |
+// | `d < n`, `d < t` (and the reverse) | raises | a day has no common order with a number or an instant |
+// | `d + t` | raises | a day is not a duration |
+//
+// ```go
+// d := d"2026-01-31"
+// d + 1                       // => date("2026-02-01")
+// d - 31                      // => date("2025-12-31")
+// d"2026-03-01" - d"2026-02-01"   // => 28
+// d < d"2026-02-01"           // => true
+// d == 20484                  // => false — use d.int() == 20484
+// d < 5                       // Error: invalid_binary_operator: date < int
+// min(d, d"2026-02-01")       // => date("2026-01-31") — the global min/max work, the type has no min member
+// ```
+//
+// ## The time bridge
+//
+// A `date` has no zone, so every move to or from a `time` names one:
+//
+// ```go
+// t := t"2026-03-31T23:30:00Z"
+// t.date()                       // => date("2026-03-31") — the civil day in the time's own zone
+// t.date_in("Europe/Kyiv")       // => date("2026-04-01") — the same instant is already April 1st in Kyiv
+// t.in_zone("Europe/Kyiv").date()  // => date("2026-04-01") — the same thing
+//
+// d := d"2026-01-31"
+// d.time()                       // => time("2026-01-31T00:00:00Z") — midnight UTC; ≡ time(d)
+// d.time_in("Europe/Kyiv")       // => time("2026-01-31T00:00:00+02:00") — the start of the day in Kyiv
+// ```
+//
+// **Which day an instant falls on depends on the zone** — the first line above is a real hazard for bookings:
+// near midnight, UTC and local days differ. Name the zone the business day belongs to.
+//
+// `time_in(zone)` answers the **first instant whose local date is the day**: midnight, or — on a day whose
+// midnight a daylight-saving change skips — the instant the gap ends. So `d.time_in(z).date_in(z) == d` always
+// holds:
+//
+// ```go
+// d"2026-09-06".time_in("America/Santiago")   // => time("2026-09-06T01:00:00-03:00") — Chile skips 00:00–01:00
+// ```
+//
+// `"Local"` and `""` are not zone names; an unknown zone raises.
+//
+// ## Conversions out
+//
+// Every conversion is `x.T([default])`; each has its own entry.
+//
+// `json.encode(d)` is `"2026-01-31"`; `json.decode` never produces a date (JSON has no date type), so a config
+// reads it back with `date(cfg.due)`. The binary codec is 4 bytes and re-validates the range on decode.
+//
+// ## For hosts
+//
+// `kavun.ValueOf` accepts fin128's `civil.Date` directly, and a date's `Interface()` is a `civil.Date`.
+//
+//kavun:type date
+
 // TypeDate is the date type descriptor.
 var TypeDate = ValueTypeDescr{
 	Name:         ConstHook(dateTypeName),                                                     // PURE by contract
@@ -57,36 +183,7 @@ var TypeDate = ValueTypeDescr{
 	AsTime:       func(v Value) (time.Time, bool) { return dateMidnightUTC(DateOf(v)), true }, // PURE by contract
 	AsDate:       func(v Value) (civil.Date, bool) { return DateOf(v), true },                 // PURE by contract
 
-	Methods: []Method{
-		members.IsTrue:       NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:       NewPureMethod(dateString, 0, Variadic),
-		members.Format:       NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:         NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze:       NewPureMethod(MemberSelf, 0, Fixed),
-		members.Runes:        NewPureMethod(dateRunes, 0, Variadic),
-		members.Int:          NewPureMethod(dateInt, 0, Variadic),
-		members.Time:         NewPureMethod(dateTime, 0, Variadic),
-		members.Date:         NewPureMethod(dateDate, 0, Variadic),
-		members.Components:   NewPureMethod(dateComponents, 0, Fixed),
-		members.Year:         NewPureMethod(dateYear, 0, Fixed),
-		members.Month:        NewPureMethod(dateMonth, 0, Fixed),
-		members.Day:          NewPureMethod(dateDay, 0, Fixed),
-		members.WeekDay:      NewPureMethod(dateWeekDay, 0, Fixed),
-		members.WeekDayName:  NewPureMethod(dateWeekDayName, 0, Fixed),
-		members.MonthName:    NewPureMethod(dateMonthName, 0, Fixed),
-		members.YearDay:      NewPureMethod(dateYearDay, 0, Fixed),
-		members.DaysInMonth:  NewPureMethod(dateDaysInMonth, 0, Fixed),
-		members.DaysInYear:   NewPureMethod(dateDaysInYear, 0, Fixed),
-		members.IsLeapYear:   NewPureMethod(dateIsLeapYear, 0, Fixed),
-		members.AddYears:     NewPureMethod(dateAddYears, 2, Fixed),
-		members.AddMonths:    NewPureMethod(dateAddMonths, 2, Fixed),
-		members.AddDays:      NewPureMethod(dateAddDays, 1, Fixed),
-		members.StartOfMonth: NewPureMethod(dateStartOfMonth, 0, Fixed),
-		members.EndOfMonth:   NewPureMethod(dateEndOfMonth, 0, Fixed),
-		members.IsEndOfMonth: NewPureMethod(dateIsEndOfMonth, 0, Fixed),
-		members.MonthsSince:  NewPureMethod(dateMonthsSince, 2, Fixed),
-		members.TimeIn:       NewPureMethod(dateTimeIn, 1, Fixed),
-	},
+	Methods: dateMethods,
 }
 
 func dateMidnightUTC(d civil.Date) time.Time {
@@ -343,10 +440,27 @@ func ParseDateLayout(s, layout string) (civil.Date, error) {
 	return newDate(y, int(m), d)
 }
 
-// textDateMember is the text receivers' `date` member: `s.date(layout[, default])`, the layout required, as for time.
+// textDateMember is the text receivers' `date([default])` conversion: the strict YYYY-MM-DD form (ParseDateText),
+// as the free `date(text)` reads it. A miss answers the default as-is, or raises naming why.
 func textDateMember(name, from, text string, args []Value) (Value, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	d, err := ParseDateText(text)
+	if err == nil {
+		return DateValue(d), nil
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return Undefined, errs.NewConversionError(from, name, err.Error())
+}
+
+// textParseDateMember is the text receivers' `parse_date(layout[, default])`: the text read under a layout
+// (ParseDateLayout; "date" is the strict YYYY-MM-DD form), as for parse_time.
+func textParseDateMember(name, from, text string, args []Value) (Value, error) {
+	if len(args) > 2 {
+		return Undefined, ErrArgCount
 	}
 	if args[0].Type != value.String {
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first (layout)", "string", args[0].TypeName())

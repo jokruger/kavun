@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jokruger/kavun/core/member/members"
-
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
@@ -30,6 +28,230 @@ func FloatValue(f float64) Value {
 		Data:      math.Float64bits(f),
 	}
 }
+
+// IEEE 754 double-precision floats with an arithmetic quarantine: no arithmetic result is ever NaN or ±Inf — it
+// raises instead.
+//
+// ## Overview
+//
+// `float` is a 64-bit IEEE 754 binary float. Kavun quarantines its error states: an arithmetic operation whose
+// result would be NaN or ±Inf **raises a catchable error** instead of letting the sentinel flow through a
+// calculation silently. The sentinel *values* themselves remain first-class: they can arrive from parses
+// (`float("inf")`), from the host, or from JSON, and they can be stored, compared, and sorted — only arithmetic
+// refuses them. `is_nan()` / `is_inf()` interrogate them without triggering the raise being avoided.
+//
+// `float` belongs to the numeric family alongside [`int`](int.md) and [`decimal`](decimal.md). Use `float` for
+// measurements and physics-style computation where binary rounding is acceptable; use `decimal` for money and any
+// result that must be exact in base 10 (`0.1 + 0.2 == 0.3` is `false` on floats and `true` on decimals).
+//
+// A numeric operation is a `float` member exactly when [`decimal`](decimal.md) has it — same name, same reading
+// (pinned by a parity test). Like the operators, no member produces NaN or ±Inf: such a result **raises**
+// `invalid_value` naming the member.
+//
+// The rest of float math — trigonometry, `cbrt`, `hypot`, the special functions — is in the
+// [`math`](../stdlib/math.md)
+// module.
+//
+// ## Literals
+//
+// ```go
+// x = 1.5          // decimal point
+// k = 1e3          // exponent, 1000.0
+// m = 2.5e-3       // => 0.0025
+// n = 3f           // f suffix: a float-typed 3
+// u = 1_000.25     // underscores group digits
+// h = 0x1.8p1      // hex float with binary exponent, 3.0
+// ```
+//
+// ## Rendering
+//
+// `string()` and the default `format()` render the shortest decimal string that round-trips — which is why binary
+// rounding is visible in full rather than hidden:
+//
+// ```go
+// string(1.5)          // => "1.5"
+// string(0.1 + 0.2)    // => "0.30000000000000004" — the true stored value
+// string(1e21)         // => "1000000000000000000000"
+// string(-0.0)         // => "-0"
+// ```
+//
+// The **display** form — what a container shows, and what a doc example writes — always carries a decimal point,
+// so a whole float never reads back as an `int`:
+//
+// ```go
+// format("{0}", [[3.0, 3]])   // => "[3.0, 3]" — the float keeps its point, the int has none
+// format("{0}", [[0.0]])      // => "[0.0]"
+// ```
+//
+// The **conversion** stays bare on purpose: `3 == 3.0` is `true`, so the two must produce the same key text and
+// the same `join` output. `(3.0).string()` is `"3"`, `f"{3.0}"` is `"3"`, and `json.encode` is unchanged.
+//
+// ## Arithmetic and operators
+//
+// | operator | meaning | notes |
+// | --- | --- | --- |
+// | `+` `-` `*` `/` | IEEE arithmetic | result checked by the quarantine |
+// | `%` | floating-point remainder | `5.5 % 2` → `1.5`; checked too |
+// | `-x` | negation | arithmetic — checked (see below) |
+//
+// ### The quarantine: NaN/Inf results raise
+//
+// Every arithmetic result is checked; a would-be NaN or ±Inf raises a catchable error of kind `invalid_value`:
+//
+// ```go
+// 1.0 / 0.0       // Error: invalid_value: float overflow or division by zero
+// -1.0 / 0.0      // Error: invalid_value: float overflow or division by zero
+// 0.0 / 0.0       // Error: invalid_value: invalid float arithmetic (NaN result)
+// 1e308 * 10.0    // Error: invalid_value: float overflow or division by zero — overflow to Inf
+// 1.0 % 0.0       // Error: invalid_value: invalid float arithmetic (NaN result)
+// ```
+//
+// The rule applies to sentinel *operands* too — arithmetic refuses them even though the values are storable:
+//
+// ```go
+// inf = float("inf")
+// nan = float("nan")
+//
+// inf - inf       // Error: invalid_value: invalid float arithmetic (NaN result)
+// inf + 1.0       // Error: invalid_value: float overflow or division by zero
+// nan + 1.0       // Error: invalid_value: invalid float arithmetic (NaN result)
+// -inf            // Error: invalid_value — unary minus is arithmetic; negate no sentinel
+// ```
+//
+// ### Pairing with int
+//
+// `float` pairs with `int` in arithmetic; the result is `float` under the same quarantine (`1 / 0.0` raises).
+// `float` **never pairs with `decimal` in arithmetic** — only in comparisons. Convert explicitly
+// (see [decimal](decimal.md)):
+//
+// ```go
+// 1.5 + 1       // => 2.5
+// 1.5 + 1d      // Error: invalid_binary_operator: float + decimal — convert explicitly: 1.5.decimal() + 1d
+// ```
+//
+// ## NaN and Inf values
+//
+// The sentinels arrive from parses and hosts, never from Kavun arithmetic:
+//
+// ```go
+// inf = float("inf")       // +Inf ("Infinity" and case variants parse too)
+// ninf = float("-inf")     // => -Inf
+// nan = float("nan")       // => NaN
+//
+// inf.is_inf()    // => true
+// nan.is_nan()    // => true
+// (1.5).is_nan()  // => false
+// ```
+//
+// `is_inf()` takes no sign argument — negative infinity is a composition:
+//
+// ```go
+// ninf := float("-inf")
+// ninf.is_inf() && ninf.sign() < 0    // => true — "is it -Inf"
+// ```
+//
+// ### Total-order comparisons
+//
+// Comparison treats the whole float domain as one **total order**: NaN is the unique minimum (below even `-Inf`)
+// and equal only to another NaN. This keeps sorting deterministic instead of IEEE-unordered:
+//
+// ```go
+// inf := float("inf")
+// nan := float("nan")
+// nan == nan                     // => true — reflexive, unlike raw IEEE
+// nan < float("-inf")            // => true — NaN is the unique minimum
+// inf > 1e308                    // => true
+// [2.0, nan, 1.0, inf].sort()    // => [NaN, 1.0, 2.0, +Inf]
+// nan == 1.0                     // => false
+// nan < 1                        // => false — NaN orders below numbers, not against them piecewise
+// ```
+//
+// ### Truthiness
+//
+// Truthiness is inequality with `0.0`. NaN is an error state, not a domain value — a boolean context **raises**
+// rather than answering:
+//
+// ```go
+// (0.0).is_true()     // => false
+// (-0.0).is_true()    // => false
+// (0.5).is_true()     // => true
+// !!0.0               // => false
+// is_true(float("nan"))          // Error: invalid_value: float NaN is neither true nor false in a boolean context
+// float("nan").is_true()         // Error: invalid_value — the same raise: member and free spelling agree
+// if float("nan") {}             // Error: invalid_value — and the same raise in a condition
+// ```
+//
+// `float("inf").is_true()` is `true` — Inf is nonzero and has a definite answer.
+//
+// ## Comparisons and cross-type pairing
+//
+// Cross-type `==` / `<` against `int` and `decimal` are **exact mathematical comparisons** — the float's true
+// stored value is compared, with no rounding of either side:
+//
+// ```go
+// 1 == 1.0                              // => true
+// 0.1d == 0.1                           // => false — float 0.1 is really 0.1000000000000000055511…
+// 0.1d < 0.1                            // => true — the decimal is below the float's true value
+// 9007199254740993 == 9007199254740993.0   // => false — that float literal rounds to …992
+// ```
+//
+// `bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the canonical text
+// form (`1.5 == "1.5"` → `true`, `float("nan") == "NaN"` → `true`); ordering against text raises.
+//
+// ## No sequence members
+//
+// Scalars have no `len()`, no elements, and no `repeat`:
+//
+// ```go
+// (1.5).repeat(2)    // Error: invalid_method: type float has no method repeat
+// ```
+//
+// ## Conversions
+//
+// `x.T()` answers a valid `T` or raises (kind `conversion`); `x.T(default)` answers the default instead. The free
+// form `T(x)` is the same conversion — the default slot is the member's only; `undefined.T(d)` → `d` covers
+// maybe-missing data.
+//
+// | target | behavior |
+// | --- | --- |
+// | `float` | identity |
+// | `int` | truncation toward zero for in-range values (documented resolution loss); NaN, ±Inf, and out-of-range raise-or-default |
+// | `decimal` | exact-enough shortest decimal (`(0.1).decimal()` → `0.1d`); NaN/±Inf raise-or-default |
+// | `bool` | zero test; NaN raises-or-defaults |
+// | `string` / `runes` | the shortest round-trip rendering (total — the default is never used) |
+// | `time` | unix timestamp as sec.frac — **lossy**, see [`time`](#time) |
+//
+// Truncation is a documented in-range resolution loss of *conversion*. **Count slots are stricter**: an argument
+// position that means a count, width, or edit position accepts a float only losslessly —
+//
+// ```go
+// "ab".repeat(2.0)    // => "abab" — 2.0 converts losslessly
+// "ab".repeat(1.5)    // Error: invalid_value: (repeat) argument first must be a whole number, got 1.5
+// ```
+//
+// ## Durations
+//
+// A float builds an int **duration in nanoseconds**, rounded to the nearest one — the same members as
+// [int](int.md#durations): `1.5.hours()` is `5400000000000`, `0.25.seconds()` is `250000000`. NaN, ±Inf and a
+// result past int's range raise.
+//
+// ## Parsing text into float
+//
+// ```go
+// float("1.5")           // => 1.5
+// float("inf")           // => +Inf — a parse is not arithmetic; the value is legal
+// float("nan")           // => NaN
+// float("abc")           // Error: conversion: cannot convert string to float
+// float("1e309")         // Error: conversion: cannot convert string to float — not representable
+// "abc".float(0.0)       // => 0.0 — the member's default rescues bad data
+// undefined.float(1.0)   // => 1.0 — the maybe-missing form
+// float(3)               // => 3.0
+// ```
+//
+// There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gateway between the numeric family and
+// the ordinal scalars (`x.int().byte()`).
+//
+//kavun:type float
 
 var TypeFloat = ValueTypeDescr{
 	Name:         ConstHook(floatTypeName),                                  // PURE by contract
@@ -51,57 +273,7 @@ var TypeFloat = ValueTypeDescr{
 	AsString:     floatTypeAsString,                                         // PURE by contract
 	AsTime:       floatTypeAsTime,                                           // PURE by contract
 
-	Methods: []Method{
-		members.IsTrue:           NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:           NewPureMethod(floatString, 0, Fixed),
-		members.Format:           NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:             NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze:           NewPureMethod(MemberSelf, 0, Fixed),
-		members.Runes:            NewPureMethod(floatRunes, 0, Variadic),
-		members.Int:              NewPureMethod(floatInt, 0, Variadic),
-		members.Bool:             NewPureMethod(floatBool, 0, Variadic),
-		members.Float:            NewPureMethod(floatFloat, 0, Variadic),
-		members.Time:             NewPureMethod(floatTime, 0, Variadic),
-		members.Decimal:          NewPureMethod(floatDecimal, 0, Variadic),
-		members.Abs:              NewPureMethod(floatAbs, 0, Fixed),
-		members.Sign:             NewPureMethod(floatSign, 0, Fixed),
-		members.IsZero:           NewPureMethod(floatIsZero, 0, Fixed),
-		members.IsPositive:       NewPureMethod(floatIsPositive, 0, Fixed),
-		members.IsNegative:       NewPureMethod(floatIsNegative, 0, Fixed),
-		members.IsNaN:            NewPureMethod(floatIsNaN, 0, Fixed),
-		members.IsInf:            NewPureMethod(floatIsInf, 0, Fixed),
-		members.Clamp:            NewPureMethod(floatClamp, 2, Fixed),
-		members.Sqrt:             NewPureMethod(floatSqrt, 0, Fixed),
-		members.Pow:              NewPureMethod(floatPow, 1, Fixed),
-		members.CopySign:         NewPureMethod(floatCopySign, 1, Fixed),
-		members.Round:            NewPureMethod(floatRound, 2, Fixed),
-		members.Ln:               NewPureMethod(floatLn, 0, Fixed),
-		members.RoundHalfEven:    NewPureMethod(floatRoundHalfEven, 1, Fixed),
-		members.RoundHalfUp:      NewPureMethod(floatRoundHalfUp, 1, Fixed),
-		members.RoundHalfDown:    NewPureMethod(floatRoundHalfDown, 1, Fixed),
-		members.RoundUp:          NewPureMethod(floatRoundUp, 1, Fixed),
-		members.RoundDown:        NewPureMethod(floatRoundDown, 1, Fixed),
-		members.RoundCeiling:     NewPureMethod(floatRoundCeiling, 1, Fixed),
-		members.RoundFloor:       NewPureMethod(floatRoundFloor, 1, Fixed),
-		members.RoundSignificant: NewPureMethod(floatRoundSignificant, 2, Fixed),
-		members.RoundToMultiple:  NewPureMethod(floatRoundToMultiple, 2, Fixed),
-		members.IsInteger:        NewPureMethod(floatIsInteger, 0, Fixed),
-		members.Negate:           NewPureMethod(floatNegate, 0, Fixed),
-		members.NextUp:           NewPureMethod(floatNextUp, 0, Fixed),
-		members.NextDown:         NewPureMethod(floatNextDown, 0, Fixed),
-		members.QuoRem:           NewPureMethod(floatQuoRem, 1, Fixed),
-		members.Exp:              NewPureMethod(floatExp, 0, Fixed),
-		members.Log10:            NewPureMethod(floatLog10, 0, Fixed),
-		members.Log2:             NewPureMethod(floatLog2, 0, Fixed),
-		members.Nanoseconds:      NewPureMethod(floatNanoseconds, 0, Fixed),
-		members.Microseconds:     NewPureMethod(floatMicroseconds, 0, Fixed),
-		members.Milliseconds:     NewPureMethod(floatMilliseconds, 0, Fixed),
-		members.Seconds:          NewPureMethod(floatSeconds, 0, Fixed),
-		members.Minutes:          NewPureMethod(floatMinutes, 0, Fixed),
-		members.Hours:            NewPureMethod(floatHours, 0, Fixed),
-		members.Days:             NewPureMethod(floatDays, 0, Fixed),
-		members.Weeks:            NewPureMethod(floatWeeks, 0, Fixed),
-	},
+	Methods: floatMethods,
 }
 
 func floatTypeIsTrue(v Value) (bool, error) {

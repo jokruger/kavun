@@ -237,11 +237,16 @@ func NewInvalidUnpackTypeError(gotType string) *Error {
 	}
 }
 
-func NewWrongNumArgumentsError(context string, expected string, got int) *Error {
+// NewWrongNumArgumentsError is the wrong_num_arguments error "(context) expected <expected>, got <got>": both
+// halves are spelled by the caller, which is core.ArgCountError only — every native callable ("(join) expected
+// ([sep]), got 2 arguments") and the VM's script-function paths ("(call) expected 2 or more arguments, got 1
+// argument").
+// TestArgCountSingleSource pins that nothing else calls it.
+func NewWrongNumArgumentsError(context string, expected string, got string) *Error {
 	return &Error{
 		Kind:        KindWrongNumArguments,
 		Recoverable: true,
-		Message:     fmt.Sprintf("(%s) expected %s argument(s), got %d", context, expected, got),
+		Message:     fmt.Sprintf("(%s) expected %s, got %s", context, expected, got),
 	}
 }
 

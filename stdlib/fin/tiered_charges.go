@@ -1,7 +1,7 @@
 package fin
 
 import (
-	"github.com/jokruger/kavun/core/member/members"
+	"errors"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
@@ -34,9 +34,23 @@ func TieredChargesOf(v core.Value) fin128.TieredCharges {
 	return *(*fin128.TieredCharges)(v.Ptr)
 }
 
+// tieredChargesFromSig is what NewTieredChargesFrom accepts: the text form, or band records with the bounds.
+var tieredChargesFromSig = core.MustSignature("(text) | (bands, min, max)")
+
 // NewTieredChargesFrom builds the table from its text form (bounds included: "…; min=25, max=500"), or from an
-// array of {from, rate, fixed} records plus the bounds.
+// array of {from, rate, fixed} records plus the bounds. Any other count raises wrong_num_arguments named ctx.
 func NewTieredChargesFrom(ctx string, args []core.Value) (core.Value, error) {
+	r, err := tieredChargesFrom(ctx, args)
+	if errors.Is(err, core.ErrArgCount) {
+		// the sentinel is the dispatcher's to translate; a Go caller has no dispatcher, so it is answered here
+		return core.Undefined, core.ArgCountError(tieredChargesFromSig, ctx, len(args))
+	}
+	return r, err
+}
+
+// tieredChargesFrom is NewTieredChargesFrom's body, also the fin.tiered_charges table entry's: it refuses a count
+// with core.ErrArgCount, which only a dispatcher (or the exported wrapper) may translate.
+func tieredChargesFrom(ctx string, args []core.Value) (core.Value, error) {
 	if len(args) == 1 && (args[0].Type == value.String || args[0].Type == value.Runes) {
 		text, err := tableText(ctx, args[0])
 		if err != nil {
@@ -48,8 +62,13 @@ func NewTieredChargesFrom(ctx string, args []core.Value) (core.Value, error) {
 		}
 		return NewTieredChargesValue(t), nil
 	}
-	if len(args) != 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError(ctx, "1 (text) or 3 (bands, min, max)", len(args))
+	switch len(args) {
+	case 1:
+		// the text reading: anything but text is the wrong type for it, never the wrong count
+		return core.Undefined, errs.NewInvalidArgumentTypeError(ctx, "first (text)", "string or runes", args[0].TypeName())
+	case 3:
+	default:
+		return core.Undefined, core.ErrArgCount
 	}
 	var bands []fin128.ChargeBand
 	err := bandArray(ctx, args[0], func(at string, e core.Value) error {
@@ -107,6 +126,23 @@ func chargeBandValue(b fin128.ChargeBand) core.Value {
 	}, false)
 }
 
+// An immutable amount-banded fee table: per band a rate plus a fixed amount, the charge clamped.
+//
+// ## Overview
+//
+// `fin.tiered_charges` is owned by the [`fin`](../stdlib/fin.md) module (see [Rate and charge
+// tables](../stdlib/fin.md#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
+// form or from band records:
+//
+// | text form | band record |
+// | --- | --- |
+// | `"0:0.015+2.00, 1000:0.01; min=25, max=500"` — a rate plus a fixed amount per band, the charge clamped | `{from, rate, fixed}`, with `(bands, min, max)`; `max` 0 = no cap |
+//
+// `rule` is `"whole"` (the band the amount lands in applies to all of it) or `"marginal"` (each slice at its own band's
+// rate). A tiered charge has no `rate` member: a fixed charge is money, not a rate (`tc.rate(…)` is `invalid_method`).
+//
+//kavun:type fin.tiered_charges
+
 // TypeTieredCharges is the fin.tiered_charges type descriptor.
 var TypeTieredCharges = core.ValueTypeDescr{
 	Name: core.ConstHook(tieredChargesTypeName), // PURE by contract
@@ -120,7 +156,7 @@ var TypeTieredCharges = core.ValueTypeDescr{
 	EncodeJSON:   func(v core.Value) ([]byte, error) { return tableJSON(TieredChargesOf(v).String()), nil }, // PURE by contract: the text form, as a JSON string
 	EncodeBinary: func(v core.Value) ([]byte, error) { return []byte(TieredChargesOf(v).String()), nil },    // PURE by contract
 	DecodeBinary: func(v *core.Value, data []byte) error { // IMPURE by contract (mutates target): re-validated through the constructor
-		r, err := NewTieredChargesFrom(tieredChargesTypeName, []core.Value{core.NewStringValue(string(data))})
+		r, err := tieredChargesFrom(tieredChargesTypeName, []core.Value{core.NewStringValue(string(data))})
 		if err != nil {
 			return err
 		}
@@ -142,16 +178,5 @@ var TypeTieredCharges = core.ValueTypeDescr{
 	},
 	AsString: func(v core.Value) (string, bool) { return TieredChargesOf(v).String(), true }, // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:      core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String:      core.NewPureMethod(tieredChargesString, 0, core.Variadic),
-		members.Format:      core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:        core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:      core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.At:          core.NewPureMethod(tieredChargesAt, 1, core.Fixed),
-		members.Bands:       core.NewPureMethod(tieredChargesBands, 0, core.Fixed),
-		members.Charge:      core.NewPureMethod(tieredChargesCharge, 4, core.Fixed),
-		members.ChargeParts: core.NewPureMethod(tieredChargesChargeParts, 4, core.Fixed),
-		members.Bounds:      core.NewPureMethod(tieredChargesBounds, 0, core.Fixed),
-	},
+	Methods: tieredChargesMethods,
 }

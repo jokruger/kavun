@@ -1,0 +1,3 @@
+package stale
+
+func plain() {}

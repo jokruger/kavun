@@ -4,39 +4,42 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
-// The clock module is the world's time: the current instant, the distance to one, and waiting. It is the only
-// place a script reads the wall clock, so it needs a grant. Durations are not here — they are int members
-// (30.seconds(), d.in_hours(), "1h30m".nanoseconds()) — and neither are calendar facts (date/time members).
-func init() {
-	m := core.NewModule(value.ModuleClock, "clock", false)
-	m.Fn(members.Now, 0, clockNow, 0, core.Fixed)
-	m.Fn(members.Since, 1, clockSince, 1, core.Fixed)
-	m.Fn(members.Until, 2, clockUntil, 1, core.Fixed)
-	m.Fn(members.Sleep, 3, clockSleep, 1, core.Fixed)
-	// 4..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
-}
+// The world's time: the current instant, the distance to one, and waiting.
+//
+// It is the only place a script reads the wall clock, so it needs a grant.
+//
+// ```go
+// clock := import("clock")
+// clock.now().in_zone("Europe/Kyiv").format("#datetime")
+// start := clock.now()
+// clock.sleep(10.milliseconds())
+// clock.since(start).in_seconds()     // ≈ 0.01
+// ```
+//
+// Durations are **int members**, not module functions: `30.seconds()`, `1.5.hours()`, `d.in_minutes()`,
+// `d.duration_string()`, `"1h30m".nanoseconds()` (see [reference/types/int.md § Durations](../types/int.md#durations)).
+// Construction, parsing, zones, calendar arithmetic and calendar facts are on the `time` and `date` types —
+// `time(…)`, `t.in_zone(z)`, `t.add_months(n, rule)`, `t.is_leap_year()`.
+//
+// **Failures.** An argument that does not convert to `time` (`since`, `until`) or to an `int` duration (`sleep`)
+// raises kind `invalid_argument_type`; a wrong count, `wrong_num_arguments`.
+//
+//kavun:module clock impure
 
-// now(): the current instant, in UTC.
+// Answer the current instant, in UTC.
+//
+//kavun:fn now slot=0 impure () -> time
 func clockNow(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("clock.now", "0", len(args))
-	}
 	return core.NewTimeValue(time.Now().UTC()), nil
 }
 
-// since(t): the duration from t to now, in nanoseconds.
+// Answer the duration from `t` to now, in nanoseconds.
+//
+//kavun:fn since slot=1 impure (t) -> int
 func clockSince(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("clock.since", "1", len(args))
-	}
 	t, ok := args[0].AsTime()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("clock.since", "first", "time(compatible)", args[0].TypeName())
@@ -44,11 +47,10 @@ func clockSince(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(int64(time.Since(t))), nil
 }
 
-// until(t): the duration from now to t, in nanoseconds.
+// Answer the duration from now to `t`, in nanoseconds.
+//
+//kavun:fn until slot=2 impure (t) -> int
 func clockUntil(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("clock.until", "1", len(args))
-	}
 	t, ok := args[0].AsTime()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("clock.until", "first", "time(compatible)", args[0].TypeName())
@@ -56,11 +58,10 @@ func clockUntil(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(int64(time.Until(t))), nil
 }
 
-// sleep(d): wait d nanoseconds (2.seconds(), …); undefined.
+// Wait `d` nanoseconds (`clock.sleep(2.seconds())`).
+//
+//kavun:fn sleep slot=3 impure (d) -> undefined
 func clockSleep(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("clock.sleep", "1", len(args))
-	}
 	d, ok := args[0].AsInt()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("clock.sleep", "first", "int(compatible)", args[0].TypeName())

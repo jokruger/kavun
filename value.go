@@ -107,7 +107,7 @@ func ValueOf(v any) (core.Value, error) {
 		return core.NewRecordValue(kv, false), nil
 
 	case core.NativeFunc:
-		return core.NewBuiltinClosureValue("anonymous", v, 0, true), nil
+		return core.NewBuiltinClosureValue("anonymous", core.SignatureOf(0, true), v), nil
 
 	case core.Value:
 		return v, nil

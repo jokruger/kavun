@@ -60,7 +60,7 @@ A compiled file also carries the bytecode version it was built for, and a newer 
 why a file is refused instead of refusing:
 
 ```text
-core version:  1.0 (this engine: 1.0)
+core version:  1.1 (this engine: 1.1)
 host version:  0.0 (this process: 0.0)
 signed:        yes, signature valid
 imports:       io

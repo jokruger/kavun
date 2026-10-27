@@ -9,32 +9,54 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
 )
 
-// The io module is the script's console: it prints to the VM's stdout and reads from its stdin (vm.VM.SetStdout,
-// vm.VM.SetStdin), never to the process streams directly.
-func init() {
-	m := core.NewModule(value.ModuleIo, "io", false)
-	m.Fn(members.Print, 0, ioPrint, 0, core.Variadic)
-	m.Fn(members.Write, 1, ioWrite, 0, core.Variadic)
-	m.Fn(members.ReadLine, 2, ioReadLine, 0, core.Variadic)
-	m.Fn(members.Read, 3, ioRead, 0, core.Variadic)
-	// 4..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
-}
+// The script's console: print, write and read on the VM's standard streams.
+//
+// It writes to the VM's stdout and reads from its stdin — the process streams unless the host redirects them
+// (`VM.SetStdout`, `VM.SetStdin`, see [embedding.md § Standard streams](../../embedding.md#standard-streams)).
+//
+// | | line-oriented | raw stream |
+// | --- | --- | --- |
+// | output | `print(...values)` | `write(...values)` |
+// | input | `read_line([default])` | `read([n])` |
+//
+// Example:
+//
+// ```go
+// io := import("io")
+// io.print("sum:", 20 + 22)            // sum: 42
+// io.write("a", "b"); io.write("c\n")  // abc
+// name := io.read_line("anonymous")    // one line of input, or "anonymous" at end of input
+// head := io.read(4)                   // the next 4 symbols ("" at end of input)
+// rest := io.read()                    // everything after them ("" when nothing is left)
+// ```
+//
+// Both readers share one input buffer, so `read_line` followed by `read` loses nothing. Octets that are not valid
+// UTF-8 come through unchanged; each counts as one symbol, as in every text conversion.
+//
+// Failures: `io` (an output or input stream the world refused, or end of input for `read_line` without a default);
+// `invalid_value` (a negative count); `invalid_argument_type`; `wrong_num_arguments`.
+//
+//kavun:module io impure
 
-// print(values...): the line form — values separated by spaces, then a newline.
+// Print the values separated by spaces, then a newline.
+//
+// Text prints as its content, everything else as its render.
+//
+//kavun:fn print slot=0 impure (...values) -> undefined
 func ioPrint(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("io.print", writeOut(vm, fmt.Sprintln(printArgs(args)...)))
 }
 
-// write(values...): the raw form — values concatenated, no separator, no newline.
+// Write the values concatenated — no separator, no newline.
+//
+// The building block for output assembled piece by piece.
+//
+//kavun:fn write slot=1 impure (...values) -> undefined
 func ioWrite(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("io.write", writeOut(vm, fmt.Sprint(printArgs(args)...)))
 }
@@ -44,11 +66,16 @@ func writeOut(vm core.VM, s string) error {
 	return err
 }
 
-// read_line([default]): one line without its terminator (\n or \r\n). At end of input it raises, unless a default
-// is given — then the default is answered as-is. ("" is a valid line, so end of input cannot answer it.)
+// Read one line of input without its terminator (`\n` or `\r\n`).
+//
+// A last line with no terminator is still a line. At end of input it raises `io` (`(io.read_line) end of input`),
+// unless a default is given — then the default is answered as-is. (`""` is a valid line, so end of input cannot answer
+// it.)
+//
+//kavun:fn read_line slot=2 impure ([default]) -> string
 func ioReadLine(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) > 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("io.read_line", "0 or 1", len(args))
+		return core.Undefined, core.ErrArgCount
 	}
 	line, err := stdinReader(vm).ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -65,9 +92,14 @@ func ioReadLine(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(line), nil
 }
 
-// read([n]): without n, the rest of the input; with n, the next n symbols, waiting for them unless the input ends
-// first. "" only at end of input, so it needs no default. An undecodable octet is one symbol and comes through as
-// itself, as in every text conversion.
+// Read the rest of the input, or with `n`, the next `n` symbols.
+//
+// Without `n`, the rest of the input. With `n`, the next `n` symbols — the unit of a string's `len()` and indexing —
+// waiting for them unless the input ends first, so it answers fewer only at end of input. `""` only at end of input
+// (and for `n == 0`), so a loop `for s := io.read(64); s != ""; s = io.read(64)` ends cleanly. A negative `n` raises
+// `invalid_value`; `n` bounds the read, it is not an allocation.
+//
+//kavun:fn read slot=3 impure ([n]) -> string
 func ioRead(vm core.VM, args []core.Value) (core.Value, error) {
 	br := stdinReader(vm)
 	switch len(args) {
@@ -91,7 +123,7 @@ func ioRead(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return core.NewStringValue(s), nil
 	default:
-		return core.Undefined, errs.NewWrongNumArgumentsError("io.read", "0 or 1", len(args))
+		return core.Undefined, core.ErrArgCount
 	}
 }
 

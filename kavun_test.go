@@ -5,11 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	goast "go/ast"
+	goparser "go/parser"
+	gotoken "go/token"
+	iofs "io/fs"
 	"maps"
 	"math"
 	"math/rand"
 	"os"
 	osexec "os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"slices"
@@ -22,14 +27,17 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/bytecode/opcodes"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/member/members"
+	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/kavungen"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib/exec"
@@ -133,14 +141,10 @@ func traceCompileRun(
 			b.Const(testMemberID(k), v)
 		}
 		for slot, fn := range mod.fns {
-			args := core.Fixed
-			if fn.Variadic {
-				args = core.Variadic
-			}
 			if fn.Pure {
-				b.PureFn(testMemberID(fn.Name), slot, fn.Func, fn.Arity, args)
+				b.PureFn(testMemberID(fn.Name), slot, fn.Sig.Template(), fn.Func)
 			} else {
-				b.Fn(testMemberID(fn.Name), slot, fn.Func, fn.Arity, args)
+				b.Fn(testMemberID(fn.Name), slot, fn.Sig.Template(), fn.Func)
 			}
 		}
 		if err = b.Register(); err != nil {
@@ -525,8 +529,8 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = "12".int().byte()`, nil, byte(12))
 	expectError(t, `out = byte(u"12")`, nil, "to byte: no conversion exists") // text parses into numerics only
 	expectRun(t, `out = byte(u"12".int())`, nil, byte(12))
-	expectError(t, `out = byte(300, byte(7))`, nil, "wrong_num_arguments: (byte) expected 0 or 1 argument(s), got 2") // no free default form
-	expectRun(t, `out = (300).byte(byte(7))`, nil, byte(7))                                                           // the member default is the fallible-conversion spelling
+	expectError(t, `out = byte(300, byte(7))`, nil, "wrong_num_arguments: (byte) expected ([x]), got 2 arguments") // no free default form
+	expectRun(t, `out = (300).byte(byte(7))`, nil, byte(7))                                                        // the member default is the fallible-conversion spelling
 
 	// a byte's canonical TEXT is the one-octet text holding it, matching .string(): every
 	// convert-to-string surface agrees, and it is TOTAL — a high octet has a text form too
@@ -824,8 +828,8 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = (1d).round(2, "HALF_EVEN")`, nil, "unknown rounding mode")       // lowercase only
 	expectError(t, `out = (1d).round(2, "ROUND_HALF_EVEN")`, nil, "unknown rounding mode") // not Python's constant values
 	expectError(t, `out = (1d).round(2, 3)`, nil, "argument mode expects type string, got int")
-	expectError(t, `out = (1d).round(2)`, nil, "expected 2 argument(s), got 1")
-	expectError(t, `out = (1d).round_half_even()`, nil, "expected 1 argument(s), got 0")
+	expectError(t, `out = (1d).round(2)`, nil, "(round) expected (n, mode), got 1 argument")
+	expectError(t, `out = (1d).round_half_even()`, nil, "(round_half_even) expected (n), got 0 arguments")
 	expectError(t, `out = (1d).round(20, "up")`, nil, "places must be between -38 and 19")
 	expectError(t, `out = (1d).round(-39, "up")`, nil, "places must be between -38 and 19")
 	expectError(t, `out = (1d).rescale(20)`, nil, "scale must be between 0 and 19")
@@ -898,9 +902,9 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = (4d).nth_root_round(16385, 2, "half_up")`, nil, "degree must be at most 16384, got 16385")
 	expectError(t, `out = (4d).pow_rational_round(1, 0, 2, "half_up")`, nil, "argument denominator must be positive, got 0")
 	expectError(t, `out = (1d).div_round(3.0, 2, "up")`, nil, "argument first expects type decimal or int, got float")
-	expectError(t, `out = (1d).div_round(3d, 2)`, nil, "expected 3 argument(s), got 2")
-	expectError(t, `out = (1d).mul_div_round(3d, 2, 2)`, nil, "expected 4 argument(s), got 3")
-	expectError(t, `out = (1d).sqrt_round(2)`, nil, "expected 2 argument(s), got 1")
+	expectError(t, `out = (1d).div_round(3d, 2)`, nil, "(div_round) expected (y, n, mode), got 2 arguments")
+	expectError(t, `out = (1d).mul_div_round(3d, 2, 2)`, nil, "(mul_div_round) expected (b, c, n, mode), got 3 arguments")
+	expectError(t, `out = (1d).sqrt_round(2)`, nil, "(sqrt_round) expected (n, mode), got 1 argument")
 	expectError(t, `out = (1d).div_round(3d, 20, "up")`, nil, "(div_round) scale must be between 0 and 19")
 	expectError(t, `out = (1d).div_round(3d, 2, "bank")`, nil, `(div_round) unknown rounding mode "bank"`)
 	expectError(t, `out = decimal("99999999999999999999999999999999999999").round(19, "half_even")`, nil, "overflow")
@@ -1016,7 +1020,7 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = (10d).pow(39)`, nil, "overflow")
 	expectError(t, `out = (2d).pow(1000)`, nil, "overflow")
 	expectError(t, `out = (2d).pow(2.5)`, nil, "must be a whole number")
-	expectError(t, `out = (2d).pow()`, nil, "expected 1 argument(s), got 0")
+	expectError(t, `out = (2d).pow()`, nil, "(pow) expected (exponent), got 0 arguments")
 	expectError(t, `out = (2d).pow("x")`, nil, "expects type int, got string")
 }
 
@@ -1641,7 +1645,7 @@ func TestRunesMutability(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
+	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected (payload[, fatal]), got 0 arguments")
 	expectRun(t, `out = error(1)`, nil, errorObject(1))
 	expectRun(t, `out = error(1).value()`, nil, 1)
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
@@ -1688,7 +1692,7 @@ out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, t
 		nil, ARR{true, false, false})
 	expectError(t, `out = error("x").is_fatal()`, nil, "invalid_method: type error has no method is_fatal")
 	expectError(t, `out = error("x").is_system()`, nil, "invalid_method: type error has no method is_system")
-	expectError(t, `out = error("x").is_user(1)`, nil, "wrong_num_arguments: (is_user) expected 0 argument(s), got 1")
+	expectError(t, `out = error("x").is_user(1)`, nil, "wrong_num_arguments: (is_user) expected (), got 1 argument")
 
 	// error is unconditionally truthy (regardless of kind/payload/fatal), and .bool() mirrors that
 	// exactly, no divergence between implicit truthiness and the explicit conversion — supports the
@@ -1961,9 +1965,9 @@ func TestArray(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
 	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
 	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
-	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected 1 argument(s), got 0")
+	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected (n), got 0 arguments")
 	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid_argument_type: (chunk) argument first expects type int, got string")
-	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "wrong_num_arguments: (chunk) expected 1 argument(s), got 2")
+	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "wrong_num_arguments: (chunk) expected (n), got 2 arguments")
 	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "invalid_value: chunk size must be positive")
 	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "invalid_value: chunk size must be positive")
 
@@ -1988,7 +1992,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 `, nil, 80)
 
 	expectRun(t, `out = [1].for_each(func(v) { return true }) == [1]`, nil, true) // returns the receiver
-	expectError(t, `out = [1].for_each()`, nil, "wrong_num_arguments: (for_each) expected 1 argument(s), got 0")
+	expectError(t, `out = [1].for_each()`, nil, "wrong_num_arguments: (for_each) expected (fn), got 0 arguments")
 	expectError(t, `out = [1].for_each(1)`, nil, "invalid_argument_type: (for_each) argument first expects type function, got int")
 	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid_argument_type: (for_each) argument first expects type f/1 or f/2")
 
@@ -2270,7 +2274,7 @@ func TestTime(t *testing.T) {
 
 	// int -> time: in conversion context an int is a unix timestamp, in the encoding the method
 	// names. Each is the exact inverse of the time accessor with the matching suffix, and each
-	// produces UTC so the result never depends on the host's timezone. See docs/types/time.md.
+	// produces UTC so the result never depends on the host's timezone. See docs/reference/types/time.md.
 	expectRun(t, `out = (1592614923).time().string()`, nil, "2020-06-20T01:02:03Z")
 	expectRun(t, `out = (1592614923123).time_ms().string()`, nil, "2020-06-20T01:02:03.123Z")
 	expectRun(t, `out = (1592614923123456).time_micro().string()`, nil, "2020-06-20T01:02:03.123456Z")
@@ -2314,9 +2318,10 @@ func TestTime(t *testing.T) {
 	// declines: NaN/Inf and out-of-range raise, or answer the time(x, fallback) default
 	expectError(t, `out = time(1e300)`, nil, "conversion: cannot convert float to time")
 	expectError(t, `out = time(float("nan"))`, nil, "conversion: cannot convert float to time")
-	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal")                            // a parse never produces NaN
-	expectError(t, `out = time(1e300, "fallback")`, nil, "wrong_num_arguments: (time) expected 0 or 1 argument(s), got 2") // no free default form
-	expectRun(t, `out = (1e300).time("fallback")`, nil, "fallback")                                                        // the member default is the fallible-conversion spelling
+	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal") // a parse never produces NaN
+	// no free default form: two arguments are the layout reading
+	expectError(t, `out = time(1e300, "fallback")`, nil, "invalid_argument_type: (time) argument first (text) expects type string or runes, got float")
+	expectRun(t, `out = (1e300).time("fallback")`, nil, "fallback") // the member default is the fallible-conversion spelling
 
 	// every int-shaped construction path is UTC, so wall-clock accessors never depend on the host's
 	// timezone; an explicit zone in the input is data and is still preserved. A numeric STRING is no
@@ -2352,13 +2357,20 @@ func TestTime(t *testing.T) {
 			expectError(t, fmt.Sprintf(`time("%s")`, bad), nil, "conversion: cannot convert string to time")
 		}
 		expectError(t, `time("2026-02-30")`, nil, "day 30 out of range 1..28")
-		expectRun(t, `out = "2026-02-30".time("iso", "fallback")`, nil, "fallback")
+		expectRun(t, `out = "2026-02-30".parse_time("iso", "fallback")`, nil, "fallback")
+		// the member conversion reads the same grammar: s.time([default]) is time(s) with the member's default
+		expectRun(t, `out = "2026-08-29".time().string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = u"2026-08-29T15:04".time().string()`, nil, "2026-08-29T15:04:00Z")
+		expectRun(t, `out = "2026-02-30".time("fallback")`, nil, "fallback")
+		expectError(t, `"2026-02-30".time()`, nil, "conversion: cannot convert string to time: day 30 out of range 1..28")
+		expectError(t, `"29/08/2026".time()`, nil, "conversion: cannot convert string to time")
+		expectError(t, `"2026-08-29".time(1, 2)`, nil, "wrong_num_arguments: (time) expected ([default]), got 2 arguments")
 	})
 
 	t.Run("layouts", func(t *testing.T) {
-		// text -> time takes a layout in member position: the layout is REQUIRED and the default comes after it
-		expectRun(t, `out = "29/08/2026".time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
-		expectRun(t, `out = u"29/08/2026".time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
+		// text -> time under a layout is parse_time: the layout is REQUIRED and the default comes after it
+		expectRun(t, `out = "29/08/2026".parse_time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = u"29/08/2026".parse_time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
 		expectRun(t, `out = time("29/08/2026 03:04 PM", "%d/%m/%Y %I:%M %p").string()`, nil, "2026-08-29T15:04:00Z")
 		expectRun(t, `out = time("2026-241", "%Y-%j").string()`, nil, "2026-08-29T00:00:00Z")
 		expectRun(t, `out = time("Saturday, 29 August 2026", "%A, %d %B %Y").day()`, nil, 29)
@@ -2366,26 +2378,26 @@ func TestTime(t *testing.T) {
 		expectRun(t, `out = time("1700000000", "unix").string()`, nil, "2023-11-14T22:13:20Z")
 		expectRun(t, `out = time("1700000000123", "unixms").string()`, nil, "2023-11-14T22:13:20.123Z")
 		expectRun(t, `out = time("2026-08-29 15:04:05", "datetime").string()`, nil, "2026-08-29T15:04:05Z")
-		expectRun(t, `out = "bad".time("%d/%m/%Y", "fallback")`, nil, "fallback")
-		expectRun(t, `out = "bad".time("iso", undefined)`, nil, core.Undefined)
-		// the footgun this shape removes: a layout can no longer land in the default slot
-		expectError(t, `"2026-08-29".time()`, nil, "wrong_num_arguments")
-		expectError(t, `"2026-08-29".time(t"2026-01-01T00:00:00Z")`, nil, "invalid_argument_type")
+		expectRun(t, `out = "bad".parse_time("%d/%m/%Y", "fallback")`, nil, "fallback")
+		expectRun(t, `out = "bad".parse_time("iso", undefined)`, nil, core.Undefined)
+		expectError(t, `"2026-08-29".parse_time()`, nil, "wrong_num_arguments: (parse_time) expected (layout[, default]), got 0 arguments")
+		expectError(t, `"2026-08-29".parse_time("iso", 1, 2)`, nil, "wrong_num_arguments: (parse_time) expected (layout[, default]), got 3 arguments")
+		expectError(t, `"2026-08-29".parse_time(t"2026-01-01T00:00:00Z")`, nil, "invalid_argument_type")
 		// a wrong LAYOUT is a script error, never a data miss: a default does not swallow it
-		expectError(t, `"x".time("%y", "fallback")`, nil, "invalid_value: (time) directive %y cannot be parsed")
-		expectError(t, `"x".time("%Z", "fallback")`, nil, "invalid_value")
-		expectError(t, `"x".time("%V", "fallback")`, nil, "invalid_value")
-		expectError(t, `"x".time("%Q", "fallback")`, nil, "invalid_value: (time) unknown directive %Q")
-		expectError(t, `"x".time("nope", "fallback")`, nil, "invalid_value: (time) unknown layout")
-		expectError(t, `"x".time("time", "fallback")`, nil, "invalid_value")
-		expectError(t, `"x".time("rfc822", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".parse_time("%y", "fallback")`, nil, "invalid_value: (parse_time) directive %y cannot be parsed")
+		expectError(t, `"x".parse_time("%Z", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".parse_time("%V", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".parse_time("%Q", "fallback")`, nil, "invalid_value: (parse_time) unknown directive %Q")
+		expectError(t, `"x".parse_time("nope", "fallback")`, nil, "invalid_value: (parse_time) unknown layout")
+		expectError(t, `"x".parse_time("time", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".parse_time("rfc822", "fallback")`, nil, "invalid_value")
 		expectError(t, `time("03:04", "%I:%M")`, nil, "%I needs %p")
 		expectError(t, `time("1700000000 2026", "%s %Y")`, nil, "%s cannot be combined")
 		// the data must exist and agree with itself
 		expectError(t, `time("Monday 29 August 2026", "%A %d %B %Y")`, nil, "weekday Monday contradicts 2026-08-29")
 		expectError(t, `time("31/02/2026", "%d/%m/%Y")`, nil, "day 31 out of range")
 		expectError(t, `time("2026-08-29", "%d/%m/%Y")`, nil, "conversion: cannot convert string to time")
-		expectError(t, `time(5, "%Y")`, nil, "wrong_num_arguments")
+		expectError(t, `time(5, "%Y")`, nil, "invalid_argument_type: (time) argument first (text) expects type string or runes, got int")
 	})
 
 	t.Run("zero value", func(t *testing.T) {
@@ -2458,8 +2470,10 @@ func TestDate(t *testing.T) {
 		expectRun(t, `out = [is_date(d"2026-01-31"), is_date(t"2026-01-31T00:00:00Z"), is_date("2026-01-31")]`, nil, ARR{true, false, false})
 		expectRun(t, `out = date("2026-01-31") == d"2026-01-31"`, nil, true)
 		expectRun(t, `out = date("31/01/2026", "%d/%m/%Y") == d"2026-01-31"`, nil, true)
-		expectRun(t, `out = "31/01/2026".date("%d/%m/%Y") == d"2026-01-31"`, nil, true)
-		expectRun(t, `out = u"2026-01-31".date("date") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = "31/01/2026".parse_date("%d/%m/%Y") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = u"2026-01-31".parse_date("date") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = "2026-01-31".date() == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = u"2026-01-31".date() == d"2026-01-31"`, nil, true)
 		expectRun(t, `out = date("Saturday 31 January 2026", "%A %d %B %Y").day()`, nil, 31)
 		expectRun(t, `out = date("2026-031", "%Y-%j") == d"2026-01-31"`, nil, true)
 		expectRun(t, `out = date({year: 2026, month: 1, day: 31}) == d"2026-01-31"`, nil, true)
@@ -2480,13 +2494,18 @@ func TestDate(t *testing.T) {
 		expectError(t, `date(1.5)`, nil, "conversion")
 		expectError(t, `date(undefined)`, nil, "value is missing")
 		expectError(t, `undefined.date()`, nil, "value is missing")
-		// layouts: required on text, a wrong layout raises even with a default
-		expectError(t, `"2026-01-31".date()`, nil, "wrong_num_arguments")
-		expectError(t, `"2026-01-31".date(d"2026-01-01")`, nil, "invalid_argument_type")
-		expectRun(t, `out = "bad".date("date", undefined)`, nil, core.Undefined)
-		expectError(t, `"x".date("%H", undefined)`, nil, "directive %H is not available on a date")
-		expectError(t, `"x".date("iso", undefined)`, nil, `unknown date layout "iso"`)
-		expectError(t, `"x".date("%y", undefined)`, nil, "directive %y cannot be parsed")
+		// the member conversion reads the strict form; a default is answered as-is on a miss
+		expectRun(t, `out = "31/01/2026".date(undefined)`, nil, core.Undefined)
+		expectError(t, `"31/01/2026".date()`, nil, "conversion: cannot convert string to date")
+		expectError(t, `"2026-01-31".date(1, 2)`, nil, "wrong_num_arguments: (date) expected ([default]), got 2 arguments")
+		// layouts: parse_date requires one, and a wrong layout raises even with a default
+		expectError(t, `"2026-01-31".parse_date()`, nil, "wrong_num_arguments: (parse_date) expected (layout[, default]), got 0 arguments")
+		expectError(t, `"2026-01-31".parse_date(d"2026-01-01")`, nil, "invalid_argument_type")
+		expectRun(t, `out = "bad".parse_date("date", undefined)`, nil, core.Undefined)
+		expectError(t, `"x".parse_date("%H", undefined)`, nil, "directive %H is not available on a date")
+		expectError(t, `"x".parse_date("iso", undefined)`, nil, `unknown date layout "iso"`)
+		expectError(t, `"x".parse_date("%y", undefined)`, nil, "directive %y cannot be parsed")
+		expectError(t, `date(5, "%Y")`, nil, "invalid_argument_type: (date) argument first (text) expects type string or runes, got int")
 	})
 
 	t.Run("operators", func(t *testing.T) {
@@ -2628,7 +2647,7 @@ func TestFin(t *testing.T) {
 		{`fin.payment(0.05d, 12, 1000, 0, "Arrears", 2, h)`, `unknown timing "Arrears"`},
 		{`fin.payment(0.05d, 12, 1000, 0, "arrears", 2, "bank")`, `unknown rounding mode "bank"`},
 		{`fin.payment(0.05d, 12, 1000, 0, "arrears", 20, h)`, "scale must be between 0 and 19"},
-		{`fin.payment(0.05d, 12, 1000, 0, "arrears")`, "wrong_num_arguments: (fin.payment) expected 7 argument(s), got 5"},
+		{`fin.payment(0.05d, 12, 1000, 0, "arrears")`, "wrong_num_arguments: (fin.payment) expected (rate, n, pv, fv, timing, scale, mode), got 5 arguments"},
 		{`fin.per_year("Monthly")`, `unknown frequency "Monthly"`},
 		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {guess: 0.1d}, 10, h)`, `unknown solver key "guess"`},
 		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {hi: -2}, 10, h)`, "solver hi must be greater than lo"},
@@ -2758,7 +2777,8 @@ func TestFinTables(t *testing.T) {
 		run(`out = fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0).bounds().max.string()`, "0") // 0 = no cap
 		fails(`tc.rate(1, "whole", 2, h)`, "invalid_method")                                                 // a fixed component is money, not a rate
 		fails(`tc.accrue(1, fin.year_fraction(1, 2), "whole", 2, h)`, "invalid_method")
-		fails(`fin.tiered_charges([{from: 0, rate: 1, fixed: 0}])`, "wrong_num_arguments")
+		fails(`fin.tiered_charges([{from: 0, rate: 1, fixed: 0}])`, "invalid_argument_type: (fin.tiered_charges) argument first (text) expects type string or runes, got array") // one argument is the text reading
+		fails(`fin.tiered_charges([{from: 0, rate: 1, fixed: 0}], 0)`, "wrong_num_arguments: (fin.tiered_charges) expected () | (text) | (bands, min, max), got 2 arguments")
 		fails(`fin.tiered_charges([{from: 0, rate: 1}], 0, 0)`, `missing key "fixed"`)
 	})
 
@@ -2846,7 +2866,14 @@ func TestFinRoot(t *testing.T) {
 	fails(`fin.root(x => 0.5, 10, h)`, "argument f's result expects type decimal or int, got float")
 	fails(`fin.root(x => "a", 10, h)`, "argument f's result expects type decimal or int, got string")
 	fails(`fin.root((x, y) => x, 10, h)`, "expects type function of one argument, got function of 2 arguments")
-	fails(`fin.root(func(...x) { return 0 }, 10, h)`, "got variadic function")
+	fails(`fin.root(() => 0, 10, h)`, "expects type function of one argument, got function of 0 arguments")
+	fails(`fin.root(func(x, y, ...z) { return 0 }, 10, h)`, "expects type function of one argument, got function of 2 or more arguments")
+	// any callable that accepts one argument is called with it (core.CallbackForm): a variadic function, a builtin,
+	// a bound member
+	run(`out = fin.root(func(...x) { return x[0] * x[0] - 2 }, 10, h).string()`, "1.4142135624")
+	run(`out = fin.root(func(x, ...r) { return x * x - 2 }, 10, h).string()`, "1.4142135624")
+	run(`out = fin.root(decimal, {lo: -1, hi: 1}, 10, h).string()`, "0.0000000000")
+	run(`out = [fin.root(1d.copy_sign, {lo: -1, hi: 2}, 10, h).string(), fin.brackets(1d.copy_sign, {lo: -1, hi: 1})]`, ARR{"0.0000000000", true})
 	fails(`fin.root(5, 10, h)`, "argument f expects type function, got int")
 	fails(`fin.root(x => x, 10)`, "wrong_num_arguments")
 	fails(`fin.root(x => x, {guess: 1}, 10, h)`, `unknown solver key "guess"`)
@@ -4061,7 +4088,7 @@ func TestBitwise(t *testing.T) {
 }
 
 func TestFormatting(t *testing.T) {
-	// f-string shapes (docs/f-strings.md)
+	// f-string shapes (docs/f_strings.md)
 	expectRun(t, `x = 1; y = 2; z = "hello"; out = f"{z}, {x}, {y}"`, nil, "hello, 1, 2")
 	expectRun(t, `name = "world"; n = 42; out = f"hello, {name}! n={n:5d}"`, nil, "hello, world! n=   42")
 	expectRun(t, `out = f""`, nil, "")
@@ -4073,12 +4100,12 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `x = 1; y = 2; z = 3; out = f"a={x} b={y} c={z}"`, nil, "a=1 b=2 c=3")
 	expectRun(t, `a = 1; b = 2; c = 3; out = f"<{a}{b}>{c}"`, nil, "<12>3")
 
-	// escapes inside f-string body (docs/f-strings.md)
+	// escapes inside f-string body (docs/f_strings.md)
 	expectRun(t, `p = "/tmp"; out = f"path = \"{p}\""`, nil, `path = "/tmp"`)
 	expectRun(t, `out = f"set = {{1, 2, 3}}"`, nil, "set = {1, 2, 3}")
 	expectRun(t, `x = 1; out = f"newline -> {x}\n"`, nil, "newline -> 1\n")
 
-	// format specs in f-strings (docs/f-strings.md)
+	// format specs in f-strings (docs/f_strings.md)
 	expectRun(t, `pi = 3.14159; out = f"{pi:.2f}"`, nil, "3.14")
 	expectRun(t, `n = 42; out = f"{n:05d}"`, nil, "00042")
 	expectRun(t, `x = -42; out = f"{x:05d}"`, nil, "-0042")
@@ -4086,7 +4113,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `x = 255; out = f"{x:06x}"`, nil, "0x00ff")
 	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#date}"`, nil, "2020-06-20")
 
-	// expressions inside `{...}` (docs/f-strings.md)
+	// expressions inside `{...}` (docs/f_strings.md)
 	expectRun(t, `x = 1; y = 2; out = f"{x + y}"`, nil, "3")
 	expectRun(t, `users = [{name: "alice"}, {name: "bob"}]; i = 1; out = f"{users[i].name}"`, nil, "bob")
 	expectRun(t, `out = f"{ dict({a: 1}).values() :v}"`, nil, "[1]")
@@ -4095,7 +4122,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `out = f"{[1,2,3]:v}"`, nil, "[1, 2, 3]")
 	expectRun(t, `out = f"{[1,2,3]}"`, nil, "[1, 2, 3]")
 
-	// Format Mini-Language: time #-tail templates (docs/format-mini-language.md)
+	// Format Mini-Language: time #-tail templates (docs/format_mini_language.md)
 	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#%Y-%m-%d %H:%M:%S}"`, nil, "2020-06-20 01:02:03")
 	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#%Y-%j}"`, nil, "2020-172")
 	expectRun(t, `t = time("2020-06-20 13:02:03+0200"); out = f"{t:#%I:%M %p}"`, nil, "01:02 PM")
@@ -4143,7 +4170,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = t.format("#time")`, nil, "01:02:03")
 	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = t.format("#unix")`, nil, "1592607723")
 
-	// container Kavun-source form via 'v' (docs/format-mini-language.md default-vs-v table)
+	// container Kavun-source form via 'v' (docs/format_mini_language.md default-vs-v table)
 	expectRun(t, `out = [1, 2, 3].format("v")`, nil, "[1, 2, 3]")
 
 	// --- Edge cases: expressions with conflicting symbols (`:`, `{`, `}`, `?`) with and without fspec ---
@@ -4235,7 +4262,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `b = 0xab; out = f"{b:02X}"`, nil, "0xAB")
 
 	// Padding identifiers / progress
-	expectRun(t, `n = 7; out = f"ID-{n:06d}"`, nil, "ID-000007")
+	expectRun(t, `n = 7; out = f"ID {n:06d}"`, nil, "ID 000007")
 	expectRun(t, `i = 3; total = 100; out = f"[{i:>3}/{total}] processing..."`, nil, "[  3/100] processing...")
 
 	// Building paths and URLs
@@ -4437,7 +4464,7 @@ func TestMemberFunctionCopyShallow(t *testing.T) {
 	expectError(t, `error("x").copy_shallow(1)`, nil, "invalid_method")
 	expectError(t, `(5).copy_shallow(1)`, nil, "invalid_method")
 
-	// record has no member surface (docs/types/record.md) — copy_shallow is deliberately not reachable on it,
+	// record has no member surface (docs/reference/types/record.md) — copy_shallow is deliberately not reachable on it,
 	// same as copy().
 	expectError(t, `{}.copy_shallow()`, nil, "type record has no method copy_shallow")
 }
@@ -4475,8 +4502,8 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3, 4]; c := a.chunk_view(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3, 4})
 	expectRun(t, `out = [1, 2, 3, 4].chunk_view(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
 	expectRun(t, `out = is_view([1, 2, 3, 4].chunk_view(2)[0])`, nil, true)
-	expectError(t, `[1, 2, 3].chunk_view()`, nil, "wrong_num_arguments: (chunk_view) expected 1 argument(s), got 0")
-	expectError(t, `[1, 2, 3].chunk_view(2, true)`, nil, "wrong_num_arguments: (chunk_view) expected 1 argument(s), got 2")
+	expectError(t, `[1, 2, 3].chunk_view()`, nil, "wrong_num_arguments: (chunk_view) expected (n), got 0 arguments")
+	expectError(t, `[1, 2, 3].chunk_view(2, true)`, nil, "wrong_num_arguments: (chunk_view) expected (n), got 2 arguments")
 	expectError(t, `[1, 2, 3].chunk_view(0)`, nil, "invalid_value: chunk size must be positive")
 	expectRun(t, `out = bytes("hello").chunk_view(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
 	expectRun(t, `out = u"hello".chunk_view(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
@@ -4497,7 +4524,7 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 // literal bodies. The second half pins the converse, which is `freeze_shallow`'s documented sibling rule seen
 // through a view: the flag is copied at CONSTRUCTION and freezing either side afterwards does not reach the
 // other, so a still-mutable holder can write into a frozen one. `freeze()` detaches and has no such hole —
-// see docs/types/container-semantics.md#views.
+// see docs/container_semantics.md#views.
 func TestViewImmutabilityPropagation(t *testing.T) {
 	// --- slice_view / chunk_view: array, bytes, runes; freeze() and freeze_shallow() sources alike
 	for _, src := range []string{
@@ -4632,7 +4659,7 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	expectError(t, `error("x").freeze_shallow(1)`, nil, "invalid_method")
 	expectError(t, `(5).freeze(1)`, nil, "wrong_num_arguments")
 
-	// record has no member surface (docs/types/record.md) — freeze/freeze_shallow have no member-call form
+	// record has no member surface (docs/reference/types/record.md) — freeze/freeze_shallow have no member-call form
 	// on it, same as copy()/copy_shallow(); see TestBuiltinFunctionFreeze/TestBuiltinFunctionFreezeShallow for
 	// record's free-function path.
 	expectError(t, `{}.freeze()`, nil, "type record has no method freeze")
@@ -4753,7 +4780,7 @@ func TestBuiltinFunctionInt(t *testing.T) {
 	expectRun(t, `out = int('8')`, nil, 56)
 	expectError(t, `out = int([1])`, nil, "conversion: cannot convert array to int: no conversion exists")
 	expectError(t, `out = int({a: 1})`, nil, "conversion: cannot convert record to int: no conversion exists")
-	expectError(t, `out = int([1], 0)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2") // no free default form
+	expectError(t, `out = int([1], 0)`, nil, "wrong_num_arguments: (int) expected ([x]), got 2 arguments") // no free default form
 	expectRun(t, `out = int(time(1))`, nil, 1)
 	expectError(t, `out = int(undefined)`, nil, "conversion: cannot convert undefined to int: value is missing")
 	expectError(t, `out = int("-522", 1)`, nil, "wrong_num_arguments") // no free default form
@@ -4917,13 +4944,52 @@ func TestBuiltinFunctionTypeName(t *testing.T) {
 	expectRun(t, `out = type_name(len)`, nil, "function")                                               // builtin
 	expectRun(t, `out = format(func() {})`, nil, "<compiled-function/0>")
 	expectRun(t, `out = format(len)`, nil, "<builtin-function:len/1>")
+	// the declared arity is the fewest arguments the body accepts: min/max select among one or more, range has an
+	// empty form and a components form, error needs a payload
+	expectRun(t, `out = format(min)`, nil, "<builtin-function:min/1+>")
+	expectRun(t, `out = format(max)`, nil, "<builtin-function:max/1+>")
+	expectRun(t, `out = format(range)`, nil, "<builtin-function:range/0+>")
+	expectRun(t, `out = format(error)`, nil, "<builtin-function:error/1+>")
+	expectError(t, `out = min()`, nil, "(min) expected (first, ...rest), got 0 arguments")
+	expectError(t, `out = max()`, nil, "(max) expected (first, ...rest), got 0 arguments")
+	expectRun(t, `out = format(range())`, nil, "range(0, 0)")
+	expectError(t, `out = error()`, nil, "(error) expected (payload[, fatal]), got 0 arguments")
 	expectRun(t, `g := func(a, b) { return a }; out = f"{g}"`, nil, "<compiled-function/2>")
 	expectRun(t, `g := func(a, b) { return a }; out = g.format()`, nil, "<compiled-function/2>")
+	// a variadic script function renders its fixed parameters and "+" ("N or more"): the rest slot is not counted
+	expectRun(t, `g := func(a, ...b) { return a }; out = format(g)`, nil, "<compiled-function/1+>")
+	expectRun(t, `g := func(...a) { return a }; out = format(g)`, nil, "<compiled-function/0+>")
+	expectRun(t, `g := func(a, b, ...c) { return a }; out = f"{g}"`, nil, "<compiled-function/2+>")
+}
+
+// TestScriptFunctionArity pins the Go API's view of a script function: Arity() is the count of fixed parameters
+// and IsVariadic() says it accepts more — the pair every callable answers, so `func(a, b, ...c)` is (2, true).
+func TestScriptFunctionArity(t *testing.T) {
+	for _, c := range []struct {
+		src      string
+		arity    int
+		variadic bool
+	}{
+		{`func() {}`, 0, false},
+		{`func(a, b) {}`, 2, false},
+		{`func(a, ...b) {}`, 1, true},
+		{`func(a, b, ...c) {}`, 2, true},
+		{`func(...a) {}`, 0, true},
+	} {
+		s := kavun.NewScript([]byte("f = "+c.src), "f")
+		compiled, err := s.Compile()
+		require.NoError(t, err)
+		require.NoError(t, compiled.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)))
+		f, err := compiled.Get("f")
+		require.NoError(t, err)
+		require.Equal(t, c.arity, f.Arity(), c.src)
+		require.Equal(t, c.variadic, f.IsVariadic(), c.src)
+	}
 }
 
 func TestBuiltinFunctionFormat(t *testing.T) {
 	// --- argument validation ---
-	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 0")
+	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected (x) | (template, args), got 0 arguments")
 	expectRun(t, `out = format("x")`, nil, "x") // format(x) renders any value — a template with nothing to fill is its own rendering
 	expectRun(t, `out = format(5)`, nil, "5")
 	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = f"{e:c}"`, nil, "\xff") // the c rendering of an escape is its octet
@@ -4932,7 +4998,7 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `out = format({a: 1})`, nil, `{"a": 1}`)
 	expectRun(t, `out = format(undefined)`, nil, "undefined")
 	expectRun(t, `out = [1, 2].map(format)`, nil, ARR{"1", "2"}) // the render's callable form
-	expectError(t, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 3")
+	expectError(t, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected (x) | (template, args), got 3 arguments")
 	expectError(t, `format(1, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got int")
 	expectError(t, `format(1.0, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got float")
 	expectError(t, `format(undefined, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got undefined")
@@ -4951,7 +5017,7 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `out = format("{{}}", [])`, nil, "{}")
 	expectRun(t, `out = format("set = {{ {x} }}", {x: 1})`, nil, "set = { 1 }")
 
-	// --- examples from docs/format-function.md ---
+	// --- examples from docs/format_function.md ---
 	expectRun(t, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
 	expectRun(t, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
 	expectRun(t, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
@@ -4959,7 +5025,7 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `out = format("{x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "00042")
 	expectRun(t, `out = format("{0:{1}}", [42, "05d"])`, nil, "00042")
 
-	// --- examples from docs/language.md "Built-in functions" section ---
+	// --- examples from docs/reference/builtins.md ---
 	expectRun(t, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
 	expectRun(t, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
 	expectRun(t, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
@@ -5021,15 +5087,15 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 }
 
 // TestBuiltinFunctionDelete checks the free remove() builtin — record has no member surface
-// (docs/types/record.md), so remove() is the only way to remove a key from a record. remove() is pure: it never
-// mutates the receiver, works regardless of the
-// receiver's mutability, and requires reassignment to see its effect on the caller's own variable, same as
-// every other member/builtin in this language. See TestBuiltinFunctionDeleteInPlace for the mutating twin.
+// (docs/reference/types/record.md), so remove() is the only way to remove a key from a record. remove() is pure: it
+// never mutates the receiver, works regardless of the receiver's mutability, and requires reassignment to see its
+// effect on the caller's own variable, same as every other member/builtin in this language. See
+// TestBuiltinFunctionDeleteInPlace for the mutating twin.
 func TestBuiltinFunctionDelete(t *testing.T) {
-	expectError(t, `remove()`, nil, "wrong_num_arguments: (remove) expected 2 argument(s), got 0")
-	expectError(t, `remove(1)`, nil, "wrong_num_arguments: (remove) expected 2 argument(s), got 1")
-	expectError(t, `remove(1, 2, 3)`, nil, "wrong_num_arguments: (remove) expected 2 argument(s), got 3")
-	expectError(t, `remove({}, "", 3)`, nil, "wrong_num_arguments: (remove) expected 2 argument(s), got 3")
+	expectError(t, `remove()`, nil, "wrong_num_arguments: (remove) expected (obj, key), got 0 arguments")
+	expectError(t, `remove(1)`, nil, "wrong_num_arguments: (remove) expected (obj, key), got 1 argument")
+	expectError(t, `remove(1, 2, 3)`, nil, "wrong_num_arguments: (remove) expected (obj, key), got 3 arguments")
+	expectError(t, `remove({}, "", 3)`, nil, "wrong_num_arguments: (remove) expected (obj, key), got 3 arguments")
 	expectError(t, `remove(1, 1)`, nil, `not_deletable: type int does not support delete`)
 	expectError(t, `remove(1.0, 1)`, nil, `not_deletable: type float does not support delete`)
 	expectError(t, `remove("str", 1)`, nil, `not_deletable: type string does not support delete`)
@@ -5062,7 +5128,7 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 // remove(). Same arity/type-error surface as remove(), but mutates the
 // receiver directly and rejects an immutable receiver (unlike the pure form).
 func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
-	expectError(t, `remove_in_place()`, nil, "wrong_num_arguments: (remove_in_place) expected 2 argument(s), got 0")
+	expectError(t, `remove_in_place()`, nil, "wrong_num_arguments: (remove_in_place) expected (obj, key), got 0 arguments")
 	expectError(t, `remove_in_place(1, 1)`, nil, `not_deletable: type int does not support delete`)
 	expectError(t, `remove_in_place([], "")`, nil, `not_deletable: type array does not support delete`)
 	expectError(t, `remove_in_place({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
@@ -5080,13 +5146,13 @@ func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectRun(t, `d := dict({key1: 1}); remove_in_place(d, "key1"); out = d`, nil, MAP{})
 }
 
-// TestBuiltinFunctionFreeze checks the free freeze() builtin — record's only way to be frozen, since record has
-// no member surface (docs/types/record.md). freeze() is pure: detaches first (deep copy), then marks the fresh
+// TestBuiltinFunctionFreeze checks the free freeze() builtin — record's only way to be frozen, since record has no
+// member surface (docs/reference/types/record.md). freeze() is pure: detaches first (deep copy), then marks the fresh
 // clone immutable throughout, so the source and any pre-existing alias are unaffected. See
 // TestBuiltinFunctionFreezeShallow for its shallow, no-detach twin.
 func TestBuiltinFunctionFreeze(t *testing.T) {
-	expectError(t, `freeze()`, nil, "wrong_num_arguments: (freeze) expected 1 argument(s), got 0")
-	expectError(t, `freeze(1, 2)`, nil, "wrong_num_arguments: (freeze) expected 1 argument(s), got 2")
+	expectError(t, `freeze()`, nil, "wrong_num_arguments: (freeze) expected (x), got 0 arguments")
+	expectError(t, `freeze(1, 2)`, nil, "wrong_num_arguments: (freeze) expected (x), got 2 arguments")
 
 	// the new capability: record can now be frozen, deeply, via the free function
 	expectRun(t, `out = is_immutable(freeze({a: 1}))`, nil, true)
@@ -5110,8 +5176,8 @@ func TestBuiltinFunctionFreeze(t *testing.T) {
 // pre-existing sibling alias that never gets reassigned stays independently mutable, and mutating through it
 // stays visible through the "frozen" variable too, since both still share the same body.
 func TestBuiltinFunctionFreezeShallow(t *testing.T) {
-	expectError(t, `freeze_shallow()`, nil, "wrong_num_arguments: (freeze_shallow) expected 1 argument(s), got 0")
-	expectError(t, `freeze_shallow(1, 2)`, nil, "wrong_num_arguments: (freeze_shallow) expected 1 argument(s), got 2")
+	expectError(t, `freeze_shallow()`, nil, "wrong_num_arguments: (freeze_shallow) expected (x), got 0 arguments")
+	expectError(t, `freeze_shallow(1, 2)`, nil, "wrong_num_arguments: (freeze_shallow) expected (x), got 2 arguments")
 
 	// the new capability: record can now be frozen in place via the free function (requires reassignment,
 	// same as the member-call form on every other type)
@@ -5194,9 +5260,9 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectError(t, `record(1)`, nil, "conversion: cannot convert int to record: no conversion exists")
 	expectError(t, `record_view(1)`, nil, "invalid_argument_type: (record_view) argument first expects type dict or record, got int")
 	expectError(t, `dict_view(1)`, nil, "invalid_argument_type: (dict_view) argument first expects type dict or record, got int")
-	expectError(t, `record(1, 2)`, nil, "wrong_num_arguments: (record) expected 0 or 1 argument(s), got 2") // no free default form
-	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected 0 or 1 argument(s), got 2")
-	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected 0 or 1 argument(s), got 2")
+	expectError(t, `record(1, 2)`, nil, "wrong_num_arguments: (record) expected ([x]), got 2 arguments") // no free default form
+	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected ([x]), got 2 arguments")
+	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected ([x]), got 2 arguments")
 	expectError(t, `dict({}).record_view(1)`, nil, "wrong_num_arguments")
 }
 
@@ -5269,13 +5335,13 @@ func TestSameTypeConversionConstructs(t *testing.T) {
 	expectRun(t, `out = time().time(999) == time()`, nil, true)
 
 	// a second argument is still too many
-	expectError(t, `[1].array(1, 2)`, nil, "wrong_num_arguments: (array) expected 0 or 1 argument(s), got 2")
-	expectError(t, `dict({a: 1}).dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
-	expectError(t, `"ab".string(1, 2)`, nil, "wrong_num_arguments: (string) expected 0 or 1 argument(s), got 2")
+	expectError(t, `[1].array(1, 2)`, nil, "wrong_num_arguments: (array) expected ([default]), got 2 arguments")
+	expectError(t, `dict({a: 1}).dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected ([default]), got 2 arguments")
+	expectError(t, `"ab".string(1, 2)`, nil, "wrong_num_arguments: (string) expected ([default]), got 2 arguments")
 
 	// the free form takes no default slot at all, on its own type like any other argument
 	expectError(t, `array([1], 2, 3)`, nil, "wrong_num_arguments")
-	expectError(t, `dict(dict({a: 1}), 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
+	expectError(t, `dict(dict({a: 1}), 2)`, nil, "wrong_num_arguments: (dict) expected ([x]), got 2 arguments")
 }
 
 // TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin of pure splice() (see
@@ -6424,8 +6490,13 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`, nil, ARR{8, 9, ARR{}})
 	expectRun(t, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a");`, nil, ARR{"a", ARR{}, 7})
 
-	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 0\n\tat test:1:47")
-	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1\n\tat test:1:47")
+	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil, "Runtime Error: wrong_num_arguments: (call) expected 2 or more arguments, got 0 arguments\n\tat test:1:47")
+	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil, "Runtime Error: wrong_num_arguments: (call) expected 2 or more arguments, got 1 argument\n\tat test:1:47")
+	expectError(t, `f := func(a) { return a }; f()`, nil, "wrong_num_arguments: (call) expected 1 argument, got 0 arguments")
+	expectError(t, `f := func(a, b) { return a }; f(1)`, nil, "wrong_num_arguments: (call) expected 2 arguments, got 1 argument")
+	// a deferred script function reports the same pair: its floor never counts the rest slot
+	expectError(t, `f := func() { defer func(a, b, ...c) {}(1) }; f()`, nil, "wrong_num_arguments: (defer) expected 2 or more arguments, got 1 argument")
+	expectError(t, `f := func() { defer func(a) {}() }; f()`, nil, "wrong_num_arguments: (defer) expected 1 argument, got 0 arguments")
 
 	expectRun(t, `f := func(x) { return x; }; out = f(5);`, nil, 5)
 	expectRun(t, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
@@ -7445,9 +7516,9 @@ func TestSpread(t *testing.T) {
 	out = f(1, freeze_shallow([2, 3])...)
 	`, nil, ARR{1, 2, 3, 2, 3, 4})
 
-	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 2")
-	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 3 argument(s), got 2")
-	expectError(t, `func(a, b, ...c) {}(1, []...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1")
+	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument, got 2 arguments")
+	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 3 arguments, got 2 arguments")
+	expectError(t, `func(a, b, ...c) {}(1, []...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 2 or more arguments, got 1 argument")
 
 	// the spread elements fill the fixed parameters left over by the literal arguments, the rest is the variadic tail
 	expectRun(t, `out = func(a, b, ...c) { return [a, b, c] }([1, 2, 3, 4]...)`, nil, ARR{1, 2, ARR{3, 4}})
@@ -7472,8 +7543,8 @@ func TestSpread(t *testing.T) {
 	expectRun(t, big+`d := func(n) { if n == 0 { return [].append(xs...).len() }; return d(n-1) }; out = d(200)`, nil, 5000)
 
 	// a spread that does not match the callee is the callee's recoverable argument error, never a stack overflow
-	expectError(t, big+`func(a) {}(xs...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 5000")
-	expectError(t, big+`format(xs...)`, nil, "Runtime Error: wrong_num_arguments: (format) expected 1 or 2 argument(s), got 5000")
+	expectError(t, big+`func(a) {}(xs...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument, got 5000 arguments")
+	expectError(t, big+`format(xs...)`, nil, "Runtime Error: wrong_num_arguments: (format) expected (x) | (template, args), got 5000 arguments")
 	expectRun(t, big+`out = func() r { defer func() { r = recover().kind() }(); func(a) {}(xs...) }()`, nil, "wrong_num_arguments")
 	expectError(t, `func(a) {}(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
 	expectError(t, `[].append(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
@@ -8540,11 +8611,10 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) core.Value {
 		return core.NewBuiltinClosureValue(
 			"user_func",
+			core.SignatureOf(0, false),
 			func(v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			},
-			0,
-			false,
 		)
 	}
 
@@ -8563,14 +8633,11 @@ func TestVMErrorUnwrap(t *testing.T) {
 		return module{
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
-					"afunction",
+					"afunction", "()",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						return core.Undefined, err
 					},
-					0,
-					false,
-					false,
-				),
+					false),
 			},
 		}
 	}
@@ -8602,15 +8669,12 @@ func TestCustomBuiltin(t *testing.T) {
 		module{
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
-					"abs",
+					"abs", "(x)",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsFloat()
 						return core.FloatValue(math.Abs(r)), nil
 					},
-					1,
-					false,
-					false,
-				),
+					false),
 			},
 		})
 
@@ -8814,15 +8878,12 @@ func TestCustomModuleBlockScopes(t *testing.T) {
 		module{
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
-					"intn",
+					"intn", "(x)",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsInt()
 						return core.IntValue(rand.Int63n(r)), nil
 					},
-					1,
-					false,
-					false,
-				),
+					false),
 			},
 		})
 
@@ -9462,7 +9523,7 @@ func TestErrorKindSeverityAndCategory(t *testing.T) {
 		errs.NewInvalidArgumentTypeError("f", "first", "int", "string"),
 		errs.NewIndexOutOfBoundsError("f", 5, 2),
 		errs.NewInvalidUnpackTypeError("int"),
-		errs.NewWrongNumArgumentsError("f", "1", 2),
+		errs.NewWrongNumArgumentsError("f", "1 argument", "2 arguments"),
 		errs.NewNotAccessibleError("int"),
 		errs.NewNotAssignableError("int"),
 		errs.NewNotCallableError("int"),
@@ -9871,9 +9932,10 @@ out = f()
 func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
 	fatalBuiltin := core.NewBuiltinClosureValue(
 		"do_fatal",
+		core.SignatureOf(0, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
-		}, 0, false)
+		})
 
 	expectError(t, `
 f := func() {
@@ -9891,9 +9953,10 @@ f()
 func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
 	recBuiltin := core.NewBuiltinClosureValue(
 		"do_logical",
+		core.SignatureOf(0, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
-		}, 0, false)
+		})
 
 	expectRun(t, `
 f := func() res {
@@ -10056,10 +10119,11 @@ func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
 func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
 	probe := core.NewBuiltinClosureValue(
 		"probe_recover",
+		core.SignatureOf(0, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			// Try to recover from inside a deferred builtin — must return Undefined.
 			return v.Recover(), nil
-		}, 0, false)
+		})
 
 	expectError(t, `
 f := func() {
@@ -10078,9 +10142,10 @@ f()
 func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
 	rawBuiltin := core.NewBuiltinClosureValue(
 		"do_raw",
+		core.SignatureOf(0, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, fmt.Errorf("plain go error")
-		}, 0, false)
+		})
 
 	expectError(t, `
 f := func() {
@@ -10357,7 +10422,7 @@ func TestBuiltinIsPredicates_WrongArity(t *testing.T) {
 		"is_error", "is_undefined", "is_function", "is_callable", "is_iterable",
 	} {
 		t.Run(name, func(t *testing.T) {
-			expectError(t, name+"()", nil, fmt.Sprintf("wrong_num_arguments: (%s) expected 1 argument(s), got 0", name))
+			expectError(t, name+"()", nil, fmt.Sprintf("wrong_num_arguments: (%s) expected (x), got 0 arguments", name))
 		})
 	}
 }
@@ -10373,7 +10438,7 @@ func TestBuiltinTypeName(t *testing.T) {
 	expectRun(t, `out = type_name(error("x"))`, nil, "error")
 	expectRun(t, `out = type_name(func(){})`, nil, "function")
 	expectRun(t, `out = type_name(len)`, nil, "function")
-	expectError(t, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
+	expectError(t, `type_name()`, nil, "wrong_num_arguments: (type_name) expected (x), got 0 arguments")
 }
 
 func TestSpread_EmptyArray_OnVariadic(t *testing.T) {
@@ -10496,8 +10561,8 @@ func TestRange_NegativeStep_Recoverable(t *testing.T) {
 func TestRange_WrongArity(t *testing.T) {
 	// range() is valid — the type's zero form (the empty range)
 	expectRun(t, `out = range() == range(0, 0)`, nil, true)
-	expectError(t, `range(1)`, nil, "wrong_num_arguments: (range) expected 0, 2 or 3")
-	expectError(t, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 0, 2 or 3")
+	expectError(t, `range(1)`, nil, "invalid_argument_type: (range) argument components expects type dict or record, got int")
+	expectError(t, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected () | (components) | (start, stop[, step]), got 4 arguments")
 }
 
 func TestRange_NonIntArgs(t *testing.T) {
@@ -10595,8 +10660,8 @@ func TestRange_DecodeBinaryValidates(t *testing.T) {
 func TestConstructorFallback_Defaults(t *testing.T) {
 	// there is no free default form — the fallible-conversion idiom is the MEMBER's, where the
 	// receiver opts into recovery
-	expectError(t, `out = int("nope", 42)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2")
-	expectError(t, `out = float("nope", 1.5)`, nil, "wrong_num_arguments: (float) expected 0 or 1 argument(s), got 2")
+	expectError(t, `out = int("nope", 42)`, nil, "wrong_num_arguments: (int) expected ([x]), got 2 arguments")
+	expectError(t, `out = float("nope", 1.5)`, nil, "wrong_num_arguments: (float) expected ([x]), got 2 arguments")
 	expectRun(t, `out = "nope".int(42)`, nil, 42)
 	expectRun(t, `out = "nope".float(1.5)`, nil, 1.5)
 }
@@ -10609,17 +10674,18 @@ func TestConstructorFallback_NoFallback_Raises(t *testing.T) {
 
 func TestConstructorWrongArity(t *testing.T) {
 	// scalar constructors are T() | T(x); the four buildable sequences add T(x, count)
-	expectError(t, `int(1, 2)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2")
-	expectError(t, `float(1, 2)`, nil, "wrong_num_arguments: (float) expected 0 or 1 argument(s), got 2")
-	expectError(t, `bool(1, 2)`, nil, "wrong_num_arguments: (bool) expected 0 or 1 argument(s), got 2")
-	expectError(t, `byte(1, 2)`, nil, "wrong_num_arguments: (byte) expected 0 or 1 argument(s), got 2")
-	expectError(t, `rune(1, 2)`, nil, "wrong_num_arguments: (rune) expected 0 or 1 argument(s), got 2")
-	expectError(t, `decimal(1, 2)`, nil, "wrong_num_arguments: (decimal) expected 0 or 1 argument(s), got 2")
-	expectError(t, `time(1, 2)`, nil, "wrong_num_arguments: (time) expected 0 or 1 argument(s), got 2")
-	expectError(t, `dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
-	expectError(t, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0 or 1 argument(s), got 3")
-	expectError(t, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0 or 1 argument(s), got 3")
-	expectError(t, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0 or 1 argument(s), got 3")
+	expectError(t, `int(1, 2)`, nil, "wrong_num_arguments: (int) expected ([x]), got 2 arguments")
+	expectError(t, `float(1, 2)`, nil, "wrong_num_arguments: (float) expected ([x]), got 2 arguments")
+	expectError(t, `bool(1, 2)`, nil, "wrong_num_arguments: (bool) expected ([x]), got 2 arguments")
+	expectError(t, `byte(1, 2)`, nil, "wrong_num_arguments: (byte) expected ([x]), got 2 arguments")
+	expectError(t, `rune(1, 2)`, nil, "wrong_num_arguments: (rune) expected ([x]), got 2 arguments")
+	expectError(t, `decimal(1, 2)`, nil, "wrong_num_arguments: (decimal) expected ([x]), got 2 arguments")
+	expectError(t, `time(1, 2)`, nil, "invalid_argument_type: (time) argument first (text) expects type string or runes, got int")
+	expectError(t, `time("a", "b", "c")`, nil, "wrong_num_arguments: (time) expected ([x]) | (text, layout), got 3 arguments")
+	expectError(t, `dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected ([x]), got 2 arguments")
+	expectError(t, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected ([x[, count]]), got 3 arguments")
+	expectError(t, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected ([x[, count]]), got 3 arguments")
+	expectError(t, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected ([x[, count]]), got 3 arguments")
 	expectError(t, `array(1, 2, 3)`, nil, "wrong_num_arguments")
 }
 
@@ -10734,8 +10800,8 @@ func TestError_NonStringPayload(t *testing.T) {
 }
 
 func TestError_WrongArity(t *testing.T) {
-	expectError(t, `error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
-	expectError(t, `error("a", true, "extra")`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 3")
+	expectError(t, `error()`, nil, "wrong_num_arguments: (error) expected (payload[, fatal]), got 0 arguments")
+	expectError(t, `error("a", true, "extra")`, nil, "wrong_num_arguments: (error) expected (payload[, fatal]), got 3 arguments")
 }
 
 func TestRaise_PayloadGetsWrapped(t *testing.T) {
@@ -10773,8 +10839,8 @@ func TestRaise_DemoteFatalFlagToRecoverable(t *testing.T) {
 }
 
 func TestRaise_WrongArity(t *testing.T) {
-	expectError(t, `raise()`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 0")
-	expectError(t, `raise("x", true, "extra")`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 3")
+	expectError(t, `raise()`, nil, "wrong_num_arguments: (raise) expected (err[, fatal]), got 0 arguments")
+	expectError(t, `raise("x", true, "extra")`, nil, "wrong_num_arguments: (raise) expected (err[, fatal]), got 3 arguments")
 }
 
 func TestRaise_WrongFlagType(t *testing.T) {
@@ -10782,7 +10848,7 @@ func TestRaise_WrongFlagType(t *testing.T) {
 }
 
 func TestRecover_WrongArity(t *testing.T) {
-	expectError(t, `func() { defer func() { recover(1) }(); raise("x") }()`, nil, "wrong_num_arguments: (recover) expected 0 argument(s), got 1")
+	expectError(t, `func() { defer func() { recover(1) }(); raise("x") }()`, nil, "wrong_num_arguments: (recover) expected (), got 1 argument")
 }
 
 func TestDefer_DeepRecursionWithDefers(t *testing.T) {
@@ -10912,7 +10978,7 @@ func TestClosure_NamedResultViaClosure(t *testing.T) {
 
 func TestHostCallback_CallScriptFunction(t *testing.T) {
 	// A host-registered builtin that invokes a script function via VM.Call.
-	caller := core.NewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke", core.SignatureOf(2, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 2 {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
@@ -10922,18 +10988,18 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 				return core.Undefined, fmt.Errorf("invoke: arg 1 not a function")
 			}
 			return v.Call(fnVal, []core.Value{args[1]})
-		}, 2, false)
+		})
 
 	expectRun(t, `f := func(x) { return x * 3 }; out = invoke(f, 7)`, Opts().Symbol("invoke", caller).Skip2ndPass(), 21)
 }
 
 func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	// Errors raised by the script callback must bubble back through VM.Call to the host.
-	caller := core.NewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke", core.SignatureOf(1, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
-		}, 1, false)
+		})
 
 	expectError(t, `f := func() { raise("script-side") }; invoke(f)`, Opts().Symbol("invoke", caller).Skip2ndPass(), "script-side")
 }
@@ -10941,11 +11007,11 @@ func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	// If the host-invoked script function defers a recover, the error must be
 	// caught at the trampoline boundary and returned cleanly to the host.
-	caller := core.NewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke", core.SignatureOf(1, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
-		}, 1, false)
+		})
 
 	expectRun(t, `
 		f := func() r {
@@ -10962,11 +11028,11 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 func TestHostCallback_ErrorIgnoredByHost(t *testing.T) {
 	// A host builtin may drop the error of a script function it called. The raise left the callee's frame unpopped
 	// (the trace reads it); a later script call reusing that frame must return to its caller, not out of the run.
-	swallow := core.NewBuiltinClosureValue("swallow",
+	swallow := core.NewBuiltinClosureValue("swallow", core.SignatureOf(1, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			_, _ = v.Call(args[0], nil)
 			return core.Undefined, nil
-		}, 1, false)
+		})
 
 	expectRun(t, `
 		c := func() { return 7 }
@@ -10979,11 +11045,11 @@ func TestHostCallback_ErrorIgnoredByHost(t *testing.T) {
 }
 
 func TestHostCallback_VarargsAndArity(t *testing.T) {
-	caller := core.NewBuiltinClosureValue("invoke3",
+	caller := core.NewBuiltinClosureValue("invoke3", core.SignatureOf(1, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
-		}, 1, false)
+		})
 
 	// Variadic script function via host VM.Call.
 	expectRun(t, `
@@ -10996,12 +11062,13 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 	`, Opts().Symbol("invoke3", caller).Skip2ndPass(), 6)
 
 	// Wrong arity from host-side.
-	wrong := core.NewBuiltinClosureValue("invoke",
+	wrong := core.NewBuiltinClosureValue("invoke", core.SignatureOf(1, false),
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
-		}, 1, false)
-	expectError(t, `f := func(a) { return a }; invoke(f)`, Opts().Symbol("invoke", wrong).Skip2ndPass(), "wrong_num_arguments: (call) expected 1 argument(s), got 0")
+		})
+
+	expectError(t, `f := func(a) { return a }; invoke(f)`, Opts().Symbol("invoke", wrong).Skip2ndPass(), "wrong_num_arguments: (call) expected 1 argument, got 0 arguments")
 }
 
 // TestCallbackMember_Boundaries pins how errors, defer and recover() cross the boundary between a callback member
@@ -11125,7 +11192,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 		}
 		return v.Call(args[0], []core.Value{args[0]})
 	}
-	caller = core.NewBuiltinClosureValue("invoke", callerFn, 1, false)
+	caller = core.NewBuiltinClosureValue("invoke", core.SignatureOf(1, false), callerFn)
 
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`), "out", "invoke")
 	c, err := s.Compile()
@@ -11233,7 +11300,7 @@ func TestBuiltinFormat_NonStringTemplate(t *testing.T) {
 
 func TestBuiltinFormat_OneArg_Renders(t *testing.T) {
 	expectRun(t, `out = format("x")`, nil, "x")
-	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 1 or 2")
+	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected (x) | (template, args), got 0 arguments")
 }
 
 func TestRecordLiteral_StringKey_OK(t *testing.T) {
@@ -11365,10 +11432,10 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 // inside a root defer: Run answers no error and nothing after the abort point reaches the script.
 func TestVM_Abort_InsideCallbacks(t *testing.T) {
 	// stop() aborts the VM it runs on, as Abort from another goroutine would at that instant
-	stop := core.NewBuiltinClosureValue("stop", func(v core.VM, _ []core.Value) (core.Value, error) {
+	stop := core.NewBuiltinClosureValue("stop", core.SignatureOf(0, false), func(v core.VM, _ []core.Value) (core.Value, error) {
 		v.Abort()
 		return core.Undefined, nil
-	}, 0, false)
+	})
 
 	run := func(t *testing.T, src string) (out, after core.Value) {
 		t.Helper()
@@ -11527,8 +11594,8 @@ func TestAnyAllDispatchForms(t *testing.T) {
 	expectRun(t, `out = u"abc".any()`, nil, true)
 	expectRun(t, `out = bytes("abc").any()`, nil, true)
 	expectRun(t, `out = range(0, 3).any()`, nil, true) // 0 is falsy, 1 and 2 are not
-	expectError(t, `out = dict({a: 1}).any()`, nil, "a map has no blank reading")
-	expectError(t, `out = dict({a: 1}).all()`, nil, "a map has no blank reading")
+	expectError(t, `out = dict({a: 1}).any()`, nil, "wrong_num_arguments: (any) expected (x, ...more), got 0 arguments")
+	expectError(t, `out = dict({a: 1}).all()`, nil, "wrong_num_arguments: (all) expected (x, ...more), got 0 arguments")
 
 	// a sequence argument raises — the run query is contains'
 	expectError(t, `out = [1, 2].any([1, 2])`, nil, "this member declares no run reading")
@@ -11950,8 +12017,10 @@ func TestInPlaceTwinErrors(t *testing.T) {
 		{`[3, 1]`, "array"}, {`bytes([3, 1])`, "bytes"}, {`runes("ba")`, "runes"},
 	} {
 		for _, m := range []string{"sort_in_place", "dedup_in_place", "unique_in_place", "reverse_in_place"} {
-			expectError(t, `x := `+r.x+`; x.`+m+`(1)`, nil, "wrong_num_arguments: ("+m+") expected 0 argument(s), got 1")
-			expectError(t, `x := `+r.x+`.freeze(); x.`+m+`(1)`, nil, "not_mutable: ("+m+") type immutable-"+r.typ+" is immutable")
+			expectError(t, `x := `+r.x+`; x.`+m+`(1)`, nil, "wrong_num_arguments: ("+m+") expected (), got 1 argument")
+			expectError(t, `x := `+r.x+`.freeze(); x.`+m+`()`, nil, "not_mutable: ("+m+") type immutable-"+r.typ+" is immutable")
+			// the dispatcher checks the count before the body runs, so a wrong count outranks the frozen receiver
+			expectError(t, `x := `+r.x+`.freeze(); x.`+m+`(1)`, nil, "wrong_num_arguments: ("+m+") expected (), got 1 argument")
 		}
 		expectError(t, `x := `+r.x+`; x.splice_in_place("s")`, nil,
 			"invalid_argument_type: (splice_in_place) argument first expects type int, got string")
@@ -11963,7 +12032,7 @@ func TestInPlaceTwinErrors(t *testing.T) {
 	}
 	expectError(t, `bytes([1]).splice_in_place(0, 0, {})`, nil, "invalid_argument_type: (splice_in_place)")
 	expectError(t, `runes("a").splice_in_place(0, 0, {})`, nil, "invalid_argument_type: (splice_in_place)")
-	expectError(t, `[1].freeze().shuffle_in_place()`, nil, "not_mutable: (shuffle_in_place) type immutable-array is immutable")
+	expectError(t, `[1].freeze().shuffle_in_place(import("rand").generator(1))`, nil, "not_mutable: (shuffle_in_place) type immutable-array is immutable")
 
 	// merge names a bad operand by its ordinal word, like every other argument error
 	expectError(t, `d := dict({a: 1}); d.merge_in_place(d, 1)`, nil,
@@ -12206,11 +12275,12 @@ func TestBoundMember(t *testing.T) {
 	expectRun(t, `n := 1; f := n.string; n = 5; out = f()`, nil, "1")
 	expectError(t, `a := [1].freeze(); f := a.push_in_place; f(2)`, nil, "(push_in_place) type immutable-array is immutable")
 
-	// callbacks dispatch on the member's declared Arity
+	// callbacks take the fewest form the member's pair accepts (core.CallbackForm)
 	expectRun(t, `out = ["a", "x"].map("abc".has_prefix)`, nil, ARR{true, false})
 	expectRun(t, `out = [1, 2].map("ab".repeat)`, nil, ARR{"ab", "abab"})
 	expectRun(t, `d := dict({a: 1}); out = ["a", "z"].keep(d.contains)`, nil, ARR{"a"})
-	expectError(t, `out = ["a"].keep("abc".contains)`, nil, "(keep) argument first expects type f/1 or f/2, got <bound-member:string.contains/0+>")
+	expectRun(t, `out = ["a", "z"].keep("abc".contains)`, nil, ARR{"a"})
+	expectError(t, `out = ["a"].keep("abc".upper)`, nil, "(keep) argument first expects type f/1 or f/2, got <bound-member:string.upper/0>")
 
 	// only dot access binds; assignment, index access, record fields and unknown names are unchanged
 	expectError(t, `a := [1]; a.len = 1`, nil, "not_assignable: type array does not support assignment via indexing or field access")
@@ -12218,6 +12288,46 @@ func TestBoundMember(t *testing.T) {
 	expectError(t, `out = [1]["len"]`, nil, "(index access) expected int, got string")
 	expectRun(t, `r := {len: 7}; out = r.len`, nil, 7)
 	expectError(t, `out = [1].nope`, nil, `invalid_selector: type array has no property "nope"`)
+}
+
+// TestCallbackForm pins how a callback member calls a callable: with the FEWEST form its pair (arity, variadic)
+// accepts — an element callback f/1 when it accepts one argument, else f/2, else refused; reduce f/2, else f/3. The
+// pair alone decides, so a script function, a builtin and a bound member with the same pair are called alike, and a
+// lambda is the one way to call a callable in another form.
+func TestCallbackForm(t *testing.T) {
+	// element callbacks, one row per pair
+	expectRun(t, `out = [5, 6].map(func(x) { return x })`, nil, ARR{5, 6})                                                // (1, no): f/1
+	expectRun(t, `out = [5, 6].map(func(i, x) { return [i, x] })`, nil, ARR{ARR{0, 5}, ARR{1, 6}})                        // (2, no): f/2
+	expectRun(t, `out = [5, 6].map(func(x, ...a) { return [x, a] })`, nil, ARR{ARR{5, ARR{}}, ARR{6, ARR{}}})             // (1, yes): f/1
+	expectRun(t, `out = [5, 6].map(func(...a) { return a })`, nil, ARR{ARR{5}, ARR{6}})                                   // (0, yes): f/1
+	expectRun(t, `out = [5, 6].map(func(i, x, ...a) { return [i, x, a] })`, nil, ARR{ARR{0, 5, ARR{}}, ARR{1, 6, ARR{}}}) // (2, yes): f/2
+	expectError(t, `out = [5].map(func() { return 0 })`, nil, "invalid_argument_type: (map) argument first expects type f/1 or f/2, got <compiled-function/0>")
+	expectError(t, `out = [5].map(func(a, b, c) { return 0 })`, nil, "invalid_argument_type: (map) argument first expects type f/1 or f/2, got <compiled-function/3>")
+	// natives are read by the same rule: min (1, yes), int (0, yes), contains (0, yes), has_prefix (1, yes), append (0, yes)
+	expectRun(t, `out = [3, 1].map(min)`, nil, ARR{3, 1})
+	expectRun(t, `out = ["1", "2"].map(int)`, nil, ARR{1, 2})
+	expectRun(t, `s := "abc"; out = ["a", "z"].keep(s.contains)`, nil, ARR{"a"})
+	expectRun(t, `out = ["a", "x"].map("ab".has_prefix)`, nil, ARR{true, false})
+	expectRun(t, `out = [5, 6].map([].append)`, nil, ARR{ARR{5}, ARR{6}})
+	expectError(t, `out = ["a"].map("ab".upper)`, nil, "invalid_argument_type: (map) argument first expects type f/1 or f/2, got <bound-member:string.upper/0>")
+	// the other element-callback members and a dict (its element is the key; f/2 receives (key, value))
+	expectRun(t, `out = [[5, 6].any(func(x, ...a) { return x == 6 }), [5, 6].all(func(...a) { return a[0] > 4 })]`, nil, ARR{true, true})
+	expectRun(t, `out = [[5, 6].index(func(x, ...a) { return x == 6 }), [5, 6, 7].count(func(...a) { return a[0] > 5 })]`, nil, ARR{1, 2})
+	expectRun(t, `n := 0; [5, 6].for_each(func(x, ...a) { n += x }); out = n`, nil, 11)
+	expectRun(t, `out = dict({a: 1, b: 2}).count(func(k, ...r) { return k == "a" && r == [] })`, nil, 1)
+	expectRun(t, `out = dict({a: 1, b: 2}).count(func(k, v) { return v > 1 })`, nil, 1)
+
+	// reduce: f/2 receives (acc, element), f/3 (acc, index, element) — on a dict (acc, key) / (acc, key, value)
+	expectRun(t, `out = [1, 2, 3].reduce(0, func(acc, x) { return acc + x })`, nil, 6)
+	expectRun(t, `out = [1, 2, 3].reduce(0, func(acc, i, x) { return acc + i })`, nil, 3)
+	expectRun(t, `out = dict({a: 1, b: 2}).reduce(0, func(acc, k, v) { return acc + v })`, nil, 3)
+	expectRun(t, `out = [1, 2].reduce(0, func(acc, ...r) { return acc + r[0] })`, nil, 3)    // (1, yes): f/2
+	expectRun(t, `out = [1, 2].reduce(0, func(...r) { return r[0] + r[1] })`, nil, 3)        // (0, yes): f/2
+	expectRun(t, `out = [5, 6].reduce(0, func(acc, x, ...r) { return acc + x })`, nil, 11)   // (2, yes): f/2
+	expectRun(t, `out = [5, 6].reduce(0, func(acc, i, x, ...r) { return acc + i })`, nil, 1) // (3, yes): f/3
+	expectRun(t, `out = [1, 5, 2].reduce(0, max)`, nil, 5)                                   // (1, yes): f/2
+	expectError(t, `out = [1].reduce(0, func(acc) { return acc })`, nil, "invalid_argument_type: (reduce) argument second expects type f/2 or f/3, got <compiled-function/1>")
+	expectError(t, `out = [1].reduce(0, "ab".upper)`, nil, "invalid_argument_type: (reduce) argument second expects type f/2 or f/3, got <bound-member:string.upper/0>")
 }
 
 // A builtin module is a value of type module: read-only, dot access only, a miss raises naming the module.
@@ -12307,10 +12417,183 @@ func TestEveryBuiltinMemberNameIsAnswered(t *testing.T) {
 	}
 }
 
-// Every Methods entry's Arity/Variadic against the member function's own argument-count check: Arity-1 arguments
-// raise wrong_num_arguments, Arity do not, and Arity+1 raise exactly when the entry is not Variadic. Callback-taking
-// members dispatch on a bound member's Arity, so a declaration that drifts from the check is a wrong call. Every
-// builtin type with a table needs a sample here.
+// TestArgCountErrorNames pins the name a native count error reports: the bare member name on a core type, the
+// "<type>.<member>" of a module-owned type (its type name carries the module prefix), the module-qualified name of a
+// module function — on the call path and on the function value alike.
+func TestArgCountErrorNames(t *testing.T) {
+	expectError(t, `"ab".upper(1)`, nil, "wrong_num_arguments: (upper) expected (), got 1 argument")
+	expectError(t, `import("re").pattern("a").find()`, nil, "wrong_num_arguments: (re.pattern.find) expected (s[, count]), got 0 arguments")
+	expectError(t, `import("rand").generator(1).int(1, 2, 3)`, nil, "wrong_num_arguments: (rand.generator.int) expected () | (hi) | (lo, hi), got 3 arguments")
+	expectError(t, `import("math").cbrt()`, nil, "wrong_num_arguments: (math.cbrt) expected (x), got 0 arguments")
+	expectError(t, `f := import("math").cbrt; f(1, 2)`, nil, "wrong_num_arguments: (math.cbrt) expected (x), got 2 arguments")
+	expectError(t, `f := "ab".upper; f(1)`, nil, "wrong_num_arguments: (upper) expected (), got 1 argument")
+}
+
+// TestArgCountSingleSource pins that a wrong_num_arguments error has one source only — core.ArgCountError (the
+// dispatcher's checker: every native callable, a host hook reporting through it, and the VM's script-function paths
+// through CompiledFunction.ArgCountError). Outside package errs, errs.NewWrongNumArgumentsError may only be CALLED, and
+// only from that site — never taken as a function value (an alias would be a third source) — and
+// errs.KindWrongNumArguments is never named, so no error of that kind is built by hand (&errs.Error{Kind: …},
+// errs.NewRecoverableError(…)). A table entry refuses its count with core.ErrArgCount instead. Test files are not
+// scanned: they build errors of every kind on purpose.
+func TestArgCountSingleSource(t *testing.T) {
+	allowed := map[string]bool{
+		"core/arg_count.go:ArgCountError": true, // the checker; the VM's script paths reach it via CompiledFunction.ArgCountError
+	}
+	kindAllowed := map[string]bool{"core/arg_count.go": true}
+	found := map[string]bool{}
+	fset := gotoken.NewFileSet()
+	err := filepath.WalkDir(".", func(path string, d iofs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != "." && (strings.HasPrefix(d.Name(), ".") || d.Name() == "tmp" || path == "errs") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		f, err := goparser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		file := filepath.ToSlash(path)
+		// site answers "<file>:<enclosing function>" for a node, or "<file>:" at package level
+		site := func(n goast.Node) string {
+			for _, decl := range f.Decls {
+				if fn, ok := decl.(*goast.FuncDecl); ok && fn.Pos() <= n.Pos() && n.End() <= fn.End() {
+					return file + ":" + fn.Name.Name
+				}
+			}
+			return file + ":"
+		}
+		called := map[*goast.SelectorExpr]bool{}
+		goast.Inspect(f, func(n goast.Node) bool {
+			if call, ok := n.(*goast.CallExpr); ok {
+				if sel, ok := call.Fun.(*goast.SelectorExpr); ok {
+					called[sel] = true
+				}
+			}
+			return true
+		})
+		goast.Inspect(f, func(n goast.Node) bool {
+			sel, ok := n.(*goast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			at := fset.Position(sel.Pos())
+			switch sel.Sel.Name {
+			case "NewWrongNumArgumentsError":
+				s := site(sel)
+				require.True(t, called[sel], "errs.NewWrongNumArgumentsError taken as a value at %s (%s): an alias is a third source", s, at)
+				require.True(t, allowed[s], "errs.NewWrongNumArgumentsError called from %s (%s): a table entry returns core.ErrArgCount, a host hook reports through core.ArgCountError", s, at)
+				found[s] = true
+			case "KindWrongNumArguments":
+				require.True(t, kindAllowed[file], "errs.KindWrongNumArguments named at %s: a wrong_num_arguments error is built by core.ArgCountError or the VM's script paths only", at)
+			}
+			return true
+		})
+		return nil
+	})
+	require.NoError(t, err)
+	for s := range allowed {
+		require.True(t, found[s], "allowed site %s no longer calls errs.NewWrongNumArgumentsError: drop it from the list", s)
+	}
+}
+
+// TestMemberTemplateParity pins the naming rule of docs/conventions.md: a member name shared by two or more types
+// means the same thing on each, so it has the SAME signature template everywhere — code holding a value of unknown
+// type can call it without a type check. Every Methods table of core.ValueTypes is walked (builtin and module-owned
+// types; a module's own table holds its functions, not members, and is skipped). The exception table is the record
+// of every deliberate divergence: the listed types may differ from the rest, and an exception that no longer
+// diverges fails, so the table cannot go stale.
+func TestMemberTemplateParity(t *testing.T) {
+	const noBlankSet = "a dict has no blank set: the no-argument reading raises instead of being silently accepted"
+	const naming = "a different meaning under one name — a naming item in TODO.md"
+	const key = "same meaning, different key: tiered tables are keyed by an amount, dated ones by a date — TODO.md"
+	exceptions := map[string]struct {
+		types  []uint8
+		reason string
+	}{
+		"contains":        {[]uint8{value.Dict}, noBlankSet},
+		"count":           {[]uint8{value.Dict}, noBlankSet},
+		"any":             {[]uint8{value.Dict}, noBlankSet},
+		"all":             {[]uint8{value.Dict}, noBlankSet},
+		"keep":            {[]uint8{value.Dict}, noBlankSet},
+		"remove":          {[]uint8{value.Dict}, noBlankSet},
+		"keep_in_place":   {[]uint8{value.Dict}, noBlankSet},
+		"remove_in_place": {[]uint8{value.Dict}, noBlankSet},
+		"index":           {[]uint8{value.Dict}, noBlankSet},
+		"int":             {[]uint8{value.RandGenerator}, naming},
+		"float":           {[]uint8{value.RandGenerator}, naming},
+		"bytes":           {[]uint8{value.RandGenerator}, naming},
+		"split":           {[]uint8{value.Decimal, value.RePattern}, naming},
+		"replace":         {[]uint8{value.RePattern}, naming},
+		"at":              {[]uint8{value.FinTieredRates, value.FinTieredCharges, value.FinDatedRates, value.FinDatedCharges}, key},
+		"value":           {[]uint8{value.FinYearFraction, value.Error}, naming},
+		"accrue":          {[]uint8{value.FinTieredRates, value.FinDatedRates}, key},
+	}
+
+	// templates[name][type] = the template that type declares for name
+	templates := map[string]map[uint8]string{}
+	for i := range core.ValueTypes {
+		typ := uint8(i)
+		if core.ModuleByType(typ) != nil {
+			continue
+		}
+		for id, m := range core.ValueTypes[i].Methods {
+			if m.Fn == nil {
+				continue
+			}
+			name := member.ID(id).String()
+			if templates[name] == nil {
+				templates[name] = map[uint8]string{}
+			}
+			templates[name][typ] = m.Sig.Template()
+		}
+	}
+
+	for name, byType := range templates {
+		if len(byType) < 2 {
+			continue
+		}
+		exc, isException := exceptions[name]
+		rest, excepted := map[string][]uint8{}, map[string]bool{}
+		for typ, tpl := range byType {
+			if slices.Contains(exc.types, typ) {
+				excepted[tpl] = true
+				continue
+			}
+			rest[tpl] = append(rest[tpl], typ)
+		}
+		if len(rest) > 1 {
+			t.Errorf("member %q has different templates on different types: %v (type ids)", name, rest)
+		}
+		if isException {
+			diverges := len(excepted) > 1
+			for tpl := range rest {
+				diverges = diverges || len(excepted) > 0 && !(len(excepted) == 1 && excepted[tpl])
+			}
+			require.True(t, diverges, "exception %q (%s) no longer diverges: remove it from the table", name, exc.reason)
+		}
+	}
+	for name := range exceptions {
+		require.True(t, len(templates[name]) >= 2, "exception %q names a member fewer than two types declare", name)
+	}
+}
+
+// TestMemberArity is the count probe — the dispatcher checks the floor, bodies keep bounds and gaps: every entry of
+// every Methods table — each builtin type's, each module-owned type's, each module's — and every slot of
+// core.BuiltinFunctions (free builtins and module functions) is called THROUGH THE DISPATCHER with every argument count
+// 0 … max+1 (max from Signature.Max; for an open set, one past the start of its open run). The call must answer
+// wrong_num_arguments exactly where Signature.Accepts refuses the count: a refusal for an accepted count is a gap bug
+// in the body, an acceptance of a refused count a forgotten bound. Arguments are undefined, so an accepted count fails,
+// if at all, on its argument types. Accepted counts run only where that is harmless: the sample receivers below (world
+// handles built to fail safely), and every function except those of the world modules (fs, exec, os, io, clock), which
+// see their refused counts only.
 func TestMemberArity(t *testing.T) {
 	src := `
 fin := import("fin")
@@ -12327,7 +12610,7 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	require.NoError(t, c.Run(machine))
 	out, _ := c.Get("out")
 	samples, _ := out.AsArray()
-	samples = append(samples, core.NewBuiltinClosureValue("f", func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }, 0, false))
+	samples = append(samples, core.NewBuiltinClosureValue("f", core.SignatureOf(0, false), func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }))
 	// the world-handle types, built so that calling any member with probe arguments is harmless: a regular temp file
 	// (chdir into it fails), a command for a program that does not exist (run fails), a RELEASED process (kill and
 	// signal answer "already released" instead of reaching a real pid)
@@ -12340,106 +12623,412 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	samples = append(samples, fs.NewFileValue(file), exec.NewCommandValue(osexec.Command("kavun-no-such-program")),
 		exec.NewProcessValue(proc))
 
-	isWrongNum := func(recv core.Value, e core.Method, id int, n int) bool {
-		recv, err := recv.Copy(true)
-		require.NoError(t, err)
-		recv.Immutable = false
-		_, err = e.Fn(machine, recv, member.ID(id), make([]core.Value, n))
-		ee := errs.AsError(err)
-		return ee != nil && ee.Kind == errs.KindWrongNumArguments
+	// probe calls one entry with every count 0 … max+1 and checks the refusals against sig.Accepts; runAccepted
+	// false calls only the refused counts.
+	probe := func(label string, sig core.Signature, runAccepted bool, call func(args []core.Value) error) {
+		limit, _ := sig.Max()
+		for k := 0; k <= limit+1; k++ {
+			accepts := sig.Accepts(k)
+			if accepts && !runAccepted {
+				continue
+			}
+			err := call(make([]core.Value, k))
+			ee := errs.AsError(err)
+			refused := ee != nil && ee.Kind == errs.KindWrongNumArguments
+			switch {
+			case errors.Is(err, core.ErrArgCount):
+				t.Errorf("%s with %d arguments: ErrArgCount escaped the dispatcher", label, k)
+			case accepts && refused:
+				t.Errorf("%s %s: %d arguments refused although the template accepts them: %v", label, sig.Template(), k, err)
+			case !accepts && !refused:
+				t.Errorf("%s %s: %d arguments not refused: %v", label, sig.Template(), k, err)
+			}
+		}
 	}
+	worldModules := map[string]bool{"fs": true, "exec": true, "os": true, "io": true, "clock": true}
 
+	// the Methods tables of the builtin and module-owned types, through Value.CallMember
 	covered := map[uint8]bool{}
 	for _, recv := range samples {
 		covered[recv.Type] = true
+		entries := 0
 		for id, e := range core.ValueTypes[recv.Type].Methods {
 			if e.Fn == nil {
 				continue
 			}
-			name := recv.TypeName() + "." + member.ID(id).String()
-			if e.Arity > 0 {
-				require.True(t, isWrongNum(recv, e, id, e.Arity-1), "%s: %d arguments accepted, declared Arity %d", name, e.Arity-1, e.Arity)
-			}
-			require.False(t, isWrongNum(recv, e, id, e.Arity), "%s: declared Arity %d refused", name, e.Arity)
-			require.Equal(t, !e.Variadic, isWrongNum(recv, e, id, e.Arity+1), "%s: %d arguments vs declared Variadic %v", name, e.Arity+1, e.Variadic)
+			entries++
+			mid := member.ID(id)
+			probe(recv.TypeName()+"."+mid.String(), e.Sig, true, func(args []core.Value) error {
+				r, err := recv.Copy(true)
+				require.NoError(t, err)
+				r.Immutable = false
+				_, err = r.CallMember(machine, mid, mid.String(), args)
+				return err
+			})
 		}
+		t.Logf("type %s: %d entries", recv.TypeName(), entries)
 	}
-	// module types are not sampled: their entries are generated by core.ModuleBuilder from each function's own
-	// BuiltinFunction declaration, and calling world-touching module functions with probe arguments is not safe
 	for id := range int(value.FirstUserDefinedType) {
 		if core.ValueTypes[id].Methods != nil && core.ModuleByType(uint8(id)) == nil {
 			require.True(t, covered[uint8(id)], "type %d has a Methods table and no sample", id)
 		}
 	}
-}
 
-// docs/types/function-matrix.md against the member tables, in both directions: every ✓/— cell of a tabled type
-// matches core.HasMember, and every member a type declares has a ✓ row. Every column type answers its members from a
-// table (only record, which has no column, stays name-based), so a column with no table fails here.
-func TestFunctionMatrixInSync(t *testing.T) {
-	columns := map[string]uint8{
-		"int": value.Int, "float": value.Float, "decimal": value.Decimal, "bool": value.Bool, "byte": value.Byte,
-		"rune": value.Rune, "time": value.Time, "date": value.Date, "error": value.Error, "undefined": value.Undefined,
-		"string": value.String, "runes": value.Runes, "bytes": value.Bytes, "array": value.Array,
-		"range": value.IntRange, "dict": value.Dict,
-	}
-	page, err := os.ReadFile("docs/types/function-matrix.md")
-	require.NoError(t, err)
-
-	// cells[type][member] = ✓ (true) or — (false)
-	cells := map[string]map[string]bool{}
-	var header []string
-	for _, line := range strings.Split(string(page), "\n") {
-		if !strings.HasPrefix(line, "| ") {
-			header = nil
-			continue
-		}
-		row := strings.Split(strings.Trim(line, "| "), " | ")
-		switch {
-		case row[0] == "member":
-			header = row[1:]
-			for _, col := range header {
-				if _, ok := columns[col]; !ok {
-					t.Fatalf("function-matrix.md: unknown type column %q", col)
-				}
-			}
-		case strings.HasPrefix(row[0], "---"):
-		case header != nil && strings.HasPrefix(row[0], "`"):
-			name := strings.Trim(row[0], "`")
-			require.Equal(t, len(header), len(row)-1, "function-matrix.md row %q: cell count", name)
-			for i, col := range header {
-				var has bool
-				switch {
-				case strings.HasPrefix(row[i+1], "✓"):
-					has = true
-				case strings.HasPrefix(row[i+1], "—"):
-				default:
-					t.Fatalf("function-matrix.md row %q, column %s: cell %q is neither ✓ nor —", name, col, row[i+1])
-				}
-				if cells[col] == nil {
-					cells[col] = map[string]bool{}
-				}
-				cells[col][name] = has
-			}
-		}
-	}
-	require.True(t, len(cells) == len(columns), "function-matrix.md: parsed %d type columns, want %d", len(cells), len(columns))
-
-	for col, typ := range columns {
-		methods := core.ValueTypes[typ].Methods
-		require.True(t, len(methods) > 0, "%s has no member table, so function-matrix.md cannot be checked against it", col)
-		for name, has := range cells[col] {
-			require.Equal(t, has, core.HasMember(typ, name), "function-matrix.md: %s.%s", col, name)
-		}
-		for i, e := range methods {
+	// every module's own table (its functions and the universal members), through Value.CallMember on the module
+	modules := 0
+	for _, name := range core.ModuleNames() {
+		def, _ := core.LookupModule(name)
+		mod := def.New()
+		for id, e := range core.ValueTypes[def.Type].Methods {
 			if e.Fn == nil {
 				continue
 			}
-			name := member.ID(i).String()
-			if i == members.IsTrue {
-				continue // universal: documented in the page's own "Universal" section, not as a row
-			}
-			require.True(t, cells[col][name], "%s declares %s, which function-matrix.md does not mark ✓", col, name)
+			mid := member.ID(id)
+			modules++
+			probe(name+"."+mid.String(), e.Sig, !worldModules[name], func(args []core.Value) error {
+				_, err := mod.CallMember(machine, mid, mid.String(), args)
+				return err
+			})
 		}
 	}
+	t.Logf("module tables: %d entries", modules)
+
+	// every builtin-function slot (free builtins and module functions), through the builtin value's Call
+	builtins := 0
+	for slot, f := range core.BuiltinFunctions {
+		if f == nil {
+			continue
+		}
+		builtins++
+		fn := core.BuiltinFunctionValue(uint64(slot))
+		probe(f.QualifiedName(), f.Sig, !worldModules[f.Module], func(args []core.Value) error {
+			_, err := fn.Call(machine, args)
+			return err
+		})
+	}
+	t.Logf("builtin-function slots: %d entries", builtins)
+}
+
+// docs/reference/function_matrix.md needs no test of its own: kavun-gen generates it from the same //kavun:member
+// directives it generates every Methods table from, and TestGeneratedInSync (internal/kavungen) fails when either
+// the tables or the page drift from those directives.
+
+// TestDocExamples runs every fenced ```go example of the //kavun: doc blocks — the source of docs/reference/ — as a
+// standalone script, every module granted (as the CLI does), and checks what its comments claim
+// (docs/conventions.md § "Declaring native functions"):
+//
+//	expr   // => <render>        the expression's value renders as <render> (Value.String: format()'s spelling)
+//	stmt   // Error: <kind>…     the statement raises an error of that kind; the script goes on with the next line
+//	stmt                         runs without raising
+//
+// A block fenced ```go norun is skipped. Standard input is empty and output is discarded; the working directory is
+// a temporary one, so the fs and exec examples touch nothing else. The block keeps the semantics of one script: its statements are compiled and
+// run together, in order, so variables, functions and `defer` behave as written; a multi-line statement is the run
+// of lines up to the one that balances its brackets, and its check comment goes on that last line. Every problem
+// names the example's file:line.
+func TestDocExamples(t *testing.T) {
+	_, self, _, ok := runtime.Caller(0)
+	require.True(t, ok, "locating kavun_test.go")
+	examples, err := kavungen.Examples(docPackageDirs(t, filepath.Dir(self)))
+	require.NoError(t, err)
+
+	t.Chdir(t.TempDir()) // a world-module example touches only a scratch directory
+
+	var blocks, skipped, checks int
+	for _, ex := range examples {
+		if ex.NoRun {
+			skipped++
+			continue
+		}
+		blocks++
+		n, problems := runDocExample(ex)
+		checks += n
+		for _, p := range problems {
+			t.Error(p)
+		}
+	}
+	t.Logf("doc examples: %d blocks run, %d checks, %d norun", blocks, checks, skipped)
+	// a guard against the parser silently finding nothing
+	require.True(t, blocks >= 500, "only %d doc example blocks ran", blocks)
+	require.True(t, checks >= 500, "only %d doc example checks ran", checks)
+}
+
+// docPackageDirs answers the directories under root holding Go files, relative to root (the tests' working
+// directory, so messages name short paths), scratch (tmp/), fixtures (testdata/) and hidden directories skipped —
+// the packages kavun-gen reads.
+func docPackageDirs(t *testing.T, root string) []string {
+	var dirs []string
+	err := filepath.WalkDir(root, func(p string, d iofs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return err
+		}
+		if n := d.Name(); p != root && (n == "tmp" || n == "testdata" || strings.HasPrefix(n, ".")) {
+			return filepath.SkipDir
+		}
+		matches, err := filepath.Glob(filepath.Join(p, "*.go"))
+		if len(matches) > 0 {
+			rel, relErr := filepath.Rel(root, p)
+			if relErr != nil {
+				return relErr
+			}
+			dirs = append(dirs, rel)
+		}
+		return err
+	})
+	require.NoError(t, err)
+	return dirs
+}
+
+// docStmt is one statement of an example: its lines (brackets balanced), their code parts, and its check — the
+// reading of its last line's comment, or of a comment-only check line right after it — with that comment's position.
+type docStmt struct {
+	lines    []kavungen.ExampleLine
+	codes    []string
+	check    kavungen.LineCheck
+	checkPos gotoken.Position
+}
+
+// splitDocStmts groups an example's lines into statements: a line opening more brackets than it closes continues
+// on the next lines until they balance. A check comment goes on the line that ends its statement, or alone on the
+// line right after it (for a statement too long to share its line); one anywhere else is a problem.
+func splitDocStmts(ex kavungen.Example) ([]docStmt, []string) {
+	var out []docStmt
+	var problems []string
+	var cur docStmt
+	depth := 0
+	for _, l := range ex.Lines {
+		c := kavungen.ClassifyLine(l.Text)
+		cur.lines = append(cur.lines, l)
+		cur.codes = append(cur.codes, c.Code)
+		depth += bracketDepth(c.Code)
+		if depth > 0 {
+			if c.Kind != kavungen.LineCode {
+				problems = append(problems, fmt.Sprintf("%s: a check comment inside a multi-line statement: put it on the line that ends the statement", docWhere(l.Pos)))
+			}
+			continue
+		}
+		cur.check, cur.checkPos = c, l.Pos
+		if c.Kind != kavungen.LineCode && strings.TrimSpace(c.Code) == "" && len(cur.lines) == 1 {
+			// a comment-only check line: it checks the statement above it, which must have none of its own
+			if n := len(out); n > 0 && out[n-1].check.Kind == kavungen.LineCode && strings.TrimSpace(strings.Join(out[n-1].codes, "")) != "" {
+				prev := &out[n-1]
+				prev.check, prev.checkPos = c, l.Pos
+				prev.check.Code = strings.TrimSpace(prev.codes[len(prev.codes)-1])
+			} else {
+				problems = append(problems, fmt.Sprintf("%s: a check comment with no statement to check: put it on the statement's last line, or alone right after it", docWhere(l.Pos)))
+			}
+			cur.check.Kind = kavungen.LineCode
+		}
+		out = append(out, cur)
+		cur, depth = docStmt{}, 0
+	}
+	if len(cur.lines) > 0 {
+		problems = append(problems, fmt.Sprintf("%s: the example ends inside a statement (unbalanced brackets)", docWhere(cur.lines[0].Pos)))
+	}
+	return out, problems
+}
+
+// bracketDepth answers how many more brackets a line of code opens than it closes, read with Kavun's own scanner (so
+// brackets inside string literals do not count).
+func bracketDepth(code string) int {
+	fset := ast.NewFileSet()
+	file := fset.AddFile("(line)", -1, len(code))
+	sc := parser.NewScanner(file, []byte(code), nil, 0)
+	depth := 0
+	for {
+		tok, _, _ := sc.Scan()
+		switch tok {
+		case tokens.EOF:
+			return depth
+		case tokens.LParen, tokens.LBrack, tokens.LBrace:
+			depth++
+		case tokens.RParen, tokens.RBrack, tokens.RBrace:
+			depth--
+		}
+	}
+}
+
+// The names the instrumented script uses: the renders of the `// =>` statements and the results of the `// Error:`
+// statements, keyed by statement index, and the harness that catches an expected raise (answering the error
+// wrapped in a one-element array, undefined when nothing raised). A render is taken when its line runs, as
+// format([x]) — the spelling of x as an element, which is Value.String — so a later mutation cannot change it.
+const (
+	docGot = "__doc_got"
+	docErr = "__doc_err"
+	docTry = "__doc_try := func(f) r { defer func() { e := recover(); if e != undefined { r = [e] } }(); f() }"
+)
+
+// runDocExample runs one example as one instrumented script and answers the number of checks it performed and every
+// problem found. The script is the example with each `// =>` statement's value recorded into __doc_got and each
+// `// Error:` statement run under __doc_try into __doc_err — one script line per example line (plus the harness
+// line on top), so a compile or run error maps back to the example's file:line.
+func runDocExample(ex kavungen.Example) (int, []string) {
+	stmts, problems := splitDocStmts(ex)
+	if len(problems) > 0 {
+		return 0, problems
+	}
+
+	src := []string{docTry}
+	srcPos := []gotoken.Position{ex.Pos}
+	for k, s := range stmts {
+		codes := slices.Clone(s.codes)
+		last := len(codes) - 1
+		key := strconv.Quote(strconv.Itoa(k))
+		switch s.check.Kind {
+		case kavungen.LineResult:
+			lhs, isExpr, err := docResultTarget(strings.Join(codes, "\n"))
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("%s: `%s // => …`: %v", docWhere(s.lines[last].Pos), s.check.Code, err))
+				continue
+			}
+			if isExpr {
+				codes[0] = docGot + "[" + key + "] = format([(" + codes[0]
+				codes[last] += ")])"
+			} else {
+				codes[last] += "; " + docGot + "[" + key + "] = format([" + lhs + "])"
+			}
+		case kavungen.LineError:
+			codes[0] = docErr + "[" + key + "] = __doc_try(func() { " + codes[0]
+			codes[last] += " })"
+		}
+		src = append(src, codes...)
+		for _, l := range s.lines {
+			srcPos = append(srcPos, l.Pos)
+		}
+	}
+	if len(problems) > 0 {
+		return 0, problems
+	}
+
+	// where maps a position of the instrumented script back to the example line
+	where := func(line int) string {
+		if line >= 1 && line <= len(srcPos) {
+			return docWhere(srcPos[line-1])
+		}
+		return ex.String()
+	}
+
+	script := kavun.NewScript([]byte(strings.Join(src, "\n")), docGot, docErr)
+	script.AllowAllModules()
+	compiled, err := script.Compile()
+	if err != nil {
+		return 0, []string{fmt.Sprintf("%s: does not compile: %v", where(mainLine(err.Error())), err)}
+	}
+	got, errsGot := core.NewDictValue(map[string]core.Value{}, false), core.NewDictValue(map[string]core.Value{}, false)
+	compiled.MustSet(docGot, got)
+	compiled.MustSet(docErr, errsGot)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.AllowAllModules()
+	machine.SetStdin(strings.NewReader("")) // an io example reads an empty input, never the terminal
+	machine.SetStdout(&bytes.Buffer{})      // and prints nowhere
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	runErr := compiled.RunContext(ctx, machine)
+	if runErr != nil {
+		at := ex.String()
+		var re *vm.RuntimeError
+		if errors.As(runErr, &re) {
+			for _, fr := range re.Trace { // innermost first: the outermost frame of the script is the statement
+				if fr.Filename == "(main)" {
+					at = where(fr.Line)
+				}
+			}
+			problems = append(problems, fmt.Sprintf("%s: raises %s: %s", at, re.Kind, re.Message))
+		} else {
+			problems = append(problems, fmt.Sprintf("%s: %v", at, runErr))
+		}
+	}
+
+	gotMap := (*core.Dict)(got.Ptr).Elements
+	errMap := (*core.Dict)(errsGot.Ptr).Elements
+	checks := 0
+	for k, s := range stmts {
+		key := strconv.Itoa(k)
+		at := docWhere(s.checkPos)
+		switch s.check.Kind {
+		case kavungen.LineResult:
+			r, ok := gotMap[key]
+			if !ok {
+				if runErr == nil {
+					problems = append(problems, fmt.Sprintf("%s: `%s` was never evaluated", at, s.check.Code))
+				}
+				continue
+			}
+			checks++
+			render, _ := r.AsString()
+			render = strings.TrimSuffix(strings.TrimPrefix(render, "["), "]")
+			if render != s.check.Render {
+				problems = append(problems, fmt.Sprintf("%s: `%s`\n\texpected: %s\n\tactual:   %s", at, s.check.Code, s.check.Render, render))
+			}
+		case kavungen.LineError:
+			r, ok := errMap[key]
+			if !ok {
+				if runErr == nil {
+					problems = append(problems, fmt.Sprintf("%s: `%s` was never run", at, s.check.Code))
+				}
+				continue
+			}
+			checks++
+			if r.Type == value.Undefined {
+				problems = append(problems, fmt.Sprintf("%s: `%s`\n\texpected: raises %s\n\tactual:   does not raise", at, s.check.Code, s.check.ErrKind))
+				continue
+			}
+			e := (*core.Array)(r.Ptr).Elements[0]
+			kind := "(a raise of a non-error value)"
+			if e.Type == value.Error {
+				kind = (*core.Error)(e.Ptr).Kind
+			}
+			if kind != s.check.ErrKind {
+				problems = append(problems, fmt.Sprintf("%s: `%s`\n\texpected: raises %s\n\tactual:   raises %s: %s", at, s.check.Code, s.check.ErrKind, kind, e.String()))
+			}
+		}
+	}
+	return checks, problems
+}
+
+// docResultTarget reads the statement of a `// =>` line: an expression (isExpr, its value is checked), or an
+// assignment or increment, whose target is checked after it runs (lhs, the target's source; several targets are
+// checked as an array).
+func docResultTarget(code string) (lhs string, isExpr bool, err error) {
+	fset := ast.NewFileSet()
+	p := parser.NewParser(fset.AddFile("(stmt)", -1, len(code)), []byte(code), nil)
+	file, err := p.ParseFile()
+	if err != nil {
+		return "", false, err
+	}
+	if len(file.Stmts) != 1 {
+		return "", false, fmt.Errorf("one statement expected, found %d", len(file.Stmts))
+	}
+	switch s := file.Stmts[0].(type) {
+	case *statement.Expression:
+		return "", true, nil
+	case *statement.IncDec:
+		return s.Expr.String(), false, nil
+	case *statement.Assign:
+		var targets []string
+		for _, e := range s.LHS {
+			targets = append(targets, e.String())
+		}
+		if len(targets) == 1 {
+			return targets[0], false, nil
+		}
+		return "[" + strings.Join(targets, ", ") + "]", false, nil
+	}
+	return "", false, fmt.Errorf("an expression or an assignment expected")
+}
+
+// mainLine answers the line of the first "(main):L" position in an error message, or 0.
+func mainLine(msg string) int {
+	if m := mainPos.FindStringSubmatch(msg); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 0
+}
+
+var mainPos = regexp.MustCompile(`\(main\):(\d+)`)
+
+// docWhere renders an example line's position as file:line.
+func docWhere(pos gotoken.Position) string {
+	return fmt.Sprintf("%s:%d", pos.Filename, pos.Line)
 }

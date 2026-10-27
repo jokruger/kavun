@@ -19,7 +19,6 @@ import (
 	"context"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
@@ -898,47 +897,53 @@ func BenchmarkCallback(b *testing.B) {
 	}
 }
 
-// TestAbortReachesCallbackMembers: a RunContext deadline stops a script inside a callback member as promptly as
+// TestAbortReachesCallbackMembers: cancelling a RunContext stops a script inside a callback member as promptly as
 // inside a plain loop, and as completely — no callback answers a result after the abort, so the script never
-// reaches its next statement. The array is an input, built before the run,
-// so the member is the only work the deadline has to interrupt.
+// reaches its next statement. The trigger is not wall time: a host function the script calls once per element
+// (tick) cancels the context at its cancelAt-th call, so the test is the same on a fast machine and a slow one. The
+// array is an input, built before the run, so the loop or the member is the only work the abort has to interrupt;
+// how many ticks still run after the cancel measures how promptly the abort reached the work.
 func TestAbortReachesCallbackMembers(t *testing.T) {
 	elems := make([]core.Value, 3_000_000)
 	for i := range elems {
 		elems[i] = core.IntValue(int64(i))
 	}
-	const deadline = 50 * time.Millisecond
-	var loop time.Duration
+	const cancelAt = 1000
+	// the abort reaches the VM through RunContext's watcher goroutine, so a few more elements may run before the VM
+	// sees it; the bound only has to be far below the 3M the work would take to finish
+	const slack = 1_000_000
 	for _, sc := range []struct{ name, body string }{
-		{"for_in_loop", "n := 0\nfor e in a { n = n + e }\nout = n"},
-		{"map_member", `out = a.map(e => e).len()`},
-		{"for_each_member", "n := 0\na.for_each(func(e) { n = n + e })\nout = n"},
+		{"for_in_loop", "n := 0\nfor e in a { tick(); n = n + e }\nout = n"},
+		{"map_member", `out = a.map(func(e) { tick(); return e }).len()`},
+		{"for_each_member", "n := 0\na.for_each(func(e) { tick(); n = n + e })\nout = n"},
 	} {
-		compiled, err := kavun.NewScript([]byte(sc.body), "out", "a").Compile()
+		compiled, err := kavun.NewScript([]byte(sc.body), "out", "a", "tick").Compile()
 		if err != nil {
 			t.Fatal(err)
 		}
+		ctx, cancel := context.WithCancel(context.Background())
+		ticks := 0
 		compiled.Set("a", core.NewArrayValue(elems, false))
+		compiled.Set("tick", core.NewBuiltinClosureValue("tick", core.SignatureOf(0, false), func(core.VM, []core.Value) (core.Value, error) {
+			ticks++
+			if ticks == cancelAt {
+				cancel()
+			}
+			return core.Undefined, nil
+		}))
 		machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-		ctx, cancel := context.WithTimeout(context.Background(), deadline)
-		start := time.Now()
 		err = compiled.RunContext(ctx, machine)
-		el := time.Since(start)
 		cancel()
-		t.Logf("%-16s returned after %v, err=%v", sc.name, el.Round(time.Millisecond), err)
-		if err != context.DeadlineExceeded {
-			t.Fatalf("%s: expected the deadline to stop the script, got %v", sc.name, err)
+		t.Logf("%-16s stopped after %d ticks (%d after the cancel), err=%v", sc.name, ticks, ticks-cancelAt, err)
+		if err != context.Canceled {
+			t.Fatalf("%s: expected the cancel to stop the script, got %v", sc.name, err)
 		}
 		// stopped means stopped: the script never gets to assign its result
 		if out := compiled.MustGet("out"); out.Type != value.Undefined {
-			t.Fatalf("%s: the script ran on after the deadline and assigned out = %v", sc.name, out)
+			t.Fatalf("%s: the script ran on after the cancel and assigned out = %v", sc.name, out)
 		}
-		if sc.name == "for_in_loop" {
-			loop = el
-			continue
-		}
-		if el > loop+100*time.Millisecond {
-			t.Errorf("%s: returned %v after start, the plain loop %v: the deadline did not reach the callbacks", sc.name, el, loop)
+		if ticks-cancelAt > slack {
+			t.Errorf("%s: %d elements ran after the cancel: the abort did not reach the work", sc.name, ticks-cancelAt)
 		}
 	}
 }

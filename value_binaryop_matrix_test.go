@@ -47,7 +47,7 @@ func matrixErr(t *testing.T, name string, lhs core.Value, op token.Token, rhs co
 // matrixBoth asserts a cross-type row in both directions — "lhs op rhs" and "rhs op lhs" — as two
 // separate subtests. Which side's hook actually answers is deliberately never asserted anywhere in
 // this file: for the mirrored numeric pairings it is unobservable by design (see
-// docs/extending-types.md's "Mirrored ownership"), and everywhere else it is exactly the detail
+// docs/extending_types.md's "Mirrored ownership"), and everywhere else it is exactly the detail
 // rule 3's delegate step exists to hide. The reversed expectation is passed explicitly, because
 // `-`, `/` and `%` are where a mirror written with inverted operands — or a reflected branch that
 // forgot to swap its operands — actually shows up.
@@ -192,7 +192,7 @@ func TestMatrix_Unary(t *testing.T) {
 // ## Numeric arithmetic — int, float, decimal
 //
 // int/float and int/decimal are implemented on both sides for the hot path (see
-// docs/extending-types.md's "Mirrored ownership"), so every cross-type row here is asserted in both
+// docs/extending_types.md's "Mirrored ownership"), so every cross-type row here is asserted in both
 // directions via matrixBoth — the reversed rows are the only thing that would catch one half of a
 // mirror drifting from the other, or being written with its operands inverted.
 func TestMatrix_NumericArithmetic(t *testing.T) {
@@ -412,7 +412,7 @@ func TestMatrix_Collections(t *testing.T) {
 //
 // `time + int`/`time - int` treat the int as raw nanoseconds (time.Duration(r), and Go's
 // time.Duration is nanoseconds) — not seconds, despite how that might read at a glance. See
-// docs/types.md's "time" section and docs/types/time.md.
+// docs/types.md's "time" section and docs/reference/types/time.md.
 func TestMatrix_Time(t *testing.T) {
 	baseTime := time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC)
 	epoch := core.NewTimeValue(baseTime)

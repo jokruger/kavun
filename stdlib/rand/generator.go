@@ -9,7 +9,6 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -61,6 +60,52 @@ func GeneratorOf(v core.Value) *Generator {
 	return (*Generator)(v.Ptr)
 }
 
+// A source of random numbers, as `rand.generator(seed)` and `os.rand_generator()` answer it.
+//
+// ## Overview
+//
+// `rand.generator` is owned by the [`rand`](../stdlib/rand.md) module. It is ONE type over two sources, so anything
+// that takes a generator — `array.shuffle(g)`, a function of your own — accepts either:
+//
+// | constructor | source | sequence |
+// | --- | --- | --- |
+// | `rand.generator(seed)` (pure) | PCG-DXSM, seeded | the same for the same seed, on every build |
+// | `os.rand_generator()` (needs the `os` grant) | `crypto/rand` | unpredictable |
+//
+// Every draw is derived from the source's raw 64-bit output by Kavun's own code (bounded ints without bias, 53-bit
+// floats, Box–Muller normals, Fisher–Yates permutations), so a seeded sequence depends only on PCG-DXSM — a specified
+// algorithm — and not on Go's library helpers. A draw moves the generator's state: it is the value's own, never shared
+// with another script.
+//
+// ```go
+// g := import("rand").generator(1)
+// g.int(100)                  // => 59 — then 8, then 71: seed 1 always starts this way
+// g.int(1, 7)                 // a die roll in [1, 7)
+// g.float()                   // [0, 1)
+// g.perm(4)                   // a permutation of 0…3
+// d := import("os").rand_generator()
+// d.int(1, 7)                 // unpredictable
+// ```
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `==` / `!=` | the same generator (identity — two generators with the same seed are still two) |
+// | `!` | a generator is always truthy |
+// | everything else | raises |
+//
+// ## Ranges
+//
+// Ranges are half-open, like `range(lo, hi)`.
+//
+// ## Render
+//
+// The render names the source, not a constructor expression — no expression rebuilds a state mid-sequence. There is
+// no `string()`.
+//
+//kavun:type rand.generator
+
 // TypeGenerator is the rand.generator type descriptor.
 var TypeGenerator = core.ValueTypeDescr{
 	Name:   core.ConstHook(generatorTypeName),       // PURE by contract
@@ -69,18 +114,7 @@ var TypeGenerator = core.ValueTypeDescr{
 	IsTrue: core.Const2Hook[bool, error](true, nil), // PURE by contract
 	Equal:  core.SamePtrEqual,                       // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:    core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.Format:    core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:      core.NewPureMethod(generatorCopy, 0, core.Fixed),
-		members.Freeze:    core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Int:       core.NewMethod(generatorInt, 0, core.Variadic),
-		members.Float:     core.NewMethod(generatorFloat, 0, core.Variadic),
-		members.Bytes:     core.NewMethod(generatorBytes, 1, core.Fixed),
-		members.ExpFloat:  core.NewMethod(generatorExpFloat, 0, core.Fixed),
-		members.NormFloat: core.NewMethod(generatorNormFloat, 0, core.Fixed),
-		members.Perm:      core.NewMethod(generatorPerm, 1, core.Fixed),
-	},
+	Methods: generatorMethods,
 }
 
 // A generator renders by its source; no constructor expression re-creates a state mid-sequence.

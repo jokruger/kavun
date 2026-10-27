@@ -274,7 +274,7 @@ safe_div := func(a, b) result {
 }
 ```
 
-Full example: [`docs/examples/defer-recover.kvn`](examples/defer-recover.kvn).
+Full example: [`docs/examples/defer_recover.kvn`](examples/defer_recover.kvn).
 
 ## The shape of a decisioning script
 
@@ -304,7 +304,7 @@ A failed `require` answers kind `"requirement"` with the payload untouched, so t
 and the host — as structure rather than as a sentence. The handler must be registered before the code it guards,
 and every variable it reads must be declared above it.
 
-Full example: [`docs/examples/script-outcome.kvn`](examples/script-outcome.kvn).
+Full example: [`docs/examples/script_outcome.kvn`](examples/script_outcome.kvn).
 
 ## Variadic parameters, spread, and membership
 

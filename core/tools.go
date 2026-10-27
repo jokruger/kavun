@@ -29,11 +29,9 @@ func MutabilityNameHook(name, immutableName string) func(Value) string {
 	}
 }
 
-// readChunkSize reads chunk's / chunk_view's single argument: an int-valued size of at least 1.
+// readChunkSize reads chunk's / chunk_view's single argument (the dispatcher guarantees it): an int-valued size of
+// at least 1.
 func readChunkSize(name string, args []Value) (int64, error) {
-	if len(args) != 1 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
 	size, err := parseIntArg(name, "first", args[0])
 	if err != nil {
 		return 0, err
@@ -48,7 +46,7 @@ func readChunkSize(name string, args []Value) (int64, error) {
 // standing for an omitted bound, exactly like the operator's a[i:] / a[:j] / a[:].
 func readSliceArgs(name string, args []Value) (Value, Value, error) {
 	if len(args) > 2 {
-		return Undefined, Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+		return Undefined, Undefined, ErrArgCount
 	}
 	s, e := Undefined, Undefined
 	if len(args) > 0 {
@@ -58,16 +56,6 @@ func readSliceArgs(name string, args []Value) (Value, Value, error) {
 		e = args[1]
 	}
 	return s, e, nil
-}
-
-// memberSlice is slice([start[, end]]), the member spelling of a[i:j], shared by the sequence types: it goes through
-// the receiver's own Slice hook, so the two spellings cannot drift apart.
-func memberSlice(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	s, e, err := readSliceArgs(id.String(), args)
-	if err != nil {
-		return Undefined, err
-	}
-	return v.Slice(s, e)
 }
 
 // resolveSliceBounds parses a (start, end) bound pair — undefined meaning omitted — and normalises it against the
@@ -128,11 +116,9 @@ func resolveIndex(name string, index Value, length int) (int, error) {
 }
 
 // readEditPos reads a positional edit's slot (insert's position): int-valued and lossless, negative counting from
-// the end, and — editing past the end is not harmless, unlike reading — out of [0, length] raises.
+// the end, and — editing past the end is not harmless, unlike reading — out of [0, length] raises. The dispatcher
+// guarantees the slot (the template's first parameter).
 func readEditPos(name string, args []Value, length int) (int, error) {
-	if len(args) == 0 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
-	}
 	i, err := parseIntArg(name, "first", args[0])
 	if err != nil {
 		return 0, err
@@ -182,11 +168,9 @@ func readSpliceRange(name string, args []Value, length int) (int, int, error) {
 }
 
 // readElemCallback reads the single callback argument of a per-element member (map, flat_map, for_each): one
-// function taking the element (f/1) or the (index, element) pair (f/2).
+// function called with the element (f/1) or, when it does not accept one argument, the (index, element) pair
+// (f/2) — the fewest form wins (CallbackForm). The dispatcher guarantees the one argument.
 func readElemCallback(vm VM, name string, args []Value) (*ElemCallback, error) {
-	if len(args) != 1 {
-		return nil, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
 	fn := args[0]
 	if !fn.IsCallable() {
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "function", fn.TypeName())
@@ -194,18 +178,16 @@ func readElemCallback(vm VM, name string, args []Value) (*ElemCallback, error) {
 	return newElemCallback(vm, name, fn)
 }
 
-// readReduceArgs reads reduce(acc, f): the initial accumulator and a function taking (acc, element) (f/2) or
-// (acc, index, element) (f/3).
+// readReduceArgs reads reduce(acc, f): the initial accumulator and a function called with (acc, element) (f/2)
+// when it accepts two arguments, else with (acc, index, element) (f/3) when it accepts three (CallbackForm). The
+// dispatcher guarantees the two arguments.
 func readReduceArgs(vm VM, args []Value) (Value, *ReduceCallback, error) {
-	if len(args) != 2 {
-		return Undefined, nil, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
-	}
 	acc, fn := args[0], args[1]
 	if !fn.IsCallable() {
 		return Undefined, nil, errs.NewInvalidArgumentTypeError("reduce", "second", "function", fn.TypeName())
 	}
-	arity := fn.Arity()
-	if arity != 2 && arity != 3 {
+	arity, ok := CallbackForm(fn, 2, 3)
+	if !ok {
 		return Undefined, nil, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
 	return acc, &ReduceCallback{vm: vm, fn: fn, arity: arity}, nil
@@ -292,6 +274,22 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 	return i, nil
 }
 
+// CallbackForm picks the argument count a callback fn is called with: the FEWEST k in fewest..most that fn
+// accepts by its pair (arity N, variadic), where accepts(k) is k == N, or variadic and k > N. ok is false when it
+// accepts none of them. The pair alone decides — never the body, never the callable's kind — so a script function,
+// a builtin and a bound member with the same pair are called the same way: an element callback (1, 2) takes
+// func(x), func(x, ...a), func(...a), min, int or s.contains as f/1 and only func(i, x) as f/2. A lambda is the one
+// way to call a callable in another form (choose it, reorder, fix or drop arguments).
+func CallbackForm(fn Value, fewest, most int) (k int, ok bool) {
+	arity, variadic := fn.Arity(), fn.IsVariadic()
+	for k := fewest; k <= most; k++ {
+		if k == arity || (variadic && k > arity) {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
 // ElemCallback is a per-element callback read once per member call (readElemCallback, newElemCallback): f/1
 // receives the element, f/2 the (index, element) pair. It reuses one argument buffer for every call, which is
 // sound because a callee never retains or mutates its arguments (docs/conventions.md).
@@ -302,11 +300,12 @@ type ElemCallback struct {
 	buf   [2]Value // the argument buffer
 }
 
-// newElemCallback validates a per-element callback argument fn, already known to be callable: it must take the
-// element (f/1) or the (index, element) pair (f/2).
+// newElemCallback validates a per-element callback argument fn, already known to be callable: it is called with
+// the element (f/1) when it accepts one argument, else with the (index, element) pair (f/2) when it accepts two,
+// and refused otherwise (CallbackForm).
 func newElemCallback(vm VM, name string, fn Value) (*ElemCallback, error) {
-	arity := fn.Arity()
-	if arity != 1 && arity != 2 {
+	arity, ok := CallbackForm(fn, 1, 2)
+	if !ok {
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
 	}
 	return &ElemCallback{vm: vm, fn: fn, arity: arity}, nil
@@ -382,11 +381,8 @@ func SeqRepeatOperand(other Value) (int, bool, error) {
 }
 
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
-// It expects exactly one int argument and returns an error if the count is negative.
+// Its one int argument is guaranteed by the dispatcher; a negative count raises.
 func parseRepeatCount(name string, args []Value) (int, error) {
-	if len(args) != 1 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {
 		return 0, err
@@ -509,10 +505,10 @@ func IsBlankElement(e Value) bool {
 // conversion answers the default when one is supplied and raises otherwise. Every conversion member carries the
 // slot — including identities and total conversions, where it can never fire — so generic code never has to
 // special-case the receiver's type. The default is deliberately not type-checked: it is an explicit opt-out,
-// the caller's responsibility.
+// the caller's responsibility. A second argument is refused with ErrArgCount, for the dispatcher to report.
 func ConvMember(name string, from string, args []Value, ok bool, res Value) (Value, error) {
 	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		return Undefined, ErrArgCount
 	}
 	if ok {
 		return res, nil
@@ -650,31 +646,19 @@ func defaultBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 func CallMemberByLookup(vm VM, v Value, name string, args []Value) (Value, error) {
 	d := &ValueTypes[v.Type]
 	if id := member.Lookup(name); id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
-		return d.Methods[id].Fn(vm, v, id, args)
+		return d.Methods[id].Call(vm, v, id, args)
 	}
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
-// MemberIsTrue is the universal is_true member: every builtin type's Methods table carries it under members.IsTrue,
-// answering the type's IsTrue hook (truthiness is always derived from the type, never declared per member).
+// FormatWithSpec is the body of every format([spec]) member, which calls it from a one-line wrapper: it parses the
+// spec and renders through the receiver type's own Format hook. id names the member for errors; a second argument
+// is refused with ErrArgCount, for the dispatcher to report.
 // PURE by contract
-func MemberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
-	}
-	t, err := ValueTypes[v.Type].IsTrue(v)
-	if err != nil {
-		return Undefined, err
-	}
-	return BoolValue(t), nil
-}
-
-// MemberFormat is the universal format([spec]) member: parses the spec and renders through the type's own Format hook.
-// PURE by contract
-func MemberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+func FormatWithSpec(v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		return Undefined, ErrArgCount
 	}
 	f := ""
 	if len(args) == 1 {
@@ -699,16 +683,6 @@ func MemberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	return NewStringValue(s), nil
-}
-
-// MemberSelf answers the receiver: copy and freeze of an always-immutable type (a copy of any depth is the value
-// itself, and it is frozen already).
-// PURE by contract
-func MemberSelf(_ VM, v Value, id member.ID, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
-	}
-	return v, nil
 }
 
 // PropertyByLookup is the last step of every name path for x.name — the mirror of Value.AccessProperty for a
@@ -1019,10 +993,7 @@ const (
 )
 
 // durationFromInt is n units in nanoseconds; int is checked, so a duration past its range raises.
-func durationFromInt(id member.ID, args []Value, n int64, unit time.Duration) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
-	}
+func durationFromInt(id member.ID, n int64, unit time.Duration) (Value, error) {
 	ns, ok := IntMulChecked(n, int64(unit))
 	if !ok {
 		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the duration overflows int", id.String()))
@@ -1031,10 +1002,7 @@ func durationFromInt(id member.ID, args []Value, n int64, unit time.Duration) (V
 }
 
 // durationFromFloat is f units rounded to the nearest nanosecond; NaN, ±Inf and a result past int's range raise.
-func durationFromFloat(id member.ID, args []Value, f float64, unit time.Duration) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
-	}
+func durationFromFloat(id member.ID, f float64, unit time.Duration) (Value, error) {
 	ns := math.Round(f * float64(unit))
 	if math.IsNaN(ns) {
 		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) the duration is not a number", id.String()))
@@ -1046,9 +1014,6 @@ func durationFromFloat(id member.ID, args []Value, f float64, unit time.Duration
 }
 
 // durationIn reads a duration of ns nanoseconds in a unit, as a float.
-func durationIn(id member.ID, args []Value, ns int64, unit time.Duration) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
-	}
+func durationIn(id member.ID, ns int64, unit time.Duration) (Value, error) {
 	return FloatValue(float64(ns) / float64(unit)), nil
 }

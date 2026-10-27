@@ -13,8 +13,35 @@ import (
 
 // The fs module is the file system: files (the fs.file type), directories, links, permissions.
 
-func init() {
-	m := core.NewModule(value.ModuleFs, "fs", false)
+// The file system: files, directories, links, permissions.
+//
+// ```go
+// fs := import("fs")
+// f := fs.create("./out.txt")
+// f.write_string("hello")
+// f.close()
+// string(fs.read_file("./out.txt"))   // => "hello" — read_file answers bytes
+// fs.stat("./out.txt").size           // => 5
+// ```
+//
+// Constants:
+//
+// - Open flags: `o_rd`, `o_wr`, `o_rdwr`, `o_append`, `o_create`, `o_excl`, `o_sync`, `o_trunc`.
+// - Seek modes: `seek_set`, `seek_cur`, `seek_end`.
+// - File mode bits: `mode_dir`, `mode_append`, `mode_exclusive`, `mode_temporary`, `mode_symlink`, `mode_device`,
+// `mode_named_pipe`, `mode_socket`, `mode_set_uid`, `mode_set_gui`, `mode_char_device`, `mode_sticky`,
+// `mode_type`, `mode_perm`.
+//
+// An open file is an [`fs.file`](../types/fs_file.md): `name`, `read(buffer)`, `write(bytes)`, `write_string(s)`,
+// `seek(offset, whence)`, `stat`, `sync`, `chmod`, `chown`, `chdir`, `read_dir_names(n)`, `close`.
+//
+// **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
+// `(fs.remove) remove /nope: no such file or directory`. A function whose success has no result answers `undefined`.
+//
+//kavun:module fs impure
+
+// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.FsFile, TypeFile)
 	m.Const(members.ORd, core.IntValue(int64(os.O_RDONLY)))
 	m.Const(members.OWr, core.IntValue(int64(os.O_WRONLY)))
@@ -41,34 +68,14 @@ func init() {
 	m.Const(members.ModeSticky, core.IntValue(int64(os.ModeSticky)))
 	m.Const(members.ModeType, core.IntValue(int64(os.ModeType)))
 	m.Const(members.ModePerm, core.IntValue(int64(os.ModePerm)))
-	m.Fn(members.Open, 0, fsOpen, 1, core.Fixed)
-	m.Fn(members.OpenFile, 1, fsOpenFile, 3, core.Fixed)
-	m.Fn(members.Create, 2, fsCreate, 1, core.Fixed)
-	m.Fn(members.ReadFile, 3, fsReadFile, 1, core.Fixed)
-	m.Fn(members.Stat, 4, fsStat, 1, core.Fixed)
-	m.Fn(members.Mkdir, 5, fsMkdir, 2, core.Fixed)
-	m.Fn(members.MkdirAll, 6, fsMkdirAll, 2, core.Fixed)
-	m.Fn(members.Remove, 7, fsRemove, 1, core.Fixed)
-	m.Fn(members.RemoveAll, 8, fsRemoveAll, 1, core.Fixed)
-	m.Fn(members.Rename, 9, fsRename, 2, core.Fixed)
-	m.Fn(members.Truncate, 10, fsTruncate, 2, core.Fixed)
-	m.Fn(members.Chmod, 11, fsChmod, 2, core.Fixed)
-	m.Fn(members.Chown, 12, fsChown, 3, core.Fixed)
-	m.Fn(members.Lchown, 13, fsLchown, 3, core.Fixed)
-	m.Fn(members.Link, 14, fsLink, 2, core.Fixed)
-	m.Fn(members.Symlink, 15, fsSymlink, 2, core.Fixed)
-	m.Fn(members.ReadLink, 16, fsReadlink, 1, core.Fixed)
-	m.Fn(members.TempDir, 17, fsTempDir, 0, core.Fixed)
-	// 18..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
 }
 
+// Open a file for reading.
+//
+// `path` is a `string`.
+//
+//kavun:fn open slot=0 impure (path) -> fs.file
 func fsOpen(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.open", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.open", "first", "string(compatible)", args[0].TypeName())
@@ -80,10 +87,12 @@ func fsOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	return NewFileValue(res), nil
 }
 
+// Open a file with flags and permission bits.
+//
+// `path` is a `string` and `flag` and `perm` are `int`s.
+//
+//kavun:fn open_file slot=1 impure (path, flag, perm) -> fs.file
 func fsOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.open_file", "3", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.open_file", "first", "string(compatible)", args[0].TypeName())
@@ -103,10 +112,12 @@ func fsOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	return NewFileValue(res), nil
 }
 
+// Create (or truncate) a file.
+//
+// `path` is a `string`.
+//
+//kavun:fn create slot=2 impure (path) -> fs.file
 func fsCreate(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.create", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.create", "first", "string(compatible)", args[0].TypeName())
@@ -118,10 +129,12 @@ func fsCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	return NewFileValue(res), nil
 }
 
+// Read a whole file.
+//
+// `path` is a `string`.
+//
+//kavun:fn read_file slot=3 impure (path) -> bytes
 func fsReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.read_file", "1", len(args))
-	}
 	fname, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.read_file", "first", "string(compatible)", args[0].TypeName())
@@ -133,10 +146,12 @@ func fsReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.NewBytesValue(bytes, false), nil
 }
 
+// Answer a frozen record `{name, mtime, size, mode, directory}` of facts about a file.
+//
+// `path` is a `string`.
+//
+//kavun:fn stat slot=4 impure (path) -> record
 func fsStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.stat", "1", len(args))
-	}
 
 	fname, ok := args[0].AsString()
 	if !ok {
@@ -151,10 +166,12 @@ func fsStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return NewStatValue(stat), nil
 }
 
+// Create a directory.
+//
+// `path` is a `string` and `perm` is an `int`.
+//
+//kavun:fn mkdir slot=5 impure (path, perm) -> undefined
 func fsMkdir(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.mkdir", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.mkdir", "first", "string(compatible)", args[0].TypeName())
@@ -166,10 +183,12 @@ func fsMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.mkdir", os.Mkdir(s1, os.FileMode(i2)))
 }
 
+// Create a directory and every missing parent; see [`mkdir`](#mkdir).
+//
+// `path` is a `string` and `perm` is an `int`.
+//
+//kavun:fn mkdir_all slot=6 impure (path, perm) -> undefined
 func fsMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.mkdir_all", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.mkdir_all", "first", "string(compatible)", args[0].TypeName())
@@ -181,10 +200,12 @@ func fsMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.mkdir_all", os.MkdirAll(s1, os.FileMode(i2)))
 }
 
+// Remove a file or an empty directory.
+//
+// `path` is a `string`.
+//
+//kavun:fn remove slot=7 impure (path) -> undefined
 func fsRemove(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.remove", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.remove", "first", "string(compatible)", args[0].TypeName())
@@ -192,10 +213,12 @@ func fsRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.remove", os.Remove(s1))
 }
 
+// Remove a file or a whole tree; see [`remove`](#remove).
+//
+// `path` is a `string`.
+//
+//kavun:fn remove_all slot=8 impure (path) -> undefined
 func fsRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.remove_all", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.remove_all", "first", "string(compatible)", args[0].TypeName())
@@ -203,10 +226,12 @@ func fsRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.remove_all", os.RemoveAll(s1))
 }
 
+// Rename or move a file.
+//
+// `old_path` and `new_path` are `string`s.
+//
+//kavun:fn rename slot=9 impure (old_path, new_path) -> undefined
 func fsRename(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.rename", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.rename", "first", "string(compatible)", args[0].TypeName())
@@ -218,10 +243,12 @@ func fsRename(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.rename", os.Rename(s1, s2))
 }
 
+// Truncate a file to `size` bytes.
+//
+// `path` is a `string` and `size` is an `int`.
+//
+//kavun:fn truncate slot=10 impure (path, size) -> undefined
 func fsTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.truncate", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.truncate", "first", "string(compatible)", args[0].TypeName())
@@ -233,10 +260,12 @@ func fsTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return modkit.Done("fs.truncate", os.Truncate(s1, i2))
 }
 
+// Set a file's permission bits.
+//
+// `path` is a `string` and `mode` is an `int`.
+//
+//kavun:fn chmod slot=11 impure (path, mode) -> undefined
 func fsChmod(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.chmod", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.chmod", "first", "string(compatible)", args[0].TypeName())
@@ -248,10 +277,12 @@ func fsChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.chmod", os.Chmod(s1, os.FileMode(i2)))
 }
 
+// Set a file's owner and group; see [`chmod`](#chmod).
+//
+// `path` is a `string` and `uid` and `gid` are `int`s.
+//
+//kavun:fn chown slot=12 impure (path, uid, gid) -> undefined
 func fsChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.chown", "3", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.chown", "first", "string(compatible)", args[0].TypeName())
@@ -267,10 +298,12 @@ func fsChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return modkit.Done("fs.chown", os.Chown(s1, int(i2), int(i3)))
 }
 
+// Set a symbolic link's own owner and group; see [`chmod`](#chmod).
+//
+// `path` is a `string` and `uid` and `gid` are `int`s.
+//
+//kavun:fn lchown slot=13 impure (path, uid, gid) -> undefined
 func fsLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.lchown", "3", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.lchown", "first", "string(compatible)", args[0].TypeName())
@@ -286,10 +319,12 @@ func fsLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return modkit.Done("fs.lchown", os.Lchown(s1, int(i2), int(i3)))
 }
 
+// Create a hard link.
+//
+// `old_path` and `new_path` are `string`s.
+//
+//kavun:fn link slot=14 impure (old_path, new_path) -> undefined
 func fsLink(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.link", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.link", "first", "string(compatible)", args[0].TypeName())
@@ -301,10 +336,12 @@ func fsLink(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.link", os.Link(s1, s2))
 }
 
+// Create a symbolic link; see [`link`](#link).
+//
+// `old_path` and `new_path` are `string`s.
+//
+//kavun:fn symlink slot=15 impure (old_path, new_path) -> undefined
 func fsSymlink(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.symlink", "2", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.symlink", "first", "string(compatible)", args[0].TypeName())
@@ -316,10 +353,12 @@ func fsSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	return modkit.Done("fs.symlink", os.Symlink(s1, s2))
 }
 
+// Answer the target of a symbolic link; see [`link`](#link).
+//
+// `path` is a `string`.
+//
+//kavun:fn read_link slot=16 impure (path) -> string
 func fsReadlink(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.read_link", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("fs.read_link", "first", "string(compatible)", args[0].TypeName())
@@ -331,10 +370,10 @@ func fsReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(res), nil
 }
 
+// Answer the system temporary directory.
+//
+//kavun:fn temp_dir slot=17 impure () -> string
 func fsTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("fs.temp_dir", "0", len(args))
-	}
 	s := os.TempDir()
 	return core.NewStringValue(s), nil
 }

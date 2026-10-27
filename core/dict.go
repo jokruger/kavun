@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strings"
 	"unsafe"
@@ -56,6 +55,229 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 	return Value{Type: value.Dict, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
+// Mutable string-keyed maps.
+//
+// ## Overview
+//
+// **A dict is a set of keys, each with an attached value: the key is the element, the value is the attachment.**
+// That one sentence generates the whole surface. Search members (`contains`, `count`, `index`, `any`, `all`) match
+// keys; `keys()` and `values()` name the two axes; `keep`/`remove` keep or drop whole entries; `map` transforms
+// the attachment with the keys fixed. Any operation that would have to choose between the key axis and the value
+// axis is deliberately absent — instead you name the collection you mean: `d.values().contains(x)`,
+// `d.values().sum()`, `d.keys().min()`.
+//
+// Dicts are reference-typed: `b = a` shares the underlying map, `copy()` makes an independent one — see
+// [container semantics](../../container_semantics.md). Keys are always strings. Values can be anything.
+//
+// `dict` and [`record`](record.md) are the same map shape with two access grammars: on a `dict`, `d[k]` is
+// element access and `d.name(...)` is a member-function call; on a `record`, `r.k` is field access and there are no
+// member functions at all. Conversions between them are one call in either direction (see [`record()`](#record) and
+// [`dict()`](#dict)).
+//
+// The two failure modes shared by the surface:
+//
+// - Every `_in_place` twin raises `not_mutable` on a frozen receiver; on success it mutates the shared map and
+// returns the receiver, so mutators chain.
+// - Every member that takes an argument has **no blank (no-argument) reading**: a map has two axes, so a bare
+// `d.keep()` / `d.contains()` / `d.any()` has no single meaning and raises `wrong_num_arguments` rather than
+// guessing one.
+//
+// There is **no `.string()`** on dict, and the free `string(d)` raises too — a map's content has no text form.
+// The rendering is `format()` / f-strings.
+//
+// ## Literals and construction
+//
+// There is no dict literal — `{a: 1}` is a [record](record.md) literal. A dict is built by the `dict()`
+// constructor:
+//
+// ```go
+// d = dict({a: 1, b: 2})       // from a record literal: dict({"a": 1, "b": 2})
+// q = dict({"x y": 1})         // string key form for keys that aren't identifiers
+// e = dict()                   // empty dict — a real, writable map:
+// e["x"] = 1
+// e                            // => dict({"x": 1})
+//
+// // a dict argument is copied, never aliased — a constructor constructs
+// c = dict(d)                  // a new, independent dict (shallow: values are shared)
+// c["a"] = 9                   // d["a"] is still 1
+// dict(freeze(d))              // mutable again
+// ```
+//
+// ### The entries form
+//
+// `dict([[k, v], ...])` constructs from a list of entries, where each element must be exactly a 2-element array —
+// anything else raises (`conversion`). Keys go through their own string conversion; a duplicate key is
+// last-one-wins. `arr.dict()` is the same reading as a member on `array`:
+//
+// ```go
+// dict([["a", 1], ["b", 2]])       // => dict({"a": 1, "b": 2})
+// [["a", 1], ["b", 2]].dict()      // same
+// dict([[1, "x"], [2.5, "y"]])     // => dict({"1": "x", "2.5": "y"}) — keys stringified
+// dict([[1, 2, 3]])                // Error: conversion — an entry is exactly [key, value]
+// ```
+//
+// The reverse edge is [`d.array()`](#array), which answers the
+// entries key-sorted — the two round-trip up to ordering.
+//
+// ### From a record
+//
+// ```go
+// dict({a: 1})          // independent dict with the record's entries
+// dict_view({a: 1})     // a dict sharing the record's map — see record: views
+// ```
+//
+// The `_view` pair is the one place the constructor rule does **not** apply: `dict()` / `record()` always build
+// a new value, and `dict_view()` / `record_view()` always share storage — that is their entire job, and the only
+// way to get shared storage in the language. On an argument that is already the target type there is nothing to
+// borrow — `d` already owns its map — so `dict_view(d)` answers `d` itself and `is_view(d)` stays `false`.
+//
+// ## Keys and the index operator
+//
+// Keys are strings. A non-string key stores under (and looks up by) its **canonical text** — the same reading
+// `.string()` answers: `d[65]` keys `"65"`, `d[b'A']` keys `"A"`, `d[true]` keys `"true"`, and a high octet like
+// `b'\xFF'` keys its escape text `"\xff"`. A value with no canonical text — a `dict`, a `record`, a callable,
+// `undefined` — raises `invalid_index_type`, never silently keys by its rendering. A sequence-typed key (`array`,
+// `range`) raises too: a transcode is not a key.
+//
+// ```go
+// d = dict({a: 1})
+// d[1] = "x"            // stored under "1"
+// d[1.5] = "y"          // stored under "1.5"
+// d[true] = "z"         // stored under "true"
+// d[b'A'] = "w"         // stored under "A" — a byte's canonical text is its ASCII symbol
+// d[b'\xFF'] = "v"      // stored under "\xff" — a high octet's text is its escape
+// d["1"]                // => "x" — the same entry d[1] wrote
+//
+// d[{k: 1}]             // Error: invalid_index_type — record has no string conversion
+// d[dict()]             // Error: invalid_index_type
+// d[func() { return 1 }]  // Error: invalid_index_type
+// d[undefined]          // Error: invalid_index_type
+// d[b'\xFF']            // => "v" — the same entry d[b'\xFF'] wrote, under "\xff"
+// d[[1, 2]]             // Error: invalid_index_type — a sequence is not a key
+// d[range(1, 3)]        // Error: invalid_index_type
+// ```
+//
+// Reading a missing key answers `undefined` — presence and "attached `undefined`" are told apart with
+// `contains`:
+//
+// ```go
+// d = dict({a: 1})
+// d["nope"]             // => undefined
+// d.contains("nope")    // => false
+// ```
+//
+// `d[k] = v` is a statement, not an expression. On a frozen dict it raises `not_assignable`:
+//
+// ```go
+// f = dict({a: 1}).freeze()
+// f["b"] = 2            // Error: not_assignable
+// ```
+//
+// Dot access on a dict is **not** element access — that namespace belongs to member functions, and it is refused
+// in **both directions**: `d.a` (read) and `d.a = 5` (write) each raise `invalid_selector`
+// (`type dict has no property a`). In a chain the refusal hits at the first dot — `d.x.y = 1` raises at `.x`.
+// Element access is always `d["a"]` / `d["a"] = 5`; the selector grammar is [`record`](record.md)'s
+// feature.
+//
+// ## Operators
+//
+// | operator | meaning | result |
+// | --- | --- | --- |
+// | `d1 + d2` | merge, last (right) wins on key collision | `dict` |
+// | `dict + record`, `record + dict` | merge — either operand being a `dict` makes the result a `dict` | `dict` |
+// | `d - "key"` | new dict without that entry; missing key is a no-op; non-mutating | `dict` |
+// | `k in d` | key membership, with `contains`' rules (below) | `bool` |
+// | `==` / `!=` | deep structural equality; crosses `dict`/`record` freely | `bool` |
+// | `< > <= >=` | **not defined** — a map has no total order | raises |
+//
+// ```go
+// dict({a: 1, b: 2}) + dict({b: 9, c: 3})   // => dict({"a": 1, "b": 9, "c": 3})
+// dict({a: 1}) + {b: 2}                     // => dict({"a": 1, "b": 2})
+// {a: 1} + dict({b: 2})                     // => dict({"a": 1, "b": 2})
+//
+// dict({a: 1, b: 2}) - "a"                  // => dict({"b": 2}) — the receiver is untouched
+// dict({a: 1}) - "zz"                       // => dict({"a": 1}) — missing key, no-op
+// ```
+//
+// `-` takes a `string` key only; there is no reflected form (`"key" - d` is not defined).
+//
+// `in` asks key membership and follows `contains`' acceptance — it converts what a key probe converts and raises
+// on everything else, never answering a silent `false` for an operand it cannot read:
+//
+// ```go
+//
+//	"a" in dict({a: 1})               // => true
+//	"z" in dict({a: 1})               // => false
+//	1 in dict([["1", 5]])             // => true — the int converts to the key "1"
+//
+//	dict({a: 1}) in dict({a: 1, b: 2})     // Error: not_implemented — the submap reading is reserved
+//	(func() { return 1 }) in dict({a: 1})  // Error: invalid_value — an operator operand is always a value;
+//	                                       // the predicate reading is contains(f)/any(f)
+//	undefined in dict({a: 1})              // Error: invalid_argument_type — not convertible to a key
+//
+// ```
+//
+// Equality is deep — element values compare by their own equality, key order never matters, and `dict` and
+// `record` compare across each other:
+//
+// ```go
+// dict({a: [1, 2]}) == dict({a: [1, 2]})   // => true
+// dict({a: [1, 2]}) == dict({a: [1, 3]})   // => false
+// dict({a: 1}) == {a: 1}                   // => true — dict/record cross freely
+// ```
+//
+// ## Iteration
+//
+// A map's element is its key, so the single-variable form yields **keys**; the two-variable form yields
+// `(key, value)`; values alone are spelled with the blank:
+//
+// ```go
+// d = dict({b: 2, a: 1})
+// for k in d {}             // k: "a", "b" — the keys
+// for k, v in d {}          // ("a", 1), ("b", 2)
+// for _, v in d {}          // 1, 2 — the values spelling
+// ```
+//
+// **Key order is lexical, everywhere.** Iteration, every member that visits keys (`for_each`, `reduce`, `index`,
+// `map`, `keep`, `count`, `any`, `all`, …), `keys()`/`values()`, the `array()` entries, and rendering and
+// encoding all walk the same single order, so a map-driven program answers the same thing on every run — a
+// display, a `json.encode` payload and a binary blob included. Keys are strings and sort as strings do
+// (byte-wise: `"10"` before `"2"`, uppercase before lowercase).
+//
+// ```go
+// d = dict({zebra: 1, apple: 2, mango: 3})
+// d.keys()                       // => ["apple", "mango", "zebra"]
+// for k in d {}                 // "apple", "mango", "zebra" — the same order
+// array(d)                       // => [["apple", 2], ["mango", 3], ["zebra", 1]]
+// ```
+//
+// Order is a *contract*, not an insertion memory: a dict has no insertion order to preserve, and re-inserting a
+// key does not move it. It is also not a sortable sequence.
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the search members, `map`, `for_each`, `reduce` — calls it
+// in the **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from what kind of
+// callable it is:
+//
+// - a per-element callback gets the key when it accepts one argument, else `(key, value)`; anything else raises;
+// - a `reduce` callback gets `(acc, key)` when it accepts two arguments, else `(acc, key, value)`; anything else
+// raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the key, and a builtin or a bound member is a callback like any other
+// (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form — choose
+// the form, reorder, fix or drop arguments:
+//
+// ```go
+// d = dict({a: 1, b: 2})
+// d.keep(func(k, v) { return v > 1 })                   // => dict({"b": 2}) — accepts two, not one
+// d.count(func(k, ...rest) { return k == "a" })         // => 1 — accepts one: the key
+// d.keep(["b", "c"].contains)                           // => dict({"b": 2})
+// d.reduce(0, func(acc, k, v) { return acc + v })       // => 3
+// ```
+//
+//kavun:type dict
+
 var TypeDict = ValueTypeDescr{
 	Name:                MutabilityNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
 	String:              dictTypeString,                                          // PURE by contract
@@ -83,39 +305,7 @@ var TypeDict = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
-	Methods: []Method{
-		members.IsTrue:        NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.Format:        NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:          NewPureMethod(dictCopy, 0, Fixed),
-		members.Freeze:        NewPureMethod(dictFreeze, 0, Fixed),
-		members.Time:          NewPureMethod(dictTime, 0, Variadic),
-		members.Date:          NewPureMethod(dictDate, 0, Variadic),
-		members.Array:         NewPureMethod(dictArray, 0, Variadic),
-		members.Dict:          NewPureMethod(dictDict, 0, Variadic),
-		members.Record:        NewPureMethod(dictRecord, 0, Fixed),
-		members.Range:         NewPureMethod(dictRange, 0, Variadic),
-		members.Len:           NewPureMethod(dictLen, 0, Fixed),
-		members.IsEmpty:       NewPureMethod(dictIsEmpty, 0, Fixed),
-		members.Contains:      NewPureMethod(dictContains, 1, Variadic),
-		members.Index:         NewPureMethod(dictIndex, 1, Variadic),
-		members.Count:         NewPureMethod(dictCount, 1, Variadic),
-		members.All:           NewPureMethod(dictAll, 1, Variadic),
-		members.Any:           NewPureMethod(dictAny, 1, Variadic),
-		members.ForEach:       NewPureMethod(dictForEach, 1, Fixed),
-		members.Reduce:        NewPureMethod(dictReduce, 2, Fixed),
-		members.Keep:          NewPureMethod(dictKeep, 1, Variadic),
-		members.Map:           NewPureMethod(dictMap, 1, Fixed),
-		members.Remove:        NewPureMethod(dictRemove, 1, Variadic),
-		members.CopyShallow:   NewPureMethod(dictCopyShallow, 0, Fixed),
-		members.FreezeShallow: NewPureMethod(dictFreezeShallow, 0, Fixed),
-		members.Keys:          NewPureMethod(dictKeys, 0, Fixed),
-		members.Values:        NewPureMethod(dictValues, 0, Fixed),
-		members.Merge:         NewPureMethod(dictMerge, 0, Variadic),
-		members.MergeInPlace:  NewMethod(dictMergeInPlace, 0, Variadic),
-		members.RecordView:    NewPureMethod(dictRecordView, 0, Fixed),
-		members.KeepInPlace:   NewMethod(dictKeepInPlace, 1, Variadic),
-		members.RemoveInPlace: NewMethod(dictRemoveInPlace, 1, Variadic),
-	},
+	Methods: dictMethods,
 }
 
 func dictTypeString(v Value) string {
@@ -395,9 +585,6 @@ type dictMatch struct {
 
 // dictReadMatchArgs reads a match member's arguments.
 func dictReadMatchArgs(vm VM, name string, args []Value) (dictMatch, error) {
-	if len(args) == 0 {
-		return dictMatch{}, errs.NewWrongNumArgumentsError(name, "1 or more (a map has no blank reading)", 0)
-	}
 
 	if args[0].IsCallable() {
 		if len(args) > 1 {

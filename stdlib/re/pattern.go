@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -26,6 +25,38 @@ func PatternOf(v core.Value) *regexp.Regexp {
 	return (*regexp.Regexp)(v.Ptr)
 }
 
+// A compiled regular expression, as `re.pattern(src)` answers it.
+//
+// ## Overview
+//
+// `re.pattern` is owned by the [`re`](../stdlib/re.md) module and built only by its constructor. It is immutable,
+// its members are pure (the same pattern and text always answer the same result), and its text content is its
+// source — so unlike the world handles (`fs.file`, …) it has `string()`, and `string(p)` works too. It renders as the
+// expression that builds it.
+//
+// ```go
+// re := import("re")
+// p := re.pattern("([a-z]+)([0-9]+)")
+// type_name(p)                 // => "re.pattern"
+// format(p)                    // `re.pattern("([a-z]+)([0-9]+)")`
+// string(p)                    // => "([a-z]+)([0-9]+)"
+// p.match("ab12")              // => true
+// p.replace("ab12 cd34", "$2$1")   // => "12ab 34cd"
+// ```
+//
+// The syntax is Go's RE2: no backreferences or lookaround, and matching time is linear in the input — a pattern
+// cannot be made to run away on hostile text.
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `==` / `!=` | the same source text (`re.pattern("a+") == re.pattern("a+")`) |
+// | `!` | a pattern is always truthy |
+// | everything else | raises |
+//
+//kavun:type re.pattern
+
 // TypePattern is the re.pattern type descriptor.
 var TypePattern = core.ValueTypeDescr{
 	Name:     core.ConstHook(patternTypeName),                                          // PURE by contract
@@ -35,17 +66,7 @@ var TypePattern = core.ValueTypeDescr{
 	Equal:    patternTypeEqual,                                                         // PURE by contract
 	AsString: func(v core.Value) (string, bool) { return PatternOf(v).String(), true }, // PURE by contract: the source
 
-	Methods: []core.Method{
-		members.IsTrue:  core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String:  core.NewPureMethod(patternString, 0, core.Variadic),
-		members.Format:  core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:    core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:  core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Find:    core.NewPureMethod(patternFind, 1, core.Variadic),
-		members.Replace: core.NewPureMethod(patternReplace, 2, core.Fixed),
-		members.Split:   core.NewPureMethod(patternSplit, 1, core.Variadic),
-		members.Match:   core.NewPureMethod(patternMatch, 1, core.Fixed),
-	},
+	Methods: patternMethods,
 }
 
 // A pattern renders as the expression that builds it: re.pattern("[0-9]+").

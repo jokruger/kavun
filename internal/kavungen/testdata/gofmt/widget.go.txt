@@ -1,0 +1,9 @@
+package core
+
+// A widget whose sources are not gofmt-canonical.
+//
+//kavun:type widget
+
+var TypeWidget = ValueTypeDescr{
+	Methods: widgetMethods,
+}

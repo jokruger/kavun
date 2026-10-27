@@ -1,7 +1,6 @@
 package fin
 
 import (
-	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
@@ -86,6 +85,20 @@ func datedRatesEqual(a, b fin128.DatedRates) bool {
 	return true
 }
 
+// An immutable date-banded rate table, such as a teaser rate that reverts.
+//
+// ## Overview
+//
+// `fin.dated_rates` is owned by the [`fin`](../stdlib/fin.md) module (see [Rate and charge
+// tables](../stdlib/fin.md#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
+// form or from band records:
+//
+// | text form | band record |
+// | --- | --- |
+// | `"2026-01-01:0.04, 2026-07-01:0.02"` — each band from a date to the next | `{from: date, rate}` |
+//
+//kavun:type fin.dated_rates
+
 // TypeDatedRates is the fin.dated_rates type descriptor.
 var TypeDatedRates = core.ValueTypeDescr{
 	Name:   core.ConstHook(datedRatesTypeName),                                                             // PURE by contract
@@ -119,16 +132,5 @@ var TypeDatedRates = core.ValueTypeDescr{
 	},
 	AsString: func(v core.Value) (string, bool) { return DatedRatesOf(v).String(), true }, // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:      core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String:      core.NewPureMethod(datedRatesString, 0, core.Variadic),
-		members.Format:      core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:        core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:      core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.At:          core.NewPureMethod(datedRatesAt, 1, core.Variadic),
-		members.Bands:       core.NewPureMethod(datedRatesBands, 0, core.Fixed),
-		members.Accrue:      core.NewPureMethod(datedRatesAccrue, 6, core.Fixed),
-		members.AccrueParts: core.NewPureMethod(datedRatesAccrueParts, 6, core.Fixed),
-		members.Apply:       core.NewPureMethod(datedRatesApply, 4, core.Variadic),
-	},
+	Methods: datedRatesMethods,
 }

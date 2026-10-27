@@ -92,16 +92,16 @@ func Test_builtinRemove(t *testing.T) {
 			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
-			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove) expected (obj, key), got 0 arguments"},
 
 		{name: "empty-args", args: args{[]core.Value{}},
-			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove) expected (obj, key), got 0 arguments"},
 
 		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue("")}},
-			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 3"},
+			wantedErr: "wrong_num_arguments: (remove) expected (obj, key), got 3 arguments"},
 
 		{name: "nil-record-no-key", args: args{[]core.Value{core.NewRecordValue(nil, false)}},
-			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (remove) expected (obj, key), got 1 argument"},
 
 		{name: "record-missing-key",
 			args: args{
@@ -196,7 +196,7 @@ func Test_builtinRemoveInPlace(t *testing.T) {
 			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
-			wantedErr: "wrong_num_arguments: (remove_in_place) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove_in_place) expected (obj, key), got 0 arguments"},
 
 		{name: "record-emptied",
 			args: args{
@@ -277,10 +277,10 @@ func Test_builtinRange(t *testing.T) {
 			wantedErr: "invalid_value: (range) component start is required"},
 
 		{name: "single int arg", args: []core.Value{core.IntValue(1)},
-			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 1"},
+			wantedErr: "invalid_argument_type: (range) argument components expects type dict or record, got int"},
 
 		{name: "4 args", args: []core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(1), core.IntValue(1)},
-			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 4"},
+			wantedErr: "wrong_num_arguments: (range) expected () | (components) | (start, stop[, step]), got 4 arguments"},
 
 		{name: "invalid start", args: []core.Value{core.NewStringValue(""), core.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (range) argument start expects type int, got string"},
@@ -404,7 +404,7 @@ func Test_builtinFormat(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args",
-			wantedErr: "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (format) expected (x) | (template, args), got 0 arguments"},
 		// format(x) renders any value — the 1-arg render form
 		{name: "one arg", args: []core.Value{S("hi")}, want: "hi"},
 		{name: "one arg int", args: []core.Value{I(5)}, want: "5"},

@@ -51,7 +51,7 @@ Then you can run Kavun scripts with the `kavun` command or using hashbang:
 io = import("io")
 
 result = [1, 2, 3, 4, 5, 6]
-  .filter(x => x % 2 == 0)
+  .keep(x => x % 2 == 0)
   .map(x => x * x)
   .reduce(0, (sum, x) => sum + x)
 
@@ -82,11 +82,17 @@ A summary is shown below:
 - [Embedding](docs/embedding.md) - Guide to embedding the Kavun runtime in Go applications.
 - [Language Reference](docs/language.md) - Syntax, expressions, statements, functions, modules, built-ins, and diagnostics.
 - [Cheat Sheet](docs/cheatsheet.md) - One-page quick reference for syntax and key language features.
-- [Type Reference](docs/types.md) - Detailed builtin type semantics, conversions, and member functions.
-- [Standard Library](docs/stdlib.md) - Overview of standard library modules and their APIs.
+- [Type Reference](docs/types.md) - The type families and the language-wide rules: argument dispatch, conversions,
+  member/operator correspondence, callbacks, mutability, truthiness.
+- [Reference](docs/reference/builtins.md) - Generated from the source: one page per [type](docs/reference/types/array.md)
+  (`docs/reference/types/`), per [module](docs/reference/stdlib.md), the [builtin functions](docs/reference/builtins.md)
+  and the [function matrix](docs/reference/function_matrix.md).
+- [Standard Library](docs/stdlib.md) - General notes on the builtin modules: the module type, the grant, the failure policy. The per-module reference is [docs/reference/stdlib.md](docs/reference/stdlib.md).
 - [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
 - [Virtual Machine](docs/vm.md) - Virtual machine specifics and limitations.
-- [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions.
+- [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions, and how a native function
+  is declared (`//kavun:` directives, `go generate ./...`).
+- [Extending Types](docs/extending_types.md) - Adding a host type: operators, members, callables.
 
 ## Contributing
 
@@ -95,8 +101,9 @@ repository contracts.
 
 1. Fork the repository and clone your fork locally.
 2. Make your changes in a focused branch.
-3. Run the test suite.
-4. Add or update tests in `tests/unit` for any change that affects language or runtime behavior.
+3. Run `go generate ./...` after changing a native function's doc comment or directive, then the test suite.
+4. Add or update tests (end-to-end cases in `kavun_test.go`) for any change that affects language or runtime
+   behavior.
 5. Open a pull request describing the motivation for the change and any new or changed semantics.
 
 ## License

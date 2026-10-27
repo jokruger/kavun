@@ -8,8 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/member/members"
-
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
@@ -29,6 +27,375 @@ func NewStaticDecimalValue(d *dec128.Dec128) Value {
 func NewDecimalValue(d dec128.Dec128) Value {
 	return Value{Type: value.Decimal, Immutable: true, Ptr: unsafe.Pointer(&d)}
 }
+
+// 128-bit base-10 decimals (dec128) for exact monetary arithmetic.
+//
+// ## Overview
+//
+// `decimal` is a 128-bit decimal floating-point number: up to 38 significant digits with a fractional scale of 0 to
+// 19 digits. Arithmetic is exact in base 10 — `0.1d + 0.2d == 0.3d` is `true`, where the float spelling is famously
+// `false`. Money and anything else that must be exact in base 10 belongs in `decimal`; measurements and physics
+// belong in [`float`](float.md).
+//
+// `decimal` belongs to the numeric family alongside [`int`](int.md) and `float`: it pairs with `int` in arithmetic
+// and compares exactly against both. It has no Inf representation at all (`is_inf()` is constantly `false`), and a
+// NaN exists only as an error state a **host** can hand in — no operation in the language produces one, because
+// every path that would raises instead (see [NaN as an error state](#nan-as-an-error-state)).
+//
+// ## Literals and construction
+//
+// A base-10 numeric literal with a `d` suffix is a decimal:
+//
+// ```go
+// price = 19.99d
+// two = 2d
+// neg = -2.5d        // unary minus, exact
+// big = 1.5e3d       // => 1500d — exponent form, same value and scale as decimal("1.5e3")
+// ```
+//
+// The free `decimal(x)` constructor (equivalently `x.decimal()`) converts and parses; the member's optional
+// `x.decimal(default)` rescues bad data:
+//
+// ```go
+// decimal()                  // => 0d — the zero value
+// decimal("0.1")             // => 0.1d — parsing text is the lossless entry point
+// decimal(3)                 // => 3d
+// decimal(1.5)               // => 1.5d — from float, shortest decimal reading
+// decimal("abc")             // Error: conversion: cannot convert string to decimal — parse raises, no NaN sentinel
+// "abc".decimal(0d)          // => 0d — the member's default rescues bad data
+// undefined.decimal(0d)      // => 0d — the maybe-missing form
+// decimal("inf")             // Error: conversion: cannot convert string to decimal — the type has no Inf
+// decimal("1e3")             // => 1000d — scientific notation parses, in either case ("1E3" too)
+// ```
+//
+// ### Scientific notation and scale
+//
+// Both the mantissa's own digits and the exponent contribute to the resulting scale, so the notation carries
+// precision rather than discarding it:
+//
+// ```go
+// decimal("1.0e-3").format("s")   // => "0.0010" — scale 4: mantissa scale 1, shifted 3 more places
+// decimal("2.5E2").scale()        // => 0 — 250d; the exponent absorbed the fractional digit
+// decimal("1e-25")                // Error: conversion: cannot convert string to decimal — past the scale-19 ceiling
+// ```
+//
+// ## Arithmetic and operators
+//
+// | operator | meaning | notes |
+// | --- | --- | --- |
+// | `+` `-` `*` | add, subtract, multiply | exact; raise `invalid_value` past 38 digits |
+// | `/` | division | up to 19 places; an exact quotient keeps its natural scale (`10d / 4d` → `2.5d`); `/ 0d` raises `division_by_zero` |
+// | `%` | remainder | `10d % 3d` → `1d`; `% 0d` raises `division_by_zero` |
+// | `-x` | negation | exact, never overflows |
+//
+// ```go
+// 0.1d + 0.2d            // => 0.3d — exact
+// 0.1d + 0.2d == 0.3d    // => true
+// 0.1 + 0.2 == 0.3       // => false — the float contrast
+// 1d / 3d                // => 0.3333333333333333333d — 19 fractional digits
+// ```
+//
+// ### Scale of a result
+//
+// Each value carries a scale (count of stored fractional digits, observable via `scale()` and `format("s")`).
+// Addition keeps the wider operand's scale and multiplication adds scales. Division answers up to 19 places, but an
+// **exact** quotient keeps its natural scale — the dividend's scale minus the divisor's, or 0 — so it does not
+// sprout trailing zeros:
+//
+// ```go
+// (decimal("0.10") + decimal("0.20")).format("s")    // => "0.30" — scale 2
+// (decimal("1.5") * decimal("2.00")).scale()          // => 3 — scales add
+// (decimal("10.00") / 4d).format("s")                 // => "2.50" — exact, natural scale 2 - 0
+// (1d / 2d).format("s")                               // => "0.5"
+// (1d / 3d).scale()                                   // => 19 — inexact, so every place is used
+// ```
+//
+// A `d`-suffixed literal carries the scale it was written with, and two literals that differ only in trailing
+// zeros are two different constants:
+//
+// ```go
+// (1.5d).scale()     // => 1
+// (1.50d).scale()    // => 2
+// 1.5d == 1.50d      // => true — numeric equality is scale-blind
+// ```
+//
+// Use `round(n, mode)` to pin a result to a scale, `rescale(n)` to change the scale without changing the value,
+// and `canonical()` to drop trailing zeros.
+//
+// ### Rounding at the precision ceiling
+//
+// A decimal holds up to 38 significant digits with at most 19 fractional places. When an exact result does not
+// fit, the scale is reduced to the largest that still holds the integer part, and the discarded digits are
+// **truncated toward zero — not reported**:
+//
+// ```go
+//
+//	1d / 3d                             // => 0.3333333333333333333d — 19 places, the rest dropped
+//	decimal("0.0000000001") * decimal("0.0000000001")
+//	                                    // 0.0000000000000000000d — the exact 1e-20 needs 20 places,
+//	                                    // so it rounds to zero at scale 19
+//
+// ```
+//
+// This is ordinary and expected, and it is the same rule as `int`'s `1 / 2 == 0`: a decimal moves in steps of its
+// smallest unit, and a result finer than that step cannot be held. No fixed-point type can represent a third, and
+// the same ceiling applies to a very small product. The result does not record that digits were lost; only a
+// result whose *integer* part does not fit raises (see [Overflow raises](#overflow-raises)).
+//
+// The practical answer is to keep intermediates wide and round **once, at the boundary**, stating the scale and
+// the rounding mode at each point a result is pinned down: `round(2, mode)`, `div_round(y, 2, mode)` and the rest
+// of the [`*_round` members](#arithmetic-straight-to-a-scale--the-_round-members). A calculation carried at a
+// working scale well below 19 is unaffected by the ceiling. To check that a value is *already* on a grid without
+// changing it, `rescale(n)` raises instead of dropping a digit.
+//
+// ### Overflow raises
+//
+// A result that no longer fits 128 bits raises a catchable `invalid_value` error:
+//
+// ```go
+// x = decimal("99999999999999999999999999999999999999")
+// x + x    // => 199999999999999999999999999999999999998d — still fits
+// x * x    // Error: invalid_value: (*) overflow
+// ```
+//
+// ### Division by zero
+//
+// `x / 0d` and `x % 0d` raise `division_by_zero`, the same kind `int` answers for `1 / 0`. There is nothing to
+// check after the division:
+//
+// ```go
+// 1d / 0d              // Error: division_by_zero: division by zero
+// 0d / 0d              // Error: division_by_zero: division by zero
+// 1d % 0d              // Error: division_by_zero: division by zero
+// ```
+//
+// ### decimal never mixes with float
+//
+// Arithmetic between `decimal` and `float` raises — there is no silently-chosen loser of precision. Convert
+// explicitly on the side you mean:
+//
+// ```go
+// 1.5d + 1.0    // Error: invalid_binary_operator: decimal + float
+// 1.5 + 1d      // Error: invalid_binary_operator: float + decimal
+// 1.5d + 1      // => 2.5d — int pairs fine
+// 1.5d * 2      // => 3.0d — the scale rides along
+// 1.5d + (1.0).decimal()    // => 2.5d — explicit, decimal wins
+// ```
+//
+// Comparisons across the pair are allowed (and exact) — see below.
+//
+// ## NaN as an error state
+//
+// dec128 signals every failure the same way — it answers NaN — and Kavun treats that as an **error state, not a
+// value**. Unlike an IEEE NaN it even compares equal to itself, so it behaves as an ordinary number everywhere
+// downstream and a wrong answer would propagate silently through a whole script.
+//
+// So **no operation in the language produces one**. Every path that would raises instead:
+//
+// ```go
+// x := 99999999999999999999d   // 20 significant digits
+// decimal("abc")       // Error: conversion — the parse
+// 1d / 0d              // Error: division_by_zero
+// 0d % 0d              // Error: division_by_zero
+// (-1d).sqrt()         // Error: invalid_value: (sqrt) square root of negative number
+// x * x                // Error: invalid_value: (*) overflow  — past the 128-bit coefficient
+// (1e39).decimal()     // Error: conversion — the float is finite but too large for dec128
+// ```
+//
+// That mirrors `float`, whose arithmetic already raises on a NaN or ±Inf result.
+//
+// `is_nan()` and `error_details()` remain because a **host** can bind a NaN decimal through the embedding API —
+// nothing in the language can. For a decimal a script produced, `is_nan()` is always `false` and
+// `error_details()` is always `undefined`. On a host-supplied NaN:
+//
+// ```go norun — needs a NaN decimal, which only a host can bind
+// n.is_nan()           // => true
+// n.error_details()    // => error("...") — why this NaN exists
+// n.is_true()          // Error: invalid_value: decimal NaN is neither true nor false in a boolean context
+// n.int()              // Error: conversion: cannot convert decimal to int
+// n.sign()             // => 0
+// ```
+//
+// In comparisons such a NaN follows the numeric family's total order: the unique minimum, equal only to another
+// NaN, so sorting stays deterministic.
+//
+// ## Comparisons and cross-type pairing
+//
+// `==` and the orderings are **exact mathematical comparisons**. Trailing zeros never matter — equality compares
+// numeric value, not scale:
+//
+// ```go
+// 2.50d == 2.5d      // => true — scale is representation, not identity
+// 1d == 1            // => true
+// 1d < 1.5           // => true — float comparison is allowed (only arithmetic is refused)
+// 0.1d == 0.1        // => false — float 0.1 is really 0.1000000000000000055511…
+// 0.1d < 0.1         // => true — exactly below the float's true value
+// (0.1).decimal() == 0.1d    // => true — the float's shortest decimal reading is 0.1
+// ```
+//
+// `bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the decimal's own text
+// form, which carries its scale; ordering against text raises:
+//
+// ```go
+// decimal("1.50") == "1.50"    // => true — the scale is part of the rendering
+// decimal("1.50") == "1.5"     // => false — a different text, though the same NUMBER
+// decimal("1.50") == 1.5d      // => true — numeric equality is scale-blind, text equality is not
+// ```
+//
+// ## Rounding modes
+//
+// Every member that rounds takes the **mode as a string**, because in a real application the rounding rule is
+// configuration, not code. The seven names are Python's `decimal` modes, lowercased and without the `ROUND_`
+// prefix — so `down` means *toward zero*, as it does in Python, and the directions toward −∞ / +∞ are `floor` /
+// `ceiling`:
+//
+// | mode | rule | `2.5d` → 0 | `-2.5d` → 0 | `2.345d` → 2 | `-2.345d` → 2 | Python |
+// | --- | --- | --- | --- | --- | --- | --- |
+// | `"ceiling"` | toward +∞ | `3d` | `-2d` | `2.35d` | `-2.34d` | `ROUND_CEILING` |
+// | `"floor"` | toward −∞ | `2d` | `-3d` | `2.34d` | `-2.35d` | `ROUND_FLOOR` |
+// | `"down"` | toward zero (truncate) | `2d` | `-2d` | `2.34d` | `-2.34d` | `ROUND_DOWN` |
+// | `"up"` | away from zero | `3d` | `-3d` | `2.35d` | `-2.35d` | `ROUND_UP` |
+// | `"half_down"` | nearest, ties toward zero | `2d` | `-2d` | `2.34d` | `-2.34d` | `ROUND_HALF_DOWN` |
+// | `"half_up"` | nearest, ties away from zero ("schoolbook") | `3d` | `-3d` | `2.35d` | `-2.35d` | `ROUND_HALF_UP` |
+// | `"half_even"` | nearest, ties to even (banker's) | `2d` | `-2d` | `2.34d` | `-2.34d` | `ROUND_HALF_EVEN` |
+//
+// The name must match exactly — lowercase, no prefix. Anything else raises and lists the valid names; there is no
+// fallback mode:
+//
+// ```go
+// (1d).round(2, "bank")               // Error: invalid_value: (round) unknown rounding mode "bank", expected one of: ceiling, floor, down, up, half_down, half_up, half_even
+// (1d).round(2, "ROUND_HALF_EVEN")    // Error: invalid_value: (round) unknown rounding mode "ROUND_HALF_EVEN", …
+// (1d).round(2, 3)                    // Error: invalid_argument_type: (round) argument mode expects type string, got int
+// ```
+//
+// ## Arithmetic straight to a scale — the `*_round` members
+//
+// Every member whose last two arguments are `(scale, mode)` ends in `_round`. Each performs its operation with the
+// intermediate held **exactly** and makes **one** rounding decision, landing on exactly the requested scale — where
+// composing an operator with `round` rounds twice (once at the 19-place ceiling, once at `round`) and keeps the
+// operator's scale. The other operands are `decimal` or `int`, the domain the `/` and `*` operators accept; `float`
+// is refused here for the same reason it is refused there.
+//
+// | member | computes | typical use |
+// | --- | --- | --- |
+// | `div_round(y, n, mode)` | `x / y` | a rate per period |
+// | `mul_round(y, n, mode)` | `x * y` | a line item |
+// | `mul_percent_round(r, n, mode)` | `x * r / 100` | VAT, fees — the division by 100 is a move of the point |
+// | `mul_add_round(b, c, n, mode)` | `x * b + c` | principal × rate + fee |
+// | `mul_div_round(b, c, n, mode)` | `x * b / c` | proration, day counts (31/365) |
+// | `sqrt_round(n, mode)` | `√x` | |
+// | `pow_round(k, n, mode)` | `x^k`, integer `k` | compounding — computed with guard digits |
+// | `nth_root_round(k, n, mode)` | `x^(1/k)` | the monthly factor of an annual rate |
+// | `pow_rational_round(p, q, n, mode)` | `x^(p/q)` | five months of a yearly rate |
+// | `exp_round(n, mode)`, `ln_round(n, mode)` | `eˣ`, `ln x` | continuous compounding |
+// | `log10_round(n, mode)`, `log2_round(n, mode)` | `log₁₀ x`, `log₂ x` | |
+//
+// ```go
+// (10d).div_round(4d, 2, "half_even")                 // => 2.50d — a money result carrying its cents
+// 10d / 4d                                            // => 2.5d — the operator keeps the natural scale
+// (7d).div_round(3, 2, "up")                          // => 2.34d
+// (100.00d).mul_percent_round(7.5d, 2, "half_even")   // => 7.50d
+// (250000.00d).mul_add_round(0.0425d, 12.345d, 2, "half_even")   // => 10637.34d — 10637.345 is an exact tie
+// (1000d).mul_div_round(31, 365, 2, "half_up")        // => 84.93d — one rounding on the exact numerator
+// (2d).sqrt_round(4, "half_even")                     // => 1.4142d
+// (1.000164383561643836d).pow_round(3650, 19, "half_up")   // => 1.8220289545384488980d — ten years of daily rests
+// (1.126825d).nth_root_round(12, 10, "half_up")       // => 1.0099999977d
+// (1.06d).pow_rational_round(5, 12, 19, "half_up")    // => 1.0245758393924285985d
+// (-8d).pow_rational_round(2, 6, 0, "half_up")        // => -2d — 2/6 is reduced to 1/3 first
+// (1d).exp_round(10, "half_even")                     // => 2.7182818285d
+// (1000d).log10_round(4, "half_even")                 // => 3.0000d — an exact power of the base is exact
+// ```
+//
+// `mul_div_round` is the one of these that cannot be composed at all: scaling by a ratio whose decimal expansion
+// never ends (1/3, 31/365) has no exact decimal factor to multiply by first. `pow_round` against `pow`: `pow(k)`
+// truncates at the 19-place ceiling at every step of the power, `pow_round` carries guard digits and rounds once, so
+// over thousands of periods they can differ in the last places. `nth_root_round` and `pow_rational_round` are
+// **correctly rounded**; `exp_round`, `ln_round`, `log10_round` and `log2_round` are the only members that are not
+// exact — they are **faithfully rounded**, within one unit in the last place of the correctly rounded value.
+//
+// All of them raise rather than answering a sentinel:
+//
+// ```go
+// (1d).div_round(0d, 2, "up")                  // Error: division_by_zero
+// (1d).mul_div_round(1, 0, 2, "up")            // Error: division_by_zero
+// (0d).pow_round(-1, 4, "half_up")             // Error: division_by_zero
+// (-2d).sqrt_round(2, "half_even")             // Error: invalid_value: (sqrt_round) square root of negative number
+// (0d).ln_round(4, "half_even")                // Error: invalid_value: (ln_round) argument outside the domain of the function
+// (-4d).nth_root_round(2, 2, "half_up")        // Error: invalid_value: (nth_root_round) argument outside the domain of the function
+// (4d).nth_root_round(16385, 2, "half_up")     // Error: invalid_value: (nth_root_round) degree must be at most 16384, got 16385
+// (1d).div_round(3.0, 2, "up")                 // Error: invalid_argument_type: (div_round) argument first expects type decimal or int, got float
+// (1d).div_round(3d, 20, "up")                 // Error: invalid_value: (div_round) scale must be between 0 and 19
+// ```
+//
+// The degree limit (and the same limit on a reduced `p` or `q` of `pow_rational_round`) is a cost ceiling: 16384
+// covers 40 years of daily rests.
+//
+// ## Splitting an amount
+//
+// `split` and `allocate` divide an amount into shares that **sum to exactly the amount** — a reconciliation is an
+// equality, not a tolerance. Both answer a new, mutable array.
+//
+// | member | shares | the leftover quanta go to |
+// | --- | --- | --- |
+// | `split(k, n)` | `k` equal shares at scale `n` | the shares with the largest remainders, ties to the lowest index |
+// | `allocate(ratios, n)` | proportional to `ratios` (an array of `decimal`/`int`) | the same |
+// | `split_residual(k, n, index, mode)` | every share rounded with `mode` … | … except the one at `index`, which takes what is left |
+// | `allocate_residual(ratios, n, index, mode)` | the same, proportionally | the same |
+//
+// The `_residual` forms are the convention of an amortization schedule or a syndicated facility: the last
+// installment, or the lead bank, absorbs the rounding. `index` counts from the end when negative, as an array index
+// does.
+//
+// ```go
+// (1000.00d).split(7, 2)
+// // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.85d, 142.85d]
+// (1000.00d).split_residual(7, 2, -1, "half_up")
+// // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.84d]
+// (100.00d).allocate([1, 1, 1], 2)                  // => [33.34d, 33.33d, 33.33d]
+// (100.00d).allocate_residual([1, 1, 1], 2, -1, "half_up")   // => [33.33d, 33.33d, 33.34d]
+// (0.05d).split(3, 2)                               // => [0.02d, 0.02d, 0.01d]
+// (1000.00d).split(7, 2).sum() == 1000.00d          // => true
+// ```
+//
+// The target scale must be at least the amount's own: splitting 1.005 into cents would have to round first, and
+// the split refuses to do that silently.
+//
+// ```go
+// (1.005d).split(3, 2)                               // Error: invalid_value: (split) scale 2 is below the amount's own scale 3; round the amount first
+// (1.005d).round(2, "half_even").split(3, 2)         // => [0.34d, 0.33d, 0.33d]
+// (1d).split(0, 2)                                   // Error: invalid_value: (split) argument count must be positive, got 0
+// (1000.00d).split_residual(7, 2, 7, "half_up")      // Error: index_out_of_bounds: (split_residual) 7 out of range [0, 6]
+// (100d).allocate([1, -1], 2)                        // Error: invalid_value: (allocate) ratio at index 1 is negative
+// (100d).allocate([0, 0], 2)                         // Error: invalid_value: (allocate) ratios must not all be zero
+// (100d).allocate([], 2)                             // Error: invalid_value: (allocate) ratios must not be empty
+// ```
+//
+// ## No sequence members
+//
+// Scalars have no `len()`, no elements, and no `repeat`:
+//
+// ```go
+// (1.5d).repeat(2)    // Error: invalid_method: type decimal has no method repeat
+// ```
+//
+// ## Conversions
+//
+// `x.T()` answers a valid `T` or raises (kind `conversion`); `x.T(default)` answers the default instead;
+// `undefined.T(d)` → `d` covers maybe-missing data.
+//
+// | target | behavior |
+// | --- | --- |
+// | `decimal` | identity |
+// | `int` | truncation toward zero for in-range values (documented resolution loss); out-of-range and NaN raise-or-default |
+// | `float` | nearest float64 — approximate by nature |
+// | `bool` | zero test; NaN raises-or-defaults |
+// | `string` / `runes` | rendering at the value's own scale, no `d` suffix (total — the default is never used); `canonical()` first for the trimmed reading |
+// | `time` | unix timestamp as sec.frac, **exact to the nanosecond** |
+//
+// There is no `byte()` or `rune()` conversion — `int` is the sole gateway to the ordinal scalars
+// (`x.int().byte()`).
+//
+//kavun:type decimal
 
 var TypeDecimal = ValueTypeDescr{
 	Name:         ConstHook(decimalTypeName),                                                          // PURE by contract
@@ -50,70 +417,7 @@ var TypeDecimal = ValueTypeDescr{
 	AsTime:       decimalTypeAsTime,                                                                   // PURE by contract
 	AsBool:       decimalTypeAsBool,                                                                   // PURE by contract
 
-	Methods: []Method{
-		members.IsTrue:            NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:            NewPureMethod(decimalString, 0, Fixed),
-		members.Format:            NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:              NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze:            NewPureMethod(MemberSelf, 0, Fixed),
-		members.Runes:             NewPureMethod(decimalRunes, 0, Variadic),
-		members.Int:               NewPureMethod(decimalInt, 0, Variadic),
-		members.Bool:              NewPureMethod(decimalBool, 0, Variadic),
-		members.Float:             NewPureMethod(decimalFloat, 0, Variadic),
-		members.Time:              NewPureMethod(decimalTime, 0, Variadic),
-		members.Decimal:           NewPureMethod(decimalDecimal, 0, Variadic),
-		members.Split:             NewPureMethod(decimalSplit, 2, Fixed),
-		members.Abs:               NewPureMethod(decimalAbs, 0, Fixed),
-		members.Sign:              NewPureMethod(decimalSign, 0, Fixed),
-		members.IsZero:            NewPureMethod(decimalIsZero, 0, Fixed),
-		members.IsPositive:        NewPureMethod(decimalIsPositive, 0, Fixed),
-		members.IsNegative:        NewPureMethod(decimalIsNegative, 0, Fixed),
-		members.IsNaN:             NewPureMethod(decimalIsNaN, 0, Fixed),
-		members.IsInf:             NewPureMethod(decimalIsInf, 0, Fixed),
-		members.Clamp:             NewPureMethod(decimalClamp, 2, Fixed),
-		members.Sqrt:              NewPureMethod(decimalSqrt, 0, Fixed),
-		members.Pow:               NewPureMethod(decimalPow, 1, Fixed),
-		members.CopySign:          NewPureMethod(decimalCopySign, 1, Fixed),
-		members.Round:             NewPureMethod(decimalRound, 2, Fixed),
-		members.RoundHalfEven:     NewPureMethod(decimalRoundHalfEven, 1, Fixed),
-		members.RoundHalfUp:       NewPureMethod(decimalRoundHalfUp, 1, Fixed),
-		members.RoundHalfDown:     NewPureMethod(decimalRoundHalfDown, 1, Fixed),
-		members.RoundUp:           NewPureMethod(decimalRoundUp, 1, Fixed),
-		members.RoundDown:         NewPureMethod(decimalRoundDown, 1, Fixed),
-		members.RoundCeiling:      NewPureMethod(decimalRoundCeiling, 1, Fixed),
-		members.RoundFloor:        NewPureMethod(decimalRoundFloor, 1, Fixed),
-		members.RoundSignificant:  NewPureMethod(decimalRoundSignificant, 2, Fixed),
-		members.RoundToMultiple:   NewPureMethod(decimalRoundToMultiple, 2, Fixed),
-		members.Rescale:           NewPureMethod(decimalRescale, 1, Fixed),
-		members.Scale:             NewPureMethod(decimalScale, 0, Fixed),
-		members.ScaleByPow10:      NewPureMethod(decimalScaleByPow10, 1, Fixed),
-		members.Canonical:         NewPureMethod(decimalCanonical, 0, Fixed),
-		members.IntegerDigits:     NewPureMethod(decimalIntegerDigits, 0, Fixed),
-		members.SignificantDigits: NewPureMethod(decimalSignificantDigits, 0, Fixed),
-		members.IsInteger:         NewPureMethod(decimalIsInteger, 0, Fixed),
-		members.Negate:            NewPureMethod(decimalNegate, 0, Fixed),
-		members.NextUp:            NewPureMethod(decimalNextUp, 0, Fixed),
-		members.NextDown:          NewPureMethod(decimalNextDown, 0, Fixed),
-		members.CanFit:            NewPureMethod(decimalCanFit, 2, Fixed),
-		members.QuoRem:            NewPureMethod(decimalQuoRem, 1, Fixed),
-		members.DivRound:          NewPureMethod(decimalDivRound, 3, Fixed),
-		members.MulRound:          NewPureMethod(decimalMulRound, 3, Fixed),
-		members.MulAddRound:       NewPureMethod(decimalMulAddRound, 4, Fixed),
-		members.MulDivRound:       NewPureMethod(decimalMulDivRound, 4, Fixed),
-		members.MulPercentRound:   NewPureMethod(decimalMulPercentRound, 3, Fixed),
-		members.PowRound:          NewPureMethod(decimalPowRound, 3, Fixed),
-		members.PowRationalRound:  NewPureMethod(decimalPowRationalRound, 4, Fixed),
-		members.SqrtRound:         NewPureMethod(decimalSqrtRound, 2, Fixed),
-		members.NthRootRound:      NewPureMethod(decimalNthRootRound, 3, Fixed),
-		members.ExpRound:          NewPureMethod(decimalExpRound, 2, Fixed),
-		members.LnRound:           NewPureMethod(decimalLnRound, 2, Fixed),
-		members.Log2Round:         NewPureMethod(decimalLog2Round, 2, Fixed),
-		members.Log10Round:        NewPureMethod(decimalLog10Round, 2, Fixed),
-		members.Allocate:          NewPureMethod(decimalAllocate, 2, Fixed),
-		members.AllocateResidual:  NewPureMethod(decimalAllocateResidual, 4, Fixed),
-		members.SplitResidual:     NewPureMethod(decimalSplitResidual, 4, Fixed),
-		members.ErrorDetails:      NewPureMethod(decimalErrorDetails, 0, Fixed),
-	},
+	Methods: decimalMethods,
 }
 
 // decimal NaN is an error state, not a domain value; a boolean context refuses

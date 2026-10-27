@@ -455,12 +455,28 @@ func CheckTimeLayout(layout string) error {
 	return nil
 }
 
-// textTimeMember is the text receivers' `time` member: `s.time(layout[, default])`. Text has no single way to
-// become a time, so the layout is REQUIRED — the conversion's trailing default comes after it, where a layout
-// can never be mistaken for one. A miss answers the default as-is, or raises naming why.
+// textTimeMember is the text receivers' `time([default])` conversion: the canonical grammar (ParseTimeText), as
+// the free `time(text)` reads it. A miss answers the default as-is, or raises naming why.
 func textTimeMember(name, from, text string, args []Value) (Value, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	t, err := ParseTimeText(text)
+	if err == nil {
+		return NewTimeValue(t), nil
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return Undefined, errs.NewConversionError(from, name, err.Error())
+}
+
+// textParseTimeMember is the text receivers' `parse_time(layout[, default])`: the text read under a layout
+// (ParseTimeLayout; "iso" is the canonical grammar). A bad layout always raises — it is the script's mistake, not
+// the data's; a text the layout does not read answers the default as-is, or raises naming why.
+func textParseTimeMember(name, from, text string, args []Value) (Value, error) {
+	if len(args) > 2 {
+		return Undefined, ErrArgCount
 	}
 	if args[0].Type != value.String {
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first (layout)", "string", args[0].TypeName())

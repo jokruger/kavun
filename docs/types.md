@@ -4,35 +4,38 @@ Kavun's types form a small number of **shape families** that share one member su
 of types each with its own API. This page is the map: what types exist, which family each belongs to, and the
 handful of language-wide rules — argument dispatch, the blank set, the universal members, conversions,
 member/operator correspondence, callbacks, mutability, truthiness — that every family obeys. The per-type pages
-carry the full contracts; [types/function-matrix.md](types/function-matrix.md) is the existence table, and
-[types/container-semantics.md](types/container-semantics.md) covers copying, freezing, aliasing, and views.
+carry the full contracts; [reference/function_matrix.md](reference/function_matrix.md) is the existence table, and
+[container_semantics.md](container_semantics.md) covers copying, freezing, aliasing, and views.
 
 ## The roster
 
 | type | identity |
 | --- | --- |
-| [undefined](types/undefined.md) | the absence of a value; propagates through operators, raises at the point of use |
-| [bool](types/bool.md) | `true` / `false` |
-| [int](types/int.md) | signed 64-bit integer; overflow raises |
-| [float](types/float.md) | IEEE 754 double; NaN/±Inf are storable error states, not domain values |
-| [decimal](types/decimal.md) | exact decimal arithmetic for money and precision-critical work |
-| [byte](types/byte.md) | one octet, 0–255; ordinal, not numeric — arithmetic wraps mod 256 |
-| [rune](types/rune.md) | one Unicode code point; ordinal, not numeric |
-| [time](types/time.md) | one instant, nanosecond precision, zone-aware |
-| [date](types/date.md) | one civil calendar day, `0001-01-01`…`9999-12-31`; no clock, no zone |
-| [error](types/error.md) | a wrapped payload plus classification (`kind`, and the category predicates `is_runtime`/`is_user`/`is_requirement`); always truthy |
-| [string](types/string.md) | immutable Unicode text in compact UTF-8; element = the symbol (rune) |
-| [runes](types/runes.md) | mutable Unicode text as a materialized symbol array; element = the rune |
-| [bytes](types/bytes.md) | mutable raw octet sequence; element = the byte |
-| [array](types/array.md) | mutable heterogeneous sequence; the general-purpose container |
-| [range](types/range.md) | lazy integer sequence `start..stop` (stop excluded); immutable, computed, never materialized |
-| [dict](types/dict.md) | mutable set of keys with attached values; the key is the element |
-| [record](types/record.md) | field bag with `r.field` access; **no member surface by design** — free builtins only |
+| [undefined](reference/types/undefined.md) | the absence of a value; propagates through operators, raises at the point of use |
+| [bool](reference/types/bool.md) | `true` / `false` |
+| [int](reference/types/int.md) | signed 64-bit integer; overflow raises |
+| [float](reference/types/float.md) | IEEE 754 double; NaN/±Inf are storable error states, not domain values |
+| [decimal](reference/types/decimal.md) | exact decimal arithmetic for money and precision-critical work |
+| [byte](reference/types/byte.md) | one octet, 0–255; ordinal, not numeric — arithmetic wraps mod 256 |
+| [rune](reference/types/rune.md) | one Unicode code point; ordinal, not numeric |
+| [time](reference/types/time.md) | one instant, nanosecond precision, zone-aware |
+| [date](reference/types/date.md) | one civil calendar day, `0001-01-01`…`9999-12-31`; no clock, no zone |
+| [error](reference/types/error.md) | a wrapped payload plus classification (`kind`, and the category predicates `is_runtime`/`is_user`/`is_requirement`); always truthy |
+| [string](reference/types/string.md) | immutable Unicode text in compact UTF-8; element = the symbol (rune) |
+| [runes](reference/types/runes.md) | mutable Unicode text as a materialized symbol array; element = the rune |
+| [bytes](reference/types/bytes.md) | mutable raw octet sequence; element = the byte |
+| [array](reference/types/array.md) | mutable heterogeneous sequence; the general-purpose container |
+| [range](reference/types/range.md) | lazy integer sequence `start..stop` (stop excluded); immutable, computed, never materialized |
+| [dict](reference/types/dict.md) | mutable set of keys with attached values; the key is the element |
+| [record](reference/types/record.md) | field bag with `r.field` access; **no member surface by design** — free builtins only |
 | function / closure / builtin / bound member | callables; `type_name()` answers `"function"` for all four |
-| [module](types/module.md) | a builtin module as `import` answers it: read-only members, dot access only |
-| [fs.file](types/fs-file.md), [exec.command](types/exec-command.md), [exec.process](types/exec-process.md) | handles on the world owned by the `fs` and `exec` modules: identity equality, every member impure |
-| [re.pattern](types/re-pattern.md) | a compiled regular expression owned by the `re` module: immutable, pure members, equal by source |
-| [rand.generator](types/rand-generator.md) | a random source owned by the `rand` module: seeded (reproducible) or entropy; draws are its own state |
+| [module](reference/types/module.md) | a builtin module as `import` answers it: read-only members, dot access only |
+| [fs.file](reference/types/fs_file.md), [exec.command](reference/types/exec_command.md), [exec.process](reference/types/exec_process.md) | handles on the world owned by the `fs` and `exec` modules: identity equality, every member impure |
+| [re.pattern](reference/types/re_pattern.md) | a compiled regular expression owned by the `re` module: immutable, pure members, equal by source |
+| [rand.generator](reference/types/rand_generator.md) | a random source owned by the `rand` module: seeded (reproducible) or entropy; draws are its own state |
+| [fin.year_fraction](reference/types/fin_year_fraction.md) | a length of time in years as an exact ratio, owned by the `fin` module: what a day-count convention counts |
+| [fin.tiered_rates](reference/types/fin_tiered_rates.md), [fin.tiered_charges](reference/types/fin_tiered_charges.md) | amount-banded rate and fee tables owned by the `fin` module: immutable, validated, built from text or band records |
+| [fin.dated_rates](reference/types/fin_dated_rates.md), [fin.dated_charges](reference/types/fin_dated_charges.md) | date-banded rate and fee tables owned by the `fin` module: immutable, validated, built from text or band records |
 
 ## The type-shape families
 
@@ -97,12 +100,19 @@ the operator surface.
 
 Functions, closures, builtins and bound members carry exactly the universal set: `copy`, `freeze`, `format`,
 `is_true` — nothing else. `copy`/`freeze` are provable no-ops kept so generic code never type-errors; `format()`
-renders the detail form:
+renders the detail form, which states the callable's **arity** — the count of its fixed parameters — and a `+`
+when it is **variadic** (accepts more: "N or more"). A script function's rest parameter `...r` is not counted:
 
 ```go
-format(func(a, b) { return a })    // "<compiled-function/2>"
-type_name(func() { return 1 })     // "function" — uniformly for all four kinds
+format(func(a, b) { return a })          // "<compiled-function/2>"
+format(func(a, ...rest) { return a })    // "<compiled-function/1+>" — one fixed parameter, then any number
+format(min)                              // "<builtin-function:min/1+>"
+type_name(func() { return 1 })           // "function" — uniformly for all four kinds
 ```
+
+A call with a count the callable does not accept raises `wrong_num_arguments`: a builtin or member quotes its
+parameter list (`(join) expected ([sep]), got 2 arguments`), a script function states its counts (`(call) expected
+2 arguments, got 1 argument`, `(call) expected 1 or more arguments, got 0 arguments`).
 
 ### Member functions are values
 
@@ -121,9 +131,12 @@ format("ab".split)                    // "<bound-member:string.split/0+>" — re
   shares its body, so a later `_in_place` on the original is visible through the bound member
   (`a := [1]; f := a.len; a.push_in_place(2); f()` → `2`); a scalar receiver is a snapshot. Rebinding the
   variable afterwards (`a = a.freeze()`) does not move the bound member: it keeps the value it was bound to.
-- **Its arity is the member's.** Callbacks dispatch on arity (see Lambda callbacks); a bound member reports the
-  fewest arguments the member takes, `+` when it takes more. A member whose fewest is 0 (`"abc".contains`,
-  `[].append`) is therefore not `f/1` and is refused as an element callback — wrap it: `x => s.contains(x)`.
+- **Its arity is the member's.** A bound member reports the fewest arguments the member takes, `+` when it
+  takes more, and is a callback like any other function: it is called in the fewest form it accepts (see [Lambda
+  callbacks](#lambda-callbacks)). `"abc".contains` (`/0+`) and `"abc".has_prefix` (`/1+`) both accept one
+  argument, so both get the element; `"ab".upper` (`/0`) accepts none and is refused. To call a member in another
+  form — another argument, another order — wrap it in a lambda: `[2, 3].map(n => "7".pad_start(n, '0'))` →
+  `["07", "007"]`.
 - **Only dot access binds.** `x["len"]` is an index, `x.len = 1` raises (`not_assignable`; a dict keeps its own
   `has no property` text), and a record field is a field — `r.f` reads the field, a record has no members to bind.
   An unknown name still raises `has no property`.
@@ -171,7 +184,7 @@ Symbols are code points, **not** grapheme clusters — a decomposed character is
 **Text that is not valid UTF-8 is data too**, so every conversion among `byte`/`bytes`/`string`/`runes` is
 total and lossless: an octet no decoder can read as a symbol becomes its own reserved rune (`U+DC80`–`U+DCFF`)
 and encodes straight back to that octet. Nothing raises, nothing becomes `U+FFFD`, and `is_valid()` is how a
-script asks. See [string: Undecodable octets](types/string.md#undecodable-octets).
+script asks. See [string: Undecodable octets](reference/types/string.md#undecodable-octets).
 
 ```go
 b = bytes([0x61, 0xFF, 0x62])
@@ -194,7 +207,7 @@ One name per operation; the **argument's type** picks the reading:
 | argument | reading |
 | --- | --- |
 | absent | the type's **blank set** (below) |
-| a function | **predicate** — `f/1` gets the element, `f/2` gets `(locator, element)` |
+| a function | **predicate** — it gets the element, or `(locator, element)` when it does not accept one argument (see [Lambda callbacks](#lambda-callbacks)) |
 | the receiver's own kind (own sub-family) | a contiguous **run** |
 | anything else | one **element** |
 | variadic | a homogeneous **set** on the match side; operands in order on the add side |
@@ -283,11 +296,13 @@ Four members exist on (nearly) everything; `record` reaches them through the fre
 
 **Conversions** are `x.T([default])`; the free spelling `T(x)` is the same conversion — `"123".int()` ≡
 `int("123")`, on `x`'s own type as much as any other — but the default slot is the member's alone
-(`int("12x", -1)` raises `wrong_num_arguments`). One documented qualification: **text → `time`** has no
-single reading, so on a text receiver the member takes a required **layout** before its default —
-`s.time(layout[, default])` — while the free form reads the canonical grammar, `time(s)`, or a layout,
-`time(s, layout)` (see [types/time.md](types/time.md#text-layouts)). A free constructor's second argument is
-always a construction parameter like that (or the sequences' count), never a default.
+(`int("12x", -1)` raises `wrong_num_arguments`). Every conversion member has the same `([default])` interface on
+every type, so code holding a value of unknown type can call it without a type check; a total conversion takes the
+default and never uses it. Text → `time` / `date` reads the canonical grammar both ways — `s.time([default])` ≡
+`time(s)` — and reading under a **layout** is its own member, `s.parse_time(layout[, default])` /
+`s.parse_date(layout[, default])`, beside the free form's `time(s, layout)` (see
+[reference/types/time.md](reference/types/time.md#text-layouts)). A free constructor's second argument is always a
+construction parameter like that (or the sequences' count), never a default.
 One failure mode everywhere — a valid `T` or a catchable raise, never a silent zero, `undefined`, or `false`;
 the explicit default converts the miss into a value:
 
@@ -310,7 +325,7 @@ instant (the unix epoch, `1970-01-01T00:00:00Z`). **A conversion to your own typ
 — so neither `array(a)` nor `a.array()` ever writes through to `a`, and `bytes(b"ab")` turns a constant
 literal into a writable buffer. Elements are the values handed in (a frozen element stays frozen); `x.copy()`
 is the deep spelling. A conversion **never** hands back shared storage: that is the [`_view`
-constructors'](types/container-semantics.md#views) job and only theirs, and `is_view()` marks their results.
+constructors'](container_semantics.md#views) job and only theirs, and `is_view()` marks their results.
 `string` and the scalars are immutable and have no identity, so the same question cannot be asked of them —
 `"ab".string()` is the receiver.
 
@@ -323,10 +338,12 @@ b = a.array()        // a NEW array — a.copy_shallow(), not a
 b.append_in_place(9)
 a                    // [1, 2] — untouched
 (5).int(0)           // 5 — the default is accepted and ignored, on every type alike
-``` `.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
+```
+
+`.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
 `dict`, `record`, callables — `.string()` is absent and the free `string(x)` raises too: `format()` is the
 answer there. On `undefined` the conversion members exist but demand a default (`undefined.string("-")` →
-`"-"`; without one it raises) — see [types/undefined.md](types/undefined.md).
+`"-"`; without one it raises) — see [reference/types/undefined.md](reference/types/undefined.md).
 
 ## Members and operators correspond
 
@@ -381,26 +398,51 @@ error("x") + 1           // raises: error + int
 
 ## Lambda callbacks
 
-Callbacks dispatch on **arity**:
+A member that takes a function calls it in the **fewest form it accepts**. Every callable — a script function, a
+builtin, a bound member — answers its arity and whether it is variadic, and "accepts `k` arguments" means `k`
+equals the arity, or the callable is variadic and `k` is larger:
 
-| callback | receives |
-| --- | --- |
-| `f/1` | the element (`dict`: the key) |
-| `f/2` | `(index, element)` (`dict`: `(key, value)`) |
-| `reduce` `f/2` | `(acc, element)` (`dict`: `(acc, key)`) |
-| `reduce` `f/3` | `(acc, index, element)` (`dict`: `(acc, key, value)`) |
+| callback | gets | when it accepts |
+| --- | --- | --- |
+| element (`map`, `for_each`, a predicate, …) | the element (`dict`: the key) | one argument |
+| | `(index, element)` (`dict`: `(key, value)`) | two arguments, not one |
+| `reduce` | `(acc, element)` (`dict`: `(acc, key)`) | two arguments |
+| | `(acc, index, element)` (`dict`: `(acc, key, value)`) | three arguments, not two |
+
+Anything else raises (`expects type f/1 or f/2, got <compiled-function/0>`). The kind of callable never
+matters — only its pair:
+
+| callable | arity, variadic | element callback gets |
+| --- | --- | --- |
+| `func(x)` | 1, no | the element |
+| `func(i, x)` | 2, no | `(index, element)` |
+| `func(x, ...rest)`, `min`, `"ab".has_prefix` | 1, yes | the element |
+| `func(...args)`, `int`, `"ab".contains`, `[].append` | 0, yes | the element |
+| `func()`, `"ab".upper` | 0, no | refused |
 
 ```go
 ["a", "b"].map(func(i, x) { return string(i) + x })      // ["0a", "1b"]
+[3, 1].map(min)                                          // [3, 1]
+["1", "2"].map(int)                                      // [1, 2]
+["a", "z"].keep("abc".contains)                          // ["a"]
 [1, 2, 3].reduce(0, func(acc, x) { return acc + x })     // 6
+[1, 5, 2].reduce(0, max)                                 // 5
 dict({a: 1, b: 2}).keep(func(k, v) { return v > 1 })   // dict({"b": 2})
 dict({a: 1, b: 2}).map(func(k, v) { return v * 10 })     // dict({"a": 10, "b": 20}) — keys fixed
 dict({a: 1, b: 2}).reduce(0, func(acc, k, v) { return acc + v })  // 3
 ```
 
-`for_each(fn)` makes a **full pass**, ignores the callback's return value, and returns the receiver. The old
-return-`false`-to-stop protocol is gone — a `false` from a forgotten `return` cannot be told from a control
-signal. Early exit belongs to `for`/`break` or to a search member (`index(fn)`, `any(fn)`, `all(fn)`):
+**A lambda is the one way to call a callable in another form** — to choose the form, reorder, fix or drop
+arguments. There is no adapter builtin:
+
+```go
+["a", "b"].map((i, x) => x + string(i))      // ["a0", "b1"] — reorder
+["7", "42"].map(x => x.pad_start(3, '0'))    // ["007", "042"] — fix an argument
+[5, 6].map((i, x) => x * 2)                  // [10, 12] — drop the index the form supplies
+```
+
+`for_each(fn)` makes a **full pass**, ignores the callback's return value, and returns the receiver — a return
+value is never a control signal. Early exit belongs to `for`/`break` or to a search member (`index(fn)`, `any(fn)`, `all(fn)`):
 
 ```go
 total := [0]
@@ -420,7 +462,7 @@ Every member is non-mutating by default; where mutation is observable and worthw
 receiver, and returns it (so mutators chain). On a frozen receiver an `_in_place` member raises an error of
 kind `not_mutable`. `string` is the one sequence type with **no mutating member at all** — the single fact
 that decides between `string` and `runes`. Freezing is `freeze()` (deep) / `freeze_shallow()` (header-only);
-see [types/container-semantics.md](types/container-semantics.md) for copying, freezing, aliasing, and views.
+see [container_semantics.md](container_semantics.md) for copying, freezing, aliasing, and views.
 
 ## Truthiness
 

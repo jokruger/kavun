@@ -26,6 +26,8 @@ var builtinNames = [...]string{
 	members.Dict:                     "dict",
 	members.Record:                   "record",
 	members.Range:                    "range",
+	members.ParseTime:                "parse_time",
+	members.ParseDate:                "parse_date",
 	members.Len:                      "len",
 	members.IsEmpty:                  "is_empty",
 	members.Contains:                 "contains",

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"maps"
 	"math"
 	"math/big"
@@ -108,6 +107,240 @@ func NewStaticIntRangeValue(o *IntRange) Value {
 	return Value{Type: value.IntRange, Immutable: true, Ptr: unsafe.Pointer(o)}
 }
 
+// Lazy integer sequence defined by `start`, `stop`, and `step`.
+//
+// ## Overview
+//
+// A `range` is an arithmetic progression of `int` values that is never stored: every element is computed from
+// three components — `start` (inclusive), `stop` (exclusive), and `step` (always positive). Direction comes from
+// the relation of `start` to `stop`, not from the sign of `step`:
+//
+// ```go
+// range(2, 8)          // 2, 3, 4, 5, 6, 7        (ascending, step 1)
+// range(1, 10, 2)      // 1, 3, 5, 7, 9           (ascending, step 2)
+// range(10, 0, 3)      // 10, 7, 4, 1             (descending — start > stop)
+// range(3, 3)          // empty
+// ```
+//
+// `range` is always immutable, its elements are always `int`, and `len()`, membership, aggregation, and every
+// transform are O(1) closed forms computed on the three components — nothing is ever materialized unless you ask
+// for it with `.array()` (or another conversion).
+//
+// That laziness fixes the member roster: **no member of `range` answers a new materialized sequence of its own
+// elements.** Every transform that exists (`slice`, `reverse`, `sort`, `dedup`, `unique`) is a closed form on
+// `start`/`stop`/`step` and answers another `range`; `chunk(n)` answers an array *of* ranges. Anything that could
+// produce arbitrary elements (`map`, `keep`, `append`, …) is deliberately absent — spell it `.array().map(...)`.
+//
+// The element answers (`first`, `last`, `min`, `max`) and the aggregations (`sum`, `avg`): all six carry the uniform
+// optional trailing `[default]`: an empty range has no answer to give, so without a
+// default they raise `invalid_value`.
+//
+// The closed-form transforms (`slice`, `reverse`, `sort`, `dedup`, `unique`): each answers a **`range`** — computed on
+// the components, nothing materialized. The result's printed
+// components may differ from what you would write by hand while generating exactly the intended elements.
+//
+// ## Construction
+//
+// ### Constructor forms
+//
+// ```go
+// range()              // the empty range — range(0, 0)
+// range(2, 8)          // start, stop; step defaults to 1
+// range(1, 10, 2)      // start, stop, step
+// ```
+//
+// - There is **no one-argument count form**: one argument is the components record, so `range(5)` raises
+// `invalid_argument_type` (`argument components expects type dict or record, got int`). Write `range(0, 5)`.
+// - `step` must be greater than zero; `range(1, 10, 0)` and `range(1, 10, -2)` raise `invalid_value`
+// (`range step must be greater than 0`). Descending sequences come from `start > stop`, never from a
+// negative step.
+// - The element count must fit an `int`: a range is an int sequence, so its `len()` is an int.
+// `range(-9223372036854775807, 9223372036854775807)` holds 2⁶⁴−2 elements and raises `invalid_value`
+// (`… holds more elements than an int can count`) — in every spelling (`a..b`, `range(rec)` too). With a step of
+// 2 or more the same bounds are fine: `range(-9223372036854775807, 9223372036854775807, 2).len()` is
+// `9223372036854775807`. Every closed form on a range that constructed is exact up to the int64 edges.
+//
+// ### Materializing members and the sequence limit
+//
+// A range is lazy, but some members need its elements one by one: `array()`, `join()`, `string()`/`runes()`/
+// `bytes()`, `for_each`, `reduce`, `index`/`index_last`, and the set/predicate/blank readings of
+// `contains`/`count`/`any`/`all`, as well as `chunk(n)`'s array of ranges. These hold to the same ceiling as
+// `repeat` (`4294967296` elements, see [vm.md](../../vm.md)) and raise `invalid_value` past it instead of
+// allocating — `range(0, 1 << 62).array()` raises `(array) result would be 4611686018427387904 elements, past
+// the 4294967296 limit`. The free constructors `array(r)`/`string(r)`/`runes(r)` decline such a range as a
+// `conversion` error. `len()`, indexing, `in`, `contains(x)`, `first`/`last`/`min`/`max`/`sum`/`avg` and the
+// transforms never materialize and have no such limit.
+//
+// ### The `..` literal
+//
+// `a..b` is the literal form of `range(a, b)` (step 1, either direction), and `a..b:s` of `range(a, b, s)`:
+//
+// ```go
+// 1..4                 // => range(1, 4) — 1, 2, 3
+// 5..1                 // => range(5, 1) — 5, 4, 3, 2
+// 1..10:3              // => range(1, 10, 3) — 1, 4, 7
+// (1..4).array()       // => [1, 2, 3] — parenthesize before calling a member
+// ```
+//
+// The bounds and the step can be any expression (`1..n+2`, `a..b:s`); `..` binds looser than `+`. The literal is
+// the constructor call itself, so the step follows the same rule — greater than zero — and a descending sequence is
+// still spelled with `start > stop`: `10..1:3` is `10, 7, 4`. See [language.md](../../language.md) for the grammar.
+//
+// ### From a components record
+//
+// `range(rec)` rebuilds a range from a record with keys `start`, `stop`, and optionally `step`; an unknown key
+// raises. `components()` is the reverse direction. A `dict` with the same keys is accepted too.
+//
+// ```go
+// range({start: 1, stop: 10, step: 2})        // => range(1, 10, 2)
+// range({start: 1, stop: 5})                  // => range(1, 5) — step defaults to 1
+// range({start: 1, stop: 5, bogus: 1})        // Error: invalid_value: unknown component "bogus"
+//
+// r := range(1, 10, 2)
+// format(r.components())                      // => "{\"start\": 1, \"step\": 2, \"stop\": 10}"
+// range(r.components()) == r                  // => true — the round trip
+// ```
+//
+// `components()` answers a `record`, which has no member surface — render it with the free `format(x)` and read
+// fields with `rec.start` etc.
+//
+// ## Iteration and indexing
+//
+// `for x in r` yields the elements lazily, in the range's direction:
+//
+// ```go
+//
+//	acc := []
+//	for x in range(10, 0, 3) {
+//	    acc = acc + x
+//	}
+//	// acc == [10, 7, 4, 1]
+//
+// ```
+//
+// Single elements are O(1)-indexable, with negative indices counting from the end:
+//
+// ```go
+// r := range(1, 10)
+// r[2]                 // => 3
+// r[-1]                // => 9
+// r[99]                // Error: index_out_of_bounds
+// ```
+//
+// Slice *syntax* is not supported — `r[1:3]` raises `not_sliceable`. The member `slice(i, j)` is the spelling,
+// and unlike the syntax form it clamps instead of raising.
+//
+// ## Operators
+//
+// ### Equality
+//
+// Ranges compare by their **definition** — the `start`/`stop`/`step` components — not by the element sequence
+// they generate:
+//
+// ```go
+// range(1, 4) == range(1, 4)          // => true
+// range(1, 4) == range(1, 4, 1)       // => true — step 1 is the default, same definition
+// range(1, 4) != range(1, 5)          // => true
+// range(1, 11, 3) == range(1, 12, 3)  // => false — both generate 1, 4, 7, 10, but the definitions differ
+// range(1, 4) == [1, 2, 3]            // => false — never equal to another type
+// ```
+//
+// Ordering (`<`, `<=`, …) is not defined between ranges and raises.
+//
+// ### The operators a range does not have
+//
+// `+`, `-` and `*` are **not defined** on a range and raise (`range + int`, `range - int`, `range * int`) — a
+// range is a read-only formula, so there is nothing to append to, remove from, or repeat. Nor does a range
+// spread into another sequence's operator: it is **one element**, like any other non-`array` value
+// (`[9] + (1..4)` → `[9, range(1, 4)]`). Materialize it first when you want the elements — `[9] + (1..4).array()`
+// → `[9, 1, 2, 3]`. The members mirror this exactly: a range has `contains`, and no `append`/`remove`/`repeat`.
+//
+// ### Membership: `x in r`
+//
+// An `int` operand is a closed-form membership test — arithmetic on the components, no materialization:
+//
+// ```go
+// 3 in range(1, 10, 2)     // => true
+// 4 in range(1, 10, 2)     // => false
+// ```
+//
+// A sequence operand (`array` or `range`) asks for the *run* reading, which is deferred on `range` and raises
+// saying so (`the run reading on a range is deferred until the vectorised integer sequence type exists; write
+// .array() explicitly`). A callable operand raises too — an operator operand is always a value; the predicate
+// reading is spelled `r.contains(f)` / `r.any(f)`:
+//
+// ```go
+// [2, 3] in range(1, 10)                    // Error: not_implemented — deferred (not_implemented)
+// (2..4) in range(1, 10)                    // Error: not_implemented — deferred
+// func(x) { return x > 2 } in range(1, 10)  // Error: invalid_value — write r.any(fn)
+// ```
+//
+// ### A range as the other side's operand
+//
+// On `array`'s side a `range` is **one element**, like every value that is not itself an `array` — a range is
+// never spread implicitly. Materializing is spelled at the call site, and then it is an ordinary array:
+//
+// ```go
+// [9] + range(1, 4)                  // => [9, range(1, 4)] — one element
+// [9] + range(1, 4).array()          // => [9, 1, 2, 3] — spelled
+// [1, 2, 3] - range(2, 4)            // => [1, 2, 3] — no element equals the range
+// [1, 2, 3] - range(2, 4).array()    // => [1] — removes the run 2, 3
+// ```
+//
+// The reason is forward-looking: a range that quietly became an `array` would answer an `array` today and an
+// `ints` tomorrow — silently, in a script that named neither. It is the same rule that keeps `map`/`keep` off
+// this type.
+//
+// `range` itself has no add (or remove) operator — a range cannot be extended and stay a closed form:
+//
+// ```go
+// range(1, 4) + 5             // Error: invalid_binary_operator: range + int
+// range(1, 4) + range(4, 7)   // Error: invalid_binary_operator: range + range
+// ```
+//
+// `range + array` is the one exception, and it is the array's doing, not the range's: the range has no reading
+// for an array, so it hands the operation over and the array prepends it as one element.
+//
+// ```go
+// range(1, 4) + [1]           // => [range(1, 4), 1]
+// ```
+//
+// On the text types (`string`/`runes`/`bytes`), a `range` argument or operand raises — they accept text content
+// only. Convert first: `bytes("ab") + range(1, 4).bytes()`.
+//
+// ## Argument dispatch
+//
+// Argument-taking search members (`contains`, `count`, `any`, `all`, `index`, `index_last`) share one reading
+// menu: an **`int` element**, a **variadic set** of ints (match = "∈ the set"), a **predicate function** ([callbacks](#callbacks)), or
+// **no argument** — the blank-set reading, which for `range` is the set `{0}` ("significant" = non-zero). All
+// readings are closed forms. A sequence argument (`array` or `range`) would be the run reading, which is
+// **deferred** on `range` and raises telling you to write `.array()` explicitly — except on `any`/`all`, where a
+// run argument is refused **permanently** (there is no universal reading of "any equals this run"). Mixing a
+// function with other arguments in one variadic call raises.
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the search members, `for_each`, `reduce` — calls it in the
+// **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from what kind of
+// callable it is:
+//
+// - a per-element callback gets the element when it accepts one argument, else `(index, element)`; anything else
+// raises;
+// - a `reduce` callback gets `(acc, element)` when it accepts two arguments, else `(acc, index, element)`; anything
+// else raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the element, and a builtin or a bound member is a callback like any
+// other (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form —
+// choose the form, reorder, fix or drop arguments:
+//
+// ```go
+// range(0, 6).count(func(i, x) { return i % 2 == 0 })     // => 3 — accepts two, not one
+// range(0, 10).index(func(x, ...rest) { return x > 6 })   // => 7 — accepts one: the element
+// range(1, 5).reduce(0, max)                              // => 4
+// ```
+//
+//kavun:type range
+
 var TypeIntRange = ValueTypeDescr{
 	Name:                ConstHook(intRangeTypeName), // PURE by contract
 	EncodeBinary:        intRangeTypeEncodeBinary,    // PURE by contract
@@ -126,41 +359,7 @@ var TypeIntRange = ValueTypeDescr{
 	AsArray:             intRangeTypeAsArray,         // PURE by contract
 	AsIntRange:          intRangeTypeAsIntRange,      // PURE by contract
 
-	Methods: []Method{
-		members.IsTrue:     NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:     NewPureMethod(intRangeString, 0, Variadic),
-		members.Format:     NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:       NewPureMethod(MemberSelf, 0, Fixed),
-		members.Freeze:     NewPureMethod(MemberSelf, 0, Fixed),
-		members.Runes:      NewPureMethod(intRangeRunes, 0, Variadic),
-		members.Array:      NewPureMethod(intRangeArray, 0, Fixed),
-		members.Bytes:      NewPureMethod(intRangeBytes, 0, Variadic),
-		members.Range:      NewPureMethod(intRangeRange, 0, Variadic),
-		members.Len:        NewPureMethod(intRangeLen, 0, Fixed),
-		members.IsEmpty:    NewPureMethod(intRangeIsEmpty, 0, Fixed),
-		members.Contains:   NewPureMethod(intRangeContains, 0, Variadic),
-		members.Index:      NewPureMethod(intRangeIndex, 0, Variadic),
-		members.Count:      NewPureMethod(intRangeCount, 0, Variadic),
-		members.All:        NewPureMethod(intRangeAll, 0, Variadic),
-		members.Any:        NewPureMethod(intRangeAny, 0, Variadic),
-		members.ForEach:    NewPureMethod(intRangeForEach, 1, Fixed),
-		members.Reduce:     NewPureMethod(intRangeReduce, 2, Fixed),
-		members.First:      NewPureMethod(intRangeFirst, 0, Variadic),
-		members.Last:       NewPureMethod(intRangeLast, 0, Variadic),
-		members.IndexLast:  NewPureMethod(intRangeIndexLast, 0, Variadic),
-		members.Min:        NewPureMethod(intRangeMin, 0, Variadic),
-		members.Max:        NewPureMethod(intRangeMax, 0, Variadic),
-		members.Slice:      NewPureMethod(intRangeSlice, 0, Variadic),
-		members.Reverse:    NewPureMethod(intRangeReverse, 0, Fixed),
-		members.Sort:       NewPureMethod(intRangeSort, 0, Fixed),
-		members.Unique:     NewPureMethod(intRangeDedup, 0, Fixed),
-		members.Dedup:      NewPureMethod(intRangeDedup, 0, Fixed),
-		members.Chunk:      NewPureMethod(intRangeChunk, 1, Fixed),
-		members.Join:       NewPureMethod(intRangeJoin, 0, Variadic),
-		members.Sum:        NewPureMethod(intRangeSum, 0, Variadic),
-		members.Avg:        NewPureMethod(intRangeAvg, 0, Variadic),
-		members.Components: NewPureMethod(intRangeComponents, 0, Fixed),
-	},
+	Methods: intRangeMethods,
 }
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
@@ -334,12 +533,12 @@ func (m *intRangeMatch) matches(i int, e int64) (bool, error) {
 
 // intRangeLocate is the body of index and index_last; name is the member called, for the errors.
 func intRangeLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
+	if len(args) > 2 {
+		return Undefined, ErrArgCount
+	}
 	elems, err := intRangeMaterialize(name, v)
 	if err != nil {
 		return Undefined, err
-	}
-	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
 
 	if len(args) == 0 {

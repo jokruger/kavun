@@ -5,27 +5,35 @@ import (
 	gojson "encoding/json"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
-func init() {
-	m := core.NewModule(value.ModuleJson, "json", true)
-	// 4..127 reserved
-	m.PureFn(members.Decode, 0, jsonDecode, 1, core.Fixed)
-	m.PureFn(members.Encode, 1, jsonEncode, 1, core.Fixed)
-	m.PureFn(members.Indent, 2, jsonIndent, 3, core.Fixed)
-	m.PureFn(members.HTMLEscape, 3, jsonHTMLEscape, 1, core.Fixed)
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
-}
+// JSON encoding and decoding of Kavun values.
+//
+// Example:
+//
+// ```go
+// json = import("json")
+// json.encode({"a": 1, "b": true})
+// ```
+//
+// **Failures.** `decode` and `indent` raise kind `json_decoding` on malformed input. `decode` reads a number without a
+// fraction or exponent as `int` and any other as `float`, and raises `json_decoding` when it does not fit — an integer
+// outside int64 (`(json.decode) number 9223372036854775808 is out of int range`) or a float that would be ±Inf
+// (`1e999`); it never wraps or clamps. A host passing JSON it decoded itself (`json.Number` through `kavun.ValueOf`)
+// gets the same rule — [embedding.md § Converting Go values](../../embedding.md#converting-go-values). `encode` raises
+// kind `json_encoding` on a value with no JSON representation, naming the path to it once — `.items[0].price: value
+// type <compiled-function/0> does not support JSON encoding` — and on text holding octets that are not symbols (JSON is
+// UTF-8 by definition; encode such text as `bytes`, which goes as base64).
+//
+//kavun:module json pure
 
+// Decode JSON text (`bytes` or `string`) into a Kavun value.
+//
+// `data` is `bytes` or a `string`.
+//
+//kavun:fn decode slot=0 pure (data) -> value
 func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
-	}
 
 	b, ok := args[0].AsBytes()
 	if !ok {
@@ -45,10 +53,10 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	return v, nil
 }
 
+// Encode a Kavun value as JSON bytes.
+//
+//kavun:fn encode slot=1 pure (value) -> bytes
 func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
-	}
 
 	b, err := Encode(args[0])
 	if err != nil {
@@ -59,10 +67,12 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewBytesValue(b, false), nil
 }
 
+// Pretty-format JSON text with a line `prefix` and an `indent` per level.
+//
+// `data` is `bytes` or a `string` and `prefix` and `indent` are `string`s.
+//
+//kavun:fn indent slot=2 pure (data, prefix, indent) -> bytes
 func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("json.indent", "3", len(args))
-	}
 
 	prefix, ok := args[1].AsString()
 	if !ok {
@@ -88,10 +98,12 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewBytesValue(dst.Bytes(), false), nil
 }
 
+// Escape JSON text for safe embedding in HTML.
+//
+// `data` is `bytes` or a `string`.
+//
+//kavun:fn html_escape slot=3 pure (data) -> bytes
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
-	}
 
 	b, ok := args[0].AsBytes()
 	if !ok {

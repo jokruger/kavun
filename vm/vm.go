@@ -268,7 +268,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if fn.VarArgs {
 		if numArgs < int(fn.NumParameters)-1 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("call", fmt.Sprintf("at least %d", fn.NumParameters-1), numArgs)
+			return core.Undefined, fn.ArgCountError("call", numArgs)
 		}
 		realArgs := int(fn.NumParameters) - 1
 		varArgs := numArgs - realArgs
@@ -282,7 +282,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 			numArgs = realArgs + 1
 		}
 	} else if numArgs != int(fn.NumParameters) {
-		return core.Undefined, errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", fn.NumParameters), numArgs)
+		return core.Undefined, fn.ArgCountError("call", numArgs)
 	}
 
 	// Save current VM state
@@ -1034,11 +1034,7 @@ func (v *VM) run() {
 					v.sp += copy(v.stack[v.sp:], spread)
 					numArgs = total
 				} else {
-					if callee.VarArgs {
-						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf(">=%d", callee.NumParameters-1), total)
-					} else {
-						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", callee.NumParameters), total)
-					}
+					v.err = callee.ArgCountError("call", total)
 					return
 				}
 
@@ -1086,7 +1082,7 @@ func (v *VM) run() {
 				}
 
 			case value.BuiltinFunction: // fast track for built-in functions
-				res, err := core.BuiltinFunctions[val.Data].Func(v, v.callArgs(numArgs, spread, hasSpread))
+				res, err := core.BuiltinFunctions[val.Data].Call(v, v.callArgs(numArgs, spread, hasSpread))
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -1096,7 +1092,7 @@ func (v *VM) run() {
 				v.sp++
 
 			case value.BuiltinClosure: // fast track for built-in closure
-				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v, v.callArgs(numArgs, spread, hasSpread))
+				res, err := (*core.BuiltinClosure)(val.Ptr).Call(v, v.callArgs(numArgs, spread, hasSpread))
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err

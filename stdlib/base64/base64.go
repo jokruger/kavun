@@ -4,32 +4,30 @@ import (
 	"encoding/base64"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
 )
 
-func init() {
-	m := core.NewModule(value.ModuleBase64, "base64", true)
-	// 8..127 reserved
-	m.PureFn(members.Encode, 0, b64EncodeToString, 1, core.Fixed)
-	m.PureFn(members.Decode, 1, b64DecodeString, 1, core.Fixed)
-	m.PureFn(members.RawEncode, 2, b64RawEncodeToString, 1, core.Fixed)
-	m.PureFn(members.RawDecode, 3, b64RawDecodeString, 1, core.Fixed)
-	m.PureFn(members.URLEncode, 4, b64URLEncodeToString, 1, core.Fixed)
-	m.PureFn(members.URLDecode, 5, b64URLDecodeString, 1, core.Fixed)
-	m.PureFn(members.RawURLEncode, 6, b64RawURLEncodeToString, 1, core.Fixed)
-	m.PureFn(members.RawURLDecode, 7, b64RawURLDecodeString, 1, core.Fixed)
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
-}
+// Base64 encoding and decoding: the standard and URL-safe alphabets, with or without padding.
+//
+// Example:
+//
+// ```go
+// base64 = import("base64")
+// base64.encode(bytes("hello"))
+// ```
+//
+// **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode)
+// illegal base64 data at input byte 0`.
+//
+//kavun:module base64 pure
 
+// Decode URL-safe Base64 text written without padding.
+//
+// `s` is a `string`.
+//
+//kavun:fn raw_url_decode slot=7 pure (s) -> bytes
 func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_url_decode", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_url_decode", "first", "string(compatible)", args[0].TypeName())
@@ -41,10 +39,12 @@ func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.NewBytesValue(res, false), nil
 }
 
+// Decode URL-safe Base64 text.
+//
+// `s` is a `string`.
+//
+//kavun:fn url_decode slot=5 pure (s) -> bytes
 func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.url_decode", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.url_decode", "first", "string(compatible)", args[0].TypeName())
@@ -56,10 +56,12 @@ func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	return core.NewBytesValue(res, false), nil
 }
 
+// Decode standard Base64 text written without padding.
+//
+// `s` is a `string`.
+//
+//kavun:fn raw_decode slot=3 pure (s) -> bytes
 func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_decode", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_decode", "first", "string(compatible)", args[0].TypeName())
@@ -71,10 +73,12 @@ func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	return core.NewBytesValue(res, false), nil
 }
 
+// Decode standard Base64 text.
+//
+// `s` is a `string`.
+//
+//kavun:fn decode slot=1 pure (s) -> bytes
 func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.decode", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.decode", "first", "string(compatible)", args[0].TypeName())
@@ -86,10 +90,12 @@ func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	return core.NewBytesValue(res, false), nil
 }
 
+// Encode `data` as URL-safe Base64 without padding.
+//
+// `data` is `bytes`.
+//
+//kavun:fn raw_url_encode slot=6 pure (data) -> string
 func b64RawURLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_url_encode", "1", len(args))
-	}
 	y1, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_url_encode", "first", "bytes(compatible)", args[0].TypeName())
@@ -98,10 +104,12 @@ func b64RawURLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err
 	return core.NewStringValue(res), nil
 }
 
+// Encode `data` as URL-safe Base64.
+//
+// `data` is `bytes`.
+//
+//kavun:fn url_encode slot=4 pure (data) -> string
 func b64URLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.url_encode", "1", len(args))
-	}
 	y1, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.url_encode", "first", "bytes(compatible)", args[0].TypeName())
@@ -110,10 +118,12 @@ func b64URLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err er
 	return core.NewStringValue(res), nil
 }
 
+// Encode `data` as standard Base64 without padding.
+//
+// `data` is `bytes`.
+//
+//kavun:fn raw_encode slot=2 pure (data) -> string
 func b64RawEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_encode", "1", len(args))
-	}
 	y1, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_encode", "first", "bytes(compatible)", args[0].TypeName())
@@ -122,10 +132,12 @@ func b64RawEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err er
 	return core.NewStringValue(res), nil
 }
 
+// Encode `data` as standard Base64.
+//
+// `data` is `bytes`.
+//
+//kavun:fn encode slot=0 pure (data) -> string
 func b64EncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("base64.encode", "1", len(args))
-	}
 	y1, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.encode", "first", "bytes(compatible)", args[0].TypeName())

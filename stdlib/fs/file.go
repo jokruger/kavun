@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -26,6 +25,35 @@ func FileOf(v core.Value) *os.File {
 	return (*os.File)(v.Ptr)
 }
 
+// An open file, as `fs.open`, `fs.open_file` and `fs.create` answer it.
+//
+// ## Overview
+//
+// `fs.file` is a handle on the world: it is owned by the [`fs`](../stdlib/fs.md) module, every member touches the file
+// system, and a refusal raises `io` naming the member (`(fs.file.read) read …: bad file descriptor`). It has no text
+// content, so it renders instead (`format(f)` → `<fs.file:./out.txt>`) and has no `string()`.
+//
+// ```go
+// fs := import("fs")
+// f := fs.create("./out.txt")
+// f.write_string("hello")      // => 5 — the number of bytes written
+// f.seek(0, fs.seek_set)       // => 0
+// buf := bytes(b"\x00", 5)
+// f.read(buf)                  // => 5 — buf now holds "hello"
+// f.stat().size                // => 5
+// f.close()
+// ```
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `==` / `!=` | the same open file (identity: two opens of one path are different files) |
+// | `!` | a file is always truthy |
+// | everything else | raises |
+//
+//kavun:type fs.file
+
 // TypeFile is the fs.file type descriptor.
 var TypeFile = core.ValueTypeDescr{
 	Name:   core.ConstHook(fileTypeName),            // PURE by contract
@@ -34,24 +62,7 @@ var TypeFile = core.ValueTypeDescr{
 	IsTrue: core.Const2Hook[bool, error](true, nil), // PURE by contract
 	Equal:  core.SamePtrEqual,                       // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:       core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.Format:       core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:         core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:       core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Name:         core.NewMethod(fileName, 0, core.Fixed),
-		members.Read:         core.NewMethod(fileRead, 1, core.Fixed),
-		members.Write:        core.NewMethod(fileWrite, 1, core.Fixed),
-		members.WriteString:  core.NewMethod(fileWriteString, 1, core.Fixed),
-		members.Close:        core.NewMethod(fileClose, 0, core.Fixed),
-		members.Sync:         core.NewMethod(fileSync, 0, core.Fixed),
-		members.Seek:         core.NewMethod(fileSeek, 2, core.Fixed),
-		members.Stat:         core.NewMethod(fileStat, 0, core.Fixed),
-		members.Chmod:        core.NewMethod(fileChmod, 1, core.Fixed),
-		members.Chown:        core.NewMethod(fileChown, 2, core.Fixed),
-		members.Chdir:        core.NewMethod(fileChdir, 0, core.Fixed),
-		members.ReadDirNames: core.NewMethod(fileReadDirNames, 1, core.Fixed),
-	},
+	Methods: fileMethods,
 }
 
 // A file renders as <fs.file:NAME>; it has no text content, so no string() member.

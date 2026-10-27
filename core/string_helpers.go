@@ -100,7 +100,7 @@ func (m *stringMatch) matches(i int, r rune) (bool, error) {
 // PURE by contract.
 func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
 	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+		return Undefined, ErrArgCount
 	}
 	s := *(*string)(v.Ptr)
 
@@ -332,9 +332,6 @@ func stringTrimmed(name string, v Value, args []Value, start, end bool) (Value, 
 // the errors.
 // PURE by contract.
 func stringAnchored(name string, v Value, args []Value, suffix bool) (octets, symbols int, err error) {
-	if len(args) == 0 {
-		return 0, 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
-	}
 	const onFunction = "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)"
 	s := *(*string)(v.Ptr)
 	octets = -1
@@ -399,9 +396,6 @@ func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) (Val
 // and the result is recounted. The name is the member called, for the errors.
 // PURE by contract.
 func stringReplaced(name string, v Value, args []Value) (Value, error) {
-	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
-	}
 	if args[0].IsCallable() || args[1].IsCallable() {
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
 	}
@@ -446,8 +440,8 @@ func stringReplaced(name string, v Value, args []Value) (Value, error) {
 // (a string is its octets), so that result is recounted. The name is the member called, for the errors.
 // PURE by contract.
 func stringPadded(name string, v Value, args []Value, start bool) (Value, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 2 {
+		return Undefined, ErrArgCount
 	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {

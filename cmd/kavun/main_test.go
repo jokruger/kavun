@@ -92,7 +92,7 @@ func TestSignedCompile(t *testing.T) {
 		require.NoError(t, PrintInfo(&out, bytes.NewReader(data), signer))
 		return out.String()
 	}
-	core := "core version:  1.0 (this engine: 1.0)\nhost version:  0.0 (this process: 0.0)\n"
+	core := "core version:  1.1 (this engine: 1.1)\nhost version:  0.0 (this process: 0.0)\n"
 	rest := "imports:       math\nbindings:      (none)\n"
 	require.Equal(t, core+"signed:        yes (not checked: no key)\n"+rest, info(signedData, nil))
 	require.Equal(t, core+"signed:        yes, signature valid\n"+rest, info(signedData, key))

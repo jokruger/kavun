@@ -174,7 +174,8 @@ func tableFormat(v core.Value, typeName, text string, sp fspec.FormatSpec) (stri
 }
 
 // The members every table has — copy/freeze (identities on an immutable value), string(), format([spec]) — are
-// entries in each table's member table; copy/freeze/format are the shared MemberSelf/MemberFormat, string is this.
+// entries in each table's member table, each its own function: copy/freeze answer the receiver, format calls
+// core.FormatWithSpec, and string calls tableString below.
 
 // tableString is string([default]): the table's canonical text, the form its constructor reads back.
 func tableString(v core.Value, text string, args []core.Value) (core.Value, error) {
@@ -183,9 +184,6 @@ func tableString(v core.Value, text string, args []core.Value) (core.Value, erro
 
 // chargeArgs reads the amount-banded tables' (amount, rule, scale, mode): charge, rate, charge_parts.
 func chargeArgs(name string, args []core.Value) (dec128.Dec128, fin128.Rule, fin128.Rounding, error) {
-	if err := argCount(name, args, 4); err != nil {
-		return dec128.Dec128{}, 0, fin128.Rounding{}, err
-	}
 	amount, err := core.DecimalOperandArg(name, "amount", args[0])
 	if err != nil {
 		return dec128.Dec128{}, 0, fin128.Rounding{}, err
@@ -214,9 +212,6 @@ type accrual struct {
 // accrualArgs reads accrue/accrue_parts' arguments.
 func accrualArgs(name string, args []core.Value) (accrual, error) {
 	var a accrual
-	if err := argCount(name, args, 6); err != nil {
-		return a, err
-	}
 	var err error
 	if a.principal, err = core.DecimalOperandArg(name, "principal", args[0]); err != nil {
 		return a, err
@@ -249,15 +244,4 @@ func tierPartsValue(parts []fin128.TierPart) core.Value {
 		}, false)
 	}
 	return core.NewArrayValue(out, false)
-}
-
-func argCount(name string, args []core.Value, counts ...int) error {
-	if slices.Contains(counts, len(args)) {
-		return nil
-	}
-	want := fmt.Sprint(counts[0])
-	if len(counts) == 2 {
-		want = fmt.Sprintf("%d or %d", counts[0], counts[1])
-	}
-	return errs.NewWrongNumArgumentsError(name, want, len(args))
 }

@@ -3,7 +3,6 @@ package fin
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"math/big"
 	"unsafe"
 
@@ -65,6 +64,41 @@ func yearFractionResult(op string, f daycount.Fraction) (core.Value, error) {
 	return NewYearFractionValue(f), nil
 }
 
+// A length of time **in years**, as an exact ratio.
+//
+// ## Overview
+//
+// A year fraction is the days a day-count convention counts over the year length it takes. It is the `f` the interest
+// functions take, kept exact so an accrual never rounds the period before it multiplies. The type is named after its
+// constructor (`type_name(f)` is `"fin.year_fraction"`) because it exists only for this module. It is owned by the
+// [`fin`](../stdlib/fin.md) module.
+//
+// ```go
+// fin := import("fin")
+// f := fin.year_fraction_between(d"2026-01-01", d"2026-02-01", "ACT/365F")   // => fin.year_fraction(31, 365)
+// fin.year_fraction_between(d"2026-02-01", d"2026-03-01", "30E/360")        // => fin.year_fraction(30, 360) — every month is 30 days
+// fin.year_fraction_between(d"2027-07-01", d"2028-07-01", "ACT/ACT")        // => fin.year_fraction(184, 365, 182, 366) — split at the year end
+// fin.year_fraction(31, 365)                 // stated directly: 31 counted days over a 365-day year
+// fin.year_fraction()                        // => fin.year_fraction(0, 1) — the default; falsy
+// fin.accrue_simple(10000, 0.05d, f, 2, "half_even")   // => 42.47d — interest for January
+// ```
+//
+// `fin.year_fraction(n1, d1[, n2, d2])` takes `int`s: numerators within `int32`, any sign; denominators **1…65535**
+// (fin128's own output stays within that, so every value can be rebuilt from its terms). A sum or scale that would
+// leave those bounds raises `invalid_value`. JSON is the terms array, `[184, 365, 182, 366]`; `json.decode` gives
+// an array back, which `fin.year_fraction(v...)` rebuilds.
+//
+// ## Operators
+//
+// | operator | result |
+// | --- | --- |
+// | `f + g` | the exact sum |
+// | `f * n`, `n * f` (`n` an `int`) | scaled — e.g. a year fraction as compounding periods |
+// | `f < g` (`<=` `>` `>=`), `f == g` | exact, numeric: `fin.year_fraction(31, 365) == fin.year_fraction(62, 730)` |
+// | `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.value(…)` to leave the type |
+//
+//kavun:type fin.year_fraction
+
 // TypeYearFraction is the fin.year_fraction type descriptor.
 var TypeYearFraction = core.ValueTypeDescr{
 	Name:         core.ConstHook(yearFractionTypeName),                                          // PURE by contract
@@ -80,18 +114,7 @@ var TypeYearFraction = core.ValueTypeDescr{
 	BinaryOp:     yearFractionTypeBinaryOp,                                                      // PURE by contract
 	AsString:     func(v core.Value) (string, bool) { return YearFractionOf(v).String(), true }, // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:     core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String:     core.NewPureMethod(yearFractionString, 0, core.Variadic),
-		members.Format:     core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:       core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:     core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.IsZero:     core.NewPureMethod(yearFractionIsZero, 0, core.Fixed),
-		members.IsPositive: core.NewPureMethod(yearFractionIsPositive, 0, core.Fixed),
-		members.IsNegative: core.NewPureMethod(yearFractionIsNegative, 0, core.Fixed),
-		members.Value:      core.NewPureMethod(yearFractionValue, 2, core.Fixed),
-		members.Terms:      core.NewPureMethod(yearFractionTerms, 0, core.Fixed),
-	},
+	Methods: yearFractionMethods,
 }
 
 // yearFractionTermsOf answers the constructor's arguments: [n1, d1] or [n1, d1, n2, d2].

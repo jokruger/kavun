@@ -2,29 +2,52 @@ package rand
 
 import (
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
-// The rand module is pseudo-random numbers as a VALUE: rand.generator(seed) answers a generator whose draws are its
-// own state, so the same seed gives the same sequence on every build and nothing is shared between scripts. It is
-// pure — it reads nothing from the world; entropy comes from os.rand_generator(), which answers the same type.
-func init() {
-	m := core.NewModule(value.ModuleRand, "rand", true)
+// Pseudo-random numbers as a value.
+//
+// The module's one function is the constructor of the type it owns: `rand.generator(seed)` answers a
+// [`rand.generator`](../types/rand_generator.md) whose draws are its own state. Pure — it reads nothing from the world,
+// so it is importable by default; entropy comes from `os.rand_generator()`, which answers the same type over
+// `crypto/rand`.
+//
+// ```go
+// rand := import("rand")
+// g := rand.generator(1)
+// g.int(1, 7)                 // a die roll, [1, 7) — the same on every run with seed 1
+// g.float()                   // [0, 1)
+// [1, 2, 3, 4, 5].shuffle(g)  // a new array, shuffled with g's draws
+// os := import("os")          // os needs a grant
+// d := os.rand_generator()    // the same type, unpredictable
+// ```
+//
+// The generator's members (see [types/rand_generator.md](../types/rand_generator.md)): `int([lo,] hi)`,
+// `float([lo,] hi)`, `bytes(n)`, `perm(n)`, `norm_float()`, `exp_float()`, `copy()`. Ranges are half-open, like
+// `range(lo, hi)`.
+//
+// **Failures.** A bound that leaves no value (`g.int(5, 5)`) or a bad count (`g.bytes(0)`) raises `invalid_value`.
+//
+//kavun:module rand pure
+
+// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.RandGenerator, TypeGenerator)
-	m.PureFn(members.Generator, 0, randGenerator, 1, core.Fixed)
-	// 1..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
 }
 
-// rand.generator(seed): a seeded generator (PCG); the seed is required — a pure module cannot pick one itself.
+// Answer a generator seeded with `seed`.
+//
+// `seed` is an `int`.
+//
+// The same seed gives the same sequence on every build: the source is PCG-DXSM (a specified algorithm) and every draw
+// is derived from its raw output by Kavun's own code. A reproducible run seeds from a literal; a seed from entropy is
+// `rand.generator(os.rand_generator().int())`.
+//
+// The seed is required: a pure module cannot pick one itself.
+//
+//kavun:fn generator slot=0 pure (seed) -> rand.generator
 func randGenerator(_ core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("rand.generator", "1", len(args))
-	}
 	if args[0].Type != value.Int {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.generator", "first", "int", args[0].TypeName())
 	}

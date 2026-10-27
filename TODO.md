@@ -2,24 +2,15 @@
 
 ## potential problems
 
-3. **Callable arity has two meanings, and a member whose fewest is 0 cannot be a callback.** Found 2026-10-12
-   (bound members). Callback-taking members (`map`, `keep`, `reduce`, `for_each`, the dict members, …) choose
-   `f(e)` vs `f(i, e)` from `Arity()` (`newElemCallback`/`ElemCallback`, `readReduceArgs`/`ReduceCallback` in
-   `core/tools.go`). What `Arity()` means differs per callable kind:
-
-   | callable | `Arity()` of a variadic | accepted as `f/1` callback |
-   | --- | --- | --- |
-   | script `func(...a)` | 1 — the rest parameter counts (`NumParameters`) | yes |
-   | script `func(x, ...a)` | 2 | yes, called as `f(i, e)` |
-   | builtin `min` (declared `0, true`) | 0 — the fewest accepted | no |
-   | bound member `"abc".contains` (`Arity 0, Variadic`) | 0 — the fewest accepted | no — `xs.keep(s.contains)` raises `f/1 or f/2` |
-   | bound member `"abc".has_prefix` (`Arity 1, Variadic`) | 1 | yes |
-
-   Possibly a bug, possibly two rules that were never stated. Analyze and resolve in a separate session: pick ONE
-   meaning of `Arity()` for a variadic (fewest accepted vs declared parameters), then decide whether a variadic
-   callable whose accepted range includes 1 (or 2) qualifies as `f/1` (`f/2`) — and which reading wins when it
-   includes both. Touches every callable kind, `docs/types.md` § Lambda callbacks and § Member functions are
-   values, and `TestMemberArity`'s definition of `Arity`.
+3. **Callable arity — RESOLVED 2026-10-26.** Every callable kind answers one pair: arity = the count of fixed
+   parameters, variadic = accepts more (render `/N`, `/N+`; a script function's `...rest` is not counted). Every
+   native function declares a signature template (`(width[, fill])`, `() | (components) | (start, stop[, step])`)
+   in a `//kavun:` directive beside its body; `cmd/kavun-gen` generates the tables (`kavun_gen.go`) and the
+   reference pages (`docs/reference/`) from them. The dispatcher checks the floor before the body runs; a body
+   keeps only its bound or gap (`core.ErrArgCount`), and every wrong-count error quotes the template or states the
+   pair. Callbacks take the fewest form the pair accepts (`core.CallbackForm`), so `xs.map(min)`, `xs.map(int)`,
+   `xs.keep(s.contains)` work and a lambda is the one way to adapt a callable. Pinned by `TestMemberArity`,
+   `TestArgCountSingleSource`, `TestMemberTemplateParity`, `TestGeneratedInSync` and `TestCallbackForm`.
 5. **The `q` format of an escape rune renders U+FFFD.** Found 2026-10-13. `f"{e:q}"` and `f"{0xDCFF:q}"` answer
    `'�'` (`strconv.QuoteRune`), while `f"{s:q}"` on a string renders the same octet as `\xff` — and `c` renders it
    as the octet. No rune literal spells an escape (`'\xff'` is U+00FF, `'\udcff'` is a parse error), so a quoted
@@ -45,6 +36,64 @@
     how `TestSpread` pins it today. Likely the unwind to the main frame does not reset `sp` to the main frame's
     base the way a returning frame does; check what a host reusing the VM (`kavun_reuse_test.go`) sees, then fix
     the unwind and add a top-level recover case to the harness-checked tests.
+11. **Different templates under one member name (naming session).** The rule "same name, same meaning, same
+    template on every type" (`docs/conventions.md` § One Name, One Template) holds everywhere except these, listed
+    in `TestMemberTemplateParity`'s exception table. Different meaning under one name (naming smells): `rand.generator`'s `int`/`float`/`bytes`
+    (they draw, `() | (hi) | (lo, hi)` / `(n)`, where every other type converts with `([default])`);
+    `decimal.split(k, n)` (an allocation) vs text `split(...seps)` vs `re.pattern.split(s[, count])` (the receiver
+    is the separator); `re.pattern.replace(s, repl)` (receiver role mirrored against the sequences'
+    `replace(old, new)`); `fin.year_fraction.value(scale, mode)` vs `error.value()`. Also a unit-keyed parse for
+    numbers folding `time_ms`/`time_micro`/`time_nano`. Same meaning, different key: the fin tables' `at`
+    (`(amount)` on the tiered tables, `(on)` / `(on[, fallback])` on the dated ones) and `accrue`
+    (`(principal, f, rule, scale, mode)` on `fin.tiered_rates` vs `(principal, start, end, convention, scale, mode)`
+    on `fin.dated_rates`) — the operation is the same, the lookup key differs by table kind; decide whether that is
+    an accepted exception or wants distinct names. One session for all of them.
+12. **Multi-arity functions.** Found 2026-10-15 (callable arity design, deferred). A member or builtin with an
+    optional tail or a gap (`range` 0/1/2/3, `fin.tiered_charges` 0/1/3, `date` 0/1/2) is one body that switches
+    on its count; the dispatcher checks only the floor, so a forgotten bound or gap is caught by
+    `TestMemberArity`, not by construction. Direction: one implementation per count form, routed by a
+    count-indexed table — for scripts (Clojure `defn` arities, Racket `case-lambda`) and natives together — which
+    makes gap bodies safe by construction. A language design question of its own: syntax, the callback form of a
+    multi-arity callable, bytecode layout, render.
+13. **Script-function count errors cannot name their parameters.** Found 2026-10-15. A native callable reports
+    `(join) expected ([sep]), got 2 arguments`; a script function only `(call) expected 2 arguments, got 1
+    argument`, because parameter names are not in the bytecode. Direction: a `CompiledFunction` field for the
+    names (a codec change → core version bump), then the template text for script functions too.
+14. **An LSP needs the reference as data.** Found 2026-10-25. The templates, summaries and bodies exist only as
+    Markdown pages today. Direction: `kavun-gen` emits `docs/reference/reference.json` from the same parse, for
+    hover, completion and signature help; host callable types would then want a `Signature` hook beside
+    `Arity`/`IsVariadic`, so they can carry a template too.
+15. **Operator rows of the type pages are hand-written.** Found 2026-10-25. Each type's Operators table lives in its
+    `//kavun:type` block, so the member ↔ operator parity (`+` ≡ `append`, `-` ≡ `remove`, `in` ≡ `contains`, `*` ≡
+    `repeat`) is pinned by `value_binaryop_matrix_test.go` but not reflected on the page by construction. Direction: an
+    `op=` directive key on the member, from which the generator derives the row.
+16. **`kavun-gen` covers builtin names only.** Found 2026-10-25. An embedder package can generate a type table only
+    over builtin member names (`member.Lookup`; names added with `member.Define` are not read), cannot generate a
+    module (modules need a `value.Module*` constant), and gets pages only with `-docs <dir>`. Direction: read the
+    embedder's `member.Define` calls / a declared id range, and let a module directive carry its own type id.
+17. **`range(range(0, 3))` is refused.** Found 2026-10-15. Every other constructor on a value of its own type
+    answers a copy (`array(a)`, `bytes(b)`), but `range` with one argument reads the components record, so a range
+    argument raises `invalid_argument_type`. Decide: accept a range (a copy — the value is immutable, so itself)
+    or state the exception on the `range` page.
+18. **Silent answers in `os` and `exec`.** Found 2026-10-26 (declaration sweep). `os.lookup_env` answers a silent
+    `false` on a miss and `os.get_env` a silent `""` — against the one-failure-mode rule (raise; a member-style
+    trailing default is the opt-out). `exec.find_process(-1)` never fails on Unix (Go's `os.FindProcess` always
+    succeeds there), so a bad pid surfaces only at the first signal or wait.
+19. **`math` answers `NaN`/`±Inf` where the operators raise.** Found 2026-10-26 (doc-example sweep). The `float`
+    quarantine raises `invalid_value` on any NaN or ±Inf result (`1.0 / 0.0`, `0.0 / 0.0`), but the `math` module
+    documents the opposite for its functions: `math.acos(2)` answers `NaN`, `math.inf(1)` answers `+Inf`, and the
+    sentinel only raises at the next arithmetic step. Two rules for one value kind; the module page states its
+    rule, so it is deliberate today, not an accident. Decide: raise in `math` too (one failure mode; `math.nan()`
+    / `math.inf()` stay as explicit constructors), or state on the `float` page why the module is the exception.
+20. **`clock.since(5)` accepts an int as a time.** Found 2026-10-26 (doc-example sweep). `since`/`until` read the
+    argument with the type's time conversion (`AsTime`), so an `int`, `float` or `decimal` is a unix timestamp and
+    a `string` is parsed — a duration passed by mistake (`clock.since(elapsed)`) is silently a time near 1970.
+    Decide: accept `time` only (the caller converts explicitly with `x.time()`), or keep "time-compatible" and
+    say so on the `clock` page; whichever wins should hold for every other `time`-taking module function.
+21. **The `bool` arithmetic note below cites a heading that does not exist.** Found 2026-10-26. The "random
+    ideas" entry on `bool` arithmetic points at `docs/types.md`'s "Operators across types"; the page has no such
+    heading (the cross-type ordering lives under "Members and operators correspond" / the `bool` reference page).
+    The note's claims hold on the binary (`true < 2`, `true == 1` answer `true`); only the pointer is stale.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
@@ -64,7 +113,7 @@
     semantic changes. Needs the parser to keep comments in the AST, and a printer.
   - **Member rosters as data** — each type's member list (and each module's exports) as a queryable table
     rather than only `case "..."` labels in `MethodCall`. Prerequisite for the hints above, the static
-    checks below and the LSP; also lets `docs/types/function-matrix.md` be generated instead of hand-derived.
+    checks below and the LSP.
   - **Compile-time member checks, no type system needed.** Rule throughout: diagnose only when CERTAIN;
     "unknown" stays silent at compile time and the runtime still raises (never a false positive). Tiers:
     - **A. Binding provenance** — a symbol bound by `:= import("io")` and never reassigned anywhere in the
@@ -78,14 +127,15 @@
     Build A+B once inside `compiler` as a reusable analysis: it is exactly what an LSP needs (completion,
     hover, go-to-definition, diagnostics), so the checker, the hints and the LSP share one engine.
   - **A `module` type** instead of `immutable-record` for imported modules. — **DONE 2026-10-12**
-    (`docs/types/module.md`: a miss raises `module 'math' has no member 'pii'`; script modules export any value.) Motivation beyond nicer messages:
+    (`docs/reference/types/module.md`: a miss raises `module 'math' has no member 'pii'`; script modules export any value.) Motivation beyond nicer messages:
     a record answers `undefined` for a missing field, and `undefined` propagates through arithmetic by design
-    (`docs/types/undefined.md`), so `math.pii * 2` answers `undefined` and the script exits 0 — a misspelled
+    (`docs/reference/types/undefined.md`), so `math.pii * 2` answers `undefined` and the script exits 0 — a misspelled
     module member is a program error, not absent data. A `module` value would raise on a missing member
     (`module 'math' has no member 'pii'` + hint), carry its name and export roster at runtime (hints,
     `format()`, LSP, per-member docs), and give tier A a type to anchor on. Open: user modules (`export` may
     be any value, e.g. a function — wrap only record exports, or always?); relation to "control allowed
-    modules on VM level" below; usual cost (type ID, vtable, `docs/types/` page, matrix rows, CHANGELOG).
+    modules on VM level" below; usual cost (type ID, vtable, the doc comments its generated reference page
+    comes from, CHANGELOG).
   - **`kavun check` + machine-readable diagnostics** — parse, resolve, compile and run the static checks
     WITHOUT executing; non-zero exit on any problem; `--json` emits one record per diagnostic, e.g.
     `{"severity","kind","message","file","line","col","end_col","hint"}`. Go-side twin `Script.Check()`
@@ -160,7 +210,7 @@
   arithmetic-free permanently, is real future design work, not decided either way yet.
 
 - **`dict`/`record` containment check** — not decided, not started. `dict`/`record` support
-  structural `==`/`!=` across each other (see `docs/types/dict.md`'s "Equality and ordering") but
+  structural `==`/`!=` across each other (see `## Operators` in `docs/reference/types/dict.md`) but
   deliberately have no ordering (`< > <= >=`) at all — a dict has no natural total order the way a
   `string`/`array` does, and Python 3 removing dict ordering (Python 2 had one; it was considered a
   mistake) is real precedent against inventing one here. The one ordering-*shaped* question that

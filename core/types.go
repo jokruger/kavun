@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -150,32 +151,77 @@ type ValueTypeDescr struct {
 	Properties []Property // x.name and x.name = r: answered by Properties[id].Get/Set, else the named hooks
 }
 
-// Method is one slot of a type's Methods table. Build it with NewMethod or NewPureMethod, never as a struct literal:
-// the constructor names every fact, so an entry reads "a pure method, stringSplit, 0 or more arguments".
+// Method is one slot of a type's Methods table. It is built by the constructors (NewMethod, NewPureMethod), or by
+// ModuleBuilder from a Signature it has already parsed — never as a struct literal elsewhere: the constructor names
+// every fact, so an entry reads "a pure method, (sep), stringSplit".
 type Method struct {
-	Fn   func(vm VM, v Value, id member.ID, args []Value) (Value, error) // validates its own argument count
-	Pure bool                                                            // optimizer information only (docs/purity.md); never read on the call path
+	// Fn is the body. The dispatcher (Method.Call) has checked the floor of Sig before it runs — exactly the arity
+	// when fixed, at least the arity when variadic — so a fixed body indexes its arguments unguarded; a body bounds
+	// or gaps its rest itself and refuses a count by returning ErrArgCount.
+	Fn   func(vm VM, v Value, id member.ID, args []Value) (Value, error)
+	Pure bool // optimizer information only (docs/purity.md); never read on the call path
 
-	Arity    int  // the fewest arguments Fn accepts; a bound member's Arity, which callback-taking members dispatch on
-	Variadic bool // Fn also accepts more than Arity (optional or variadic arguments); a bound member's IsVariadic
+	// Sig is what Fn accepts: the dispatcher's count check and error text, and a bound member's Arity and
+	// IsVariadic, which callback-taking members dispatch on.
+	Sig Signature
+
+	name string // the name count errors report when set (a module function: "math.abs"); see countName
 }
 
-// Arguments says whether a member takes exactly its Arity arguments (Fixed) or also more (Variadic).
-type Arguments bool
+// Call runs the entry for receiver v as member id: the count check against Sig, then the body, then the
+// translation of a body's ErrArgCount — the one path every table-driven member call takes. Value.CallMember, the hot
+// path, writes the same three steps out in place (Call is too large to inline); the errors are built out of line
+// (methodCountError, methodResult) in both.
+// METHOD-DEPENDENT by contract: purity is the entry's (Pure).
+func (m *Method) Call(vm VM, v Value, id member.ID, args []Value) (Value, error) {
+	if !m.Sig.admitsFloor(len(args)) {
+		return methodCountError(m, v, id, len(args))
+	}
+	res, err := m.Fn(vm, v, id, args)
+	if err != nil {
+		return methodResult(m, v, id, len(args), res, err)
+	}
+	return res, nil
+}
 
-const (
-	Fixed    Arguments = false
-	Variadic Arguments = true
-)
+// methodCountError is Call's refusal of a count below the floor (out of line, off the hot path).
+func methodCountError(m *Method, v Value, id member.ID, n int) (Value, error) {
+	return Undefined, ArgCountError(m.Sig, m.countName(v, id), n)
+}
+
+// methodResult is Call's handling of a body's error (out of line): ErrArgCount becomes the entry's
+// wrong_num_arguments error, anything else passes through.
+func methodResult(m *Method, v Value, id member.ID, n int, res Value, err error) (Value, error) {
+	if errors.Is(err, ErrArgCount) {
+		return Undefined, ArgCountError(m.Sig, m.countName(v, id), n)
+	}
+	return res, err
+}
+
+// countName answers the name the entry's count errors report: the module-qualified name of a module function
+// ("math.abs"), "<type>.<member>" for a member of a module-owned type ("re.pattern.find" — its type name carries
+// the module prefix), and the bare member name for a core type's member ("join").
+func (m *Method) countName(v Value, id member.ID) string {
+	if m.name != "" {
+		return m.name
+	}
+	if t := v.TypeName(); strings.Contains(t, ".") {
+		return t + "." + id.String()
+	}
+	return id.String()
+}
 
 // NewMethod is a member function the optimizer never folds: the safe default, for a member that is not pure.
-func NewMethod(fn func(vm VM, v Value, id member.ID, args []Value) (Value, error), arity int, args Arguments) Method {
-	return Method{Fn: fn, Arity: arity, Variadic: bool(args)}
+// template is the signature template ("(width[, fill])", receiver excluded); a malformed one panics, like
+// regexp.MustCompile — it is a programming error caught at init.
+func NewMethod(template string, fn func(vm VM, v Value, id member.ID, args []Value) (Value, error)) Method {
+	return Method{Fn: fn, Sig: MustSignature(template)}
 }
 
-// NewPureMethod is a member function the optimizer may fold: an explicit purity claim (docs/purity.md).
-func NewPureMethod(fn func(vm VM, v Value, id member.ID, args []Value) (Value, error), arity int, args Arguments) Method {
-	return Method{Fn: fn, Pure: true, Arity: arity, Variadic: bool(args)}
+// NewPureMethod is a member function the optimizer may fold: an explicit purity claim (docs/purity.md). template
+// is as for NewMethod.
+func NewPureMethod(template string, fn func(vm VM, v Value, id member.ID, args []Value) (Value, error)) Method {
+	return Method{Fn: fn, Pure: true, Sig: MustSignature(template)}
 }
 
 // Property is one slot of a type's Properties table. Build it with NewProperty or NewPureProperty.

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strings"
 	"unsafe"
@@ -49,6 +48,290 @@ func NewBytesValue(b []byte, immutable bool) Value {
 	return Value{Type: value.Bytes, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
+// Raw octets — binary data that can also be treated as ASCII-range text.
+//
+// ## Overview
+//
+// `bytes` is the low-level member of the text family: a mutable sequence of **octets** with no symbol
+// interpretation. The element is the [`byte`](byte.md).
+//
+// | type | representation | mutability | indexing |
+// | --- | --- | --- | --- |
+// | `bytes` | raw octets, no symbol interpretation | **mutable** | O(1) by octet |
+// | `string` | Unicode text in compact UTF-8 | immutable | O(n) by symbol — see [string](string.md) |
+// | `runes` | Unicode text as a symbol array | mutable | O(1) by symbol — see [runes](runes.md) |
+//
+// The line between `bytes` and the symbol types is **encoding**. Members that need symbol classes — `upper`,
+// `lower`, `case_fold`, the casing family — do not exist on `bytes`: interpreting an octet as a cased letter
+// means assuming an encoding.
+//
+// ```go
+// bytes("héllo").len()                // => 6 — octets — é is two
+// bytes("héllo").upper()              // Error: invalid_method: type bytes has no method upper
+// bytes("héllo").string().upper()     // => "HÉLLO" — decode, then the symbol work
+// ```
+//
+// The edge members `first([d])`, `last([d])`, `min([d])` and `max([d])` take the optional trailing default; an
+// empty receiver has no answer to give, so without one they raise `invalid_value`. No `sum`/`avg` — see the
+// exclusions.
+//
+// ```go
+// bytes("bca").first()        // => byte(98)
+// bytes("bca").min()          // => byte(97)
+// bytes("").first(b'?')       // => byte(63)
+// bytes("").first()           // Error: invalid_value: (first) empty sequence
+// ```
+//
+// Decoding is total too: `bytes` → `string`/`runes` never raises — an octet that is not part of valid UTF-8 rides
+// through as its escape rune (U+DC80–U+DCFF) and converts back to the same octet.
+//
+// There is no `.int()`/`.float()`/`.decimal()`/`.bool()`/`.time()` on `bytes` — octets are not text until
+// decoded. Parse through the decode: `bytes("42").string().int()` → `42`. There are no `.dict()`/`.record()`
+// conversions either (octets are never key/value entries), and no `.byte()` (`bytes([65])` is a sequence;
+// its element is `b[0]`).
+//
+// ## Literals and construction
+//
+// The literal form is `b"..."`, with the same escapes as `string` literals plus raw octet escapes:
+//
+// ```go
+// b"ab"               // => bytes([97, 98])
+// b"\x00\xff"         // => bytes([0, 255])
+// ```
+//
+// **`bytes` is a mutable sequence — but a literal is an immutable constant.**:
+// the *type* is writable, and `b"..."` is a compile-time constant of that type. Its content
+// is fixed in the source, so the compiler stores it once in the bytecode's static pool and every evaluation
+// loads that one shared value; `bytes` is most often constant text or a fixed byte pattern — a magic prefix,
+// a separator, a key — which is what the short `b"..."` form is for. When you want a buffer, you construct one:
+//
+// ```go
+// type_name(b"ab")            // => "immutable-bytes"
+// l := b"abc"
+// l[0] = b'X'                 // Error: not_assignable: type immutable-bytes does not support assignment ...
+//
+// m := bytes(b"abc")          // a constructor always builds a new, writable body
+// m[0] = b'X'
+// m                           // => bytes([88, 98, 99]) — the literal is untouched
+// m = b"abc".copy()           // the same thing, spelled as a copy
+// m = bytes("abc")            // or build it from a string
+// ```
+//
+// `bytes(...)` is both the conversion (one argument) and the count constructor (two arguments): `bytes(x, n)` is
+// `bytes(x)` repeated `n` times, so `bytes(b'\x00', n)` is the preallocation spelling:
+//
+// ```go
+// bytes("héllo")          // => bytes([104, 195, 169, 108, 108, 111]) — UTF-8 octets of the text
+// bytes([104, 105])       // => bytes([104, 105]) — an array of in-range ints or bytes, element-wise
+// bytes([b'h', b'i'])     // => bytes([104, 105])
+// bytes([300])            // Error: conversion — not an octet
+// bytes(b'\x07')          // => bytes([7]) — a byte is one octet — any octet
+// bytes('8')              // => bytes([56]) — a rune contributes its UTF-8 octets — not the digit 8
+// bytes(5)                // Error: conversion: cannot convert int to bytes: no conversion exists
+// bytes("ab", 2)          // => bytes([97, 98, 97, 98]) — the count form: bytes(x).repeat(n)
+// bytes(b'\x00', 3)       // => bytes([0, 0, 0]) — the preallocation: n explicit fill octets
+// ```
+//
+// Encoding is total — every text-ish value has UTF-8 octets — so `string`/`runes` → `bytes` never fails.
+// Non-text scalars have no direct octet reading: `(3).bytes()` does not exist — go through the text,
+// `(3).string().bytes()`.
+//
+// ## Indexing and slicing
+//
+// All positions are octet positions. Negative indices count from the end; slices clamp. Slicing can split a
+// multi-octet symbol — `bytes` does not know or care:
+//
+// ```go
+// bytes("héllo")[1]           // => byte(195) — the first octet of é
+// bytes("abc")[-1]            // => byte(99)
+// bytes("héllo").slice(0, 3)  // => bytes([104, 195, 169])
+// ```
+//
+// Element writes (`m[i] = b'x'`) mutate the shared body and are visible through every alias; on a frozen or
+// literal value they raise.
+//
+// ## Operators
+//
+// | operator | meaning |
+// | --- | --- |
+// | `+` | concatenation; the **receiver** (left operand) decides the result type |
+// | `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+// | `*` | exactly `repeat(n)`: the right operand is a **count**, not content. No reflected direction — `n * b` raises |
+// | `==` `!=` `<` `<=` `>` `>=` | content-based, octet by octet — compares across `string`/`runes`/`bytes` by text content |
+// | `in` | membership: `x in b` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
+//
+// Operand acceptance — every accepted operand is text content, encoded into octets. Encoding is total, so
+// `bytes` accepts every text-ish operand unconditionally:
+//
+// | right operand | reading |
+// | --- | --- |
+// | `bytes` | its octets, verbatim |
+// | `string` / `runes` | its UTF-8 octets |
+// | `rune` | its 1–4 UTF-8 octets |
+// | `byte` | that octet |
+// | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an in-range int |
+// | `bool` / `float` / `decimal` | raises — ambiguous as text |
+// | `int` (`*` only) | a repeat **count** — `b * n` is exactly `b.repeat(n)`; there is no reflected `n * b` |
+// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `bytes("ab") + [1, 2]` → `[bytes([97, 98]), 1, 2]` is not an exception to that: `bytes` declines and the array answers `+` by prepending it (see [array](array.md)) |
+//
+// ```go
+// bytes("ab") + "cd"          // => bytes([97, 98, 99, 100]) — bytes receiver → bytes
+// bytes("ab") + u"cd"         // => bytes([97, 98, 99, 100])
+// bytes("ab") + 'é'           // => bytes([97, 98, 195, 169]) — a rune contributes its UTF-8 octets
+// bytes("ab") + b'\xff'       // => bytes([97, 98, 255]) — any octet — no ASCII limit on this side
+// bytes("ab") + 98            // Error: invalid_binary_operator: bytes + int
+// bytes("ab") + [1]           // => [bytes([97, 98]), 1] — bytes declines; the array prepends it
+// bytes("ab") - [1]           // Error: invalid_binary_operator: bytes - array
+// "ab" + bytes("cd")          // => "abcd" — string receiver → decodes the bytes
+// "ab" + bytes([255])         // => "ab\xff" — the octet is carried through as its escape
+// b'a' + bytes("bc")          // => bytes([97, 98, 99]) — a scalar on the left takes the sequence's type
+//
+// bytes("abcabc") - "bc"      // => bytes([97, 97]) — every occurrence
+// bytes("banana") - b'a'      // => bytes([98, 110, 110])
+// bytes("héllo") - 'é'        // => bytes([104, 108, 108, 111]) — removes the 2-octet run
+// bytes("abc") - 98           // Error: invalid_binary_operator: bytes - int
+//
+// bytes("ab") * 3             // => bytes([97, 98, 97, 98, 97, 98]) — the count form of repeat
+// b"ab" * 2                   // => bytes([97, 98, 97, 98]) — a literal answers a new, mutable value
+// 3 * bytes("ab")             // Error: invalid_binary_operator: int * bytes   (no reflected direction)
+// bytes("ab") * b'\x03'       // Error: invalid_binary_operator: bytes * byte   (the operand is a count, not content)
+//
+// bytes("ab") == "ab"         // => true
+// bytes("ab") == u"ab"        // => true
+// bytes("ab") < bytes("b")    // => true
+//
+// b'a' in bytes("ab")         // => true — element
+// "bc" in bytes("abc")        // => true — run of octets
+// 'é' in bytes("héllo")       // => true — the rune's 2-octet run
+// 97 in bytes("abc")          // => true — an in-range int reads as one octet
+// 300 in bytes("abc")         // Error: invalid_value — not an octet — never a silent false
+// ```
+//
+// A callable on the right of `in` raises: an operator operand is always a value — the predicate reading is
+// spelled `contains(f)` / `any(f)`.
+//
+// ## Argument dispatch — the argument's type selects the reading
+//
+// Every member that matches or adds content reads its arguments from one menu:
+//
+// | argument | reading |
+// | --- | --- |
+// | absent | the **blank set** (below) |
+// | function | predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
+// | `string` / `runes` / `bytes` | a **run** — a contiguous octet subsequence (text contributes its UTF-8 octets) |
+// | `rune` / `byte` / `int` | one **element** where it fits: a byte always; an int in `0`–`255` (members only — operators refuse int); a rune only if its encoding is one octet (ASCII) |
+// | several arguments (match side) | a **set** — "∈ the set"; homogeneous: all elements or all runs, mixing raises |
+// | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
+//
+// A multi-octet rune is still fine wherever a **run** is accepted (`append`, `contains`, `replace`, ...) — it
+// reads as its 1–4 octets; only the strictly one-element slots (`push`, `insert` items, pad fills, `map`
+// results) refuse it.
+//
+// Run matching is leftmost and non-overlapping; in a variadic run set, the longest wins at a tie.
+//
+// ## Decoding is total
+//
+// `bytes` is the type with nothing to validate — every octet is a valid octet, which is why it carries
+// `is_ascii()` but no `is_valid()`. Decoding *out* of it never fails either: an octet that is not a symbol
+// becomes its reserved escape in the text, and converting back returns the same octet.
+//
+// ```go
+// b = bytes([0x61, 0xFF, 0x62])
+// b.string().bytes() == b         // => true
+// b.runes().bytes() == b          // => true
+// b.is_ascii()                    // => false
+// b.string().is_valid()           // => false — ask the type that can answer it
+// ```
+//
+// See [string: Undecodable octets](string.md#undecodable-octets) for the model, and note the one boundary that
+// is **not** total: `json.encode` on text holding escapes raises, while `json.encode(b)` on the bytes
+// themselves is always fine (base64).
+//
+// ## The blank set
+//
+// The text types share one notion of insignificant content — **NUL ∪ whitespace** — projected into each
+// type's element domain. For `bytes` that is NUL plus **ASCII whitespace**: the fixed octet set
+// `{0x00, ' ', '\t', '\n', '\r', '\v', '\f'}` — all the whitespace a single octet can express. Deciding
+// anything wider would require decoding, which octets never get: an NBSP's octets (`0xC2 0xA0`) are
+// **content** here, not blank. The default pad fill is the canonical member of the set, the space octet.
+//
+// The no-argument form of a member reads through this set:
+//
+// - `trim()` / `trim_start()` / `trim_end()` strip blank octets; `split()` separates on runs of them.
+// - The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
+// **significant** (non-blank) octets.
+// - `keep()` keeps the significant octets; `remove()` removes the blank ones — two actions, same answer.
+//
+// ```go
+// bytes("  hi \t ").trim()            // => bytes([104, 105])
+// bytes([0, 104, 0]).trim()           // => bytes([104]) — NUL is blank
+// bytes("\u00a0x\u00a0").trim()       // => bytes([194, 160, 120, 194, 160]) — NBSP octets are content
+// bytes("  a b \t c ").split()        // => [bytes([97]), bytes([98]), bytes([99])]
+// bytes("  ").contains()              // => false — no significant octet
+// bytes(" a b ").count()              // => 2
+// bytes("  ab").index()               // => 2 — first significant octet
+// bytes(" a b ").remove()             // => bytes([97, 98])
+// bytes("42").pad_start(5)            // => bytes([32, 32, 32, 52, 50]) — default fill = the space octet
+// ```
+//
+// ## In-place twins
+//
+// `bytes` is a mutable-body type, so every eligible transform has an `_in_place` twin that mutates the shared
+// body (visible through every alias), **returns the receiver**, and raises kind `not_mutable` on a frozen
+// receiver:
+//
+// ```go
+// t := bytes("  hi  ")
+// alias := t
+// t.trim_in_place()               // => bytes([104, 105]) — returns the receiver
+// // alias is now bytes([104, 105]) too
+//
+// fz := bytes("abc").freeze()
+// fz.push_in_place(b'x')          // Error: not_mutable: (push_in_place) type immutable-bytes is immutable
+// fz.append(b'd')                 // => bytes([97, 98, 99, 100]) — the copying form works on a frozen receiver
+// ```
+//
+// The unsuffixed name is always the safe, copying form. `slice` has no twin (`slice_view` names the saving);
+// `repeat` has none (its result is n × the receiver); `map`/`split`/`partition`/`chunk` have none.
+//
+// ## Exclusions
+//
+// - **`upper` / `lower` / `case_fold` / `title_case` and the identifier casings** — symbol classes and case
+// mappings assume an encoding, which octets never get; decode first: `.string().upper()`.
+// - **`sum` / `avg`** — elements are octets, not numbers; the checksum spelling is
+// `b.reduce(0, func(acc, x) { return acc + x.int() })`.
+// - **`join`** — the collection-as-receiver render lives on `array`/`range`; spell it
+// `b.array().join(",")` if you want an octet listing.
+// - **Scalar conversions (`.int()`, `.float()`, `.decimal()`, `.bool()`, `.time()`)** — octets are not text
+// until decoded; `string` is the gateway: `.string().int()`.
+// - **`.dict()` / `.record()`** — octets are never key/value entries.
+// - **`.byte()`** — wrapping/unwrapping is not conversion; the element access is `b[0]`.
+// - **`fields`** — no-arg `split()` *is* the whitespace splitter.
+// - **`copy_shallow` / `freeze_shallow`** — elements are scalars; there is no second level to stop at.
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the match members, `map`, `flat_map`, `for_each`, `reduce`
+// — calls it in the **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from
+// what kind of callable it is:
+//
+// - a per-element callback gets the element when it accepts one argument, else `(index, element)`; anything else
+// raises;
+// - a `reduce` callback gets `(acc, element)` when it accepts two arguments, else `(acc, index, element)`; anything
+// else raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the element, and a builtin or a bound member is a callback like any
+// other (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form —
+// choose the form, reorder, fix or drop arguments:
+//
+// ```go
+// bytes("abc").count(func(i, c) { return i > 0 })            // => 2 — accepts two, not one
+// bytes("abc").index(func(c, ...rest) { return c == 'b' })  // => 1 — accepts one: the element
+// bytes("abcd").keep("bd".contains)                         // => bytes([98, 100])
+// ```
+//
+//kavun:type bytes
+
 var TypeBytes = ValueTypeDescr{
 	Name:                MutabilityNameHook(bytesTypeName, immutableBytesTypeName),                              // PURE by contract
 	String:              bytesTypeString,                                                                        // PURE by contract
@@ -79,83 +362,7 @@ var TypeBytes = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 
-	Methods: []Method{
-		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:              NewPureMethod(bytesString, 0, Fixed),
-		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:                NewPureMethod(bytesCopy, 0, Fixed),
-		members.Freeze:              NewPureMethod(bytesFreeze, 0, Fixed),
-		members.Runes:               NewPureMethod(bytesRunes, 0, Fixed),
-		members.Array:               NewPureMethod(bytesArray, 0, Fixed),
-		members.Bytes:               NewPureMethod(bytesBytes, 0, Variadic),
-		members.Len:                 NewPureMethod(bytesLen, 0, Fixed),
-		members.IsEmpty:             NewPureMethod(bytesIsEmpty, 0, Fixed),
-		members.Contains:            NewPureMethod(bytesContains, 0, Variadic),
-		members.Index:               NewPureMethod(bytesIndex, 0, Variadic),
-		members.Count:               NewPureMethod(bytesCount, 0, Variadic),
-		members.All:                 NewPureMethod(bytesAll, 0, Variadic),
-		members.Any:                 NewPureMethod(bytesAny, 0, Variadic),
-		members.ForEach:             NewPureMethod(bytesForEach, 1, Fixed),
-		members.Reduce:              NewPureMethod(bytesReduce, 2, Fixed),
-		members.Keep:                NewPureMethod(bytesKeep, 0, Variadic),
-		members.Map:                 NewPureMethod(bytesMap, 1, Fixed),
-		members.Remove:              NewPureMethod(bytesRemove, 0, Variadic),
-		members.First:               NewPureMethod(bytesFirst, 0, Variadic),
-		members.Last:                NewPureMethod(bytesLast, 0, Variadic),
-		members.IndexLast:           NewPureMethod(bytesIndexLast, 0, Variadic),
-		members.Min:                 NewPureMethod(bytesMin, 0, Variadic),
-		members.Max:                 NewPureMethod(bytesMax, 0, Variadic),
-		members.Slice:               NewPureMethod(memberSlice, 0, Variadic),
-		members.Reverse:             NewPureMethod(bytesReverse, 0, Fixed),
-		members.Sort:                NewPureMethod(bytesSort, 0, Fixed),
-		members.Unique:              NewPureMethod(bytesUnique, 0, Fixed),
-		members.Dedup:               NewPureMethod(bytesDedup, 0, Fixed),
-		members.Chunk:               NewPureMethod(bytesChunk, 1, Fixed),
-		members.Append:              NewPureMethod(bytesAppend, 0, Variadic),
-		members.Prepend:             NewPureMethod(bytesPrepend, 0, Variadic),
-		members.Push:                NewPureMethod(bytesPush, 0, Variadic),
-		members.PushFirst:           NewPureMethod(bytesPushFirst, 0, Variadic),
-		members.Insert:              NewPureMethod(bytesInsert, 1, Variadic),
-		members.Splice:              NewPureMethod(bytesSplice, 0, Variadic),
-		members.Repeat:              NewPureMethod(bytesRepeat, 1, Fixed),
-		members.PadStart:            NewPureMethod(bytesPadStart, 1, Variadic),
-		members.PadEnd:              NewPureMethod(bytesPadEnd, 1, Variadic),
-		members.Trim:                NewPureMethod(bytesTrim, 0, Variadic),
-		members.TrimStart:           NewPureMethod(bytesTrimStart, 0, Variadic),
-		members.TrimEnd:             NewPureMethod(bytesTrimEnd, 0, Variadic),
-		members.HasPrefix:           NewPureMethod(bytesHasPrefix, 1, Variadic),
-		members.HasSuffix:           NewPureMethod(bytesHasSuffix, 1, Variadic),
-		members.RemovePrefix:        NewPureMethod(bytesRemovePrefix, 1, Variadic),
-		members.RemoveSuffix:        NewPureMethod(bytesRemoveSuffix, 1, Variadic),
-		members.Replace:             NewPureMethod(bytesReplace, 2, Fixed),
-		members.Split:               NewPureMethod(bytesSplit, 0, Variadic),
-		members.FlatMap:             NewPureMethod(bytesFlatMap, 1, Fixed),
-		members.IsASCII:             NewPureMethod(bytesIsASCII, 0, Fixed),
-		members.SplitLines:          NewPureMethod(bytesSplitLines, 0, Fixed),
-		members.Partition:           NewPureMethod(bytesPartition, 0, Variadic),
-		members.KeepInPlace:         NewMethod(bytesKeepInPlace, 0, Variadic),
-		members.RemoveInPlace:       NewMethod(bytesRemoveInPlace, 0, Variadic),
-		members.AppendInPlace:       NewMethod(bytesAppendInPlace, 0, Variadic),
-		members.PrependInPlace:      NewMethod(bytesPrependInPlace, 0, Variadic),
-		members.PushInPlace:         NewMethod(bytesPushInPlace, 0, Variadic),
-		members.PushFirstInPlace:    NewMethod(bytesPushFirstInPlace, 0, Variadic),
-		members.InsertInPlace:       NewMethod(bytesInsertInPlace, 1, Variadic),
-		members.SpliceInPlace:       NewMethod(bytesSpliceInPlace, 0, Variadic),
-		members.PadStartInPlace:     NewMethod(bytesPadStartInPlace, 1, Variadic),
-		members.PadEndInPlace:       NewMethod(bytesPadEndInPlace, 1, Variadic),
-		members.TrimInPlace:         NewMethod(bytesTrimInPlace, 0, Variadic),
-		members.TrimStartInPlace:    NewMethod(bytesTrimStartInPlace, 0, Variadic),
-		members.TrimEndInPlace:      NewMethod(bytesTrimEndInPlace, 0, Variadic),
-		members.RemovePrefixInPlace: NewMethod(bytesRemovePrefixInPlace, 1, Variadic),
-		members.RemoveSuffixInPlace: NewMethod(bytesRemoveSuffixInPlace, 1, Variadic),
-		members.ReplaceInPlace:      NewMethod(bytesReplaceInPlace, 2, Fixed),
-		members.ReverseInPlace:      NewMethod(bytesReverseInPlace, 0, Fixed),
-		members.SortInPlace:         NewMethod(bytesSortInPlace, 0, Fixed),
-		members.UniqueInPlace:       NewMethod(bytesUniqueInPlace, 0, Fixed),
-		members.DedupInPlace:        NewMethod(bytesDedupInPlace, 0, Fixed),
-		members.SliceView:           NewPureMethod(bytesSliceView, 0, Variadic),
-		members.ChunkView:           NewPureMethod(bytesChunkView, 1, Fixed),
-	},
+	Methods: bytesMethods,
 }
 
 func bytesTypeEncodeJSON(v Value) ([]byte, error) {
@@ -744,7 +951,7 @@ func bytesRemaining(vm VM, name string, v Value, args []Value) ([]byte, error) {
 // bytesLocate is the body of index and index_last; name is the member called, for the errors.
 func bytesLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
 	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+		return Undefined, ErrArgCount
 	}
 	elems := (*Bytes)(v.Ptr).Elements
 
@@ -918,9 +1125,6 @@ func bytesTrimmed(name string, v Value, args []Value, start, end bool) ([]byte, 
 // the end) of the receiver, or -1 when none is. The empty run is anchored everywhere. The name is the member
 // called, for the errors.
 func bytesAnchoredRun(name string, v Value, args []Value, suffix bool) (int, error) {
-	if len(args) == 0 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
-	}
 	runs, err := bytesReadRunSet(name, args, "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)")
 	if err != nil {
 		return 0, err
@@ -963,9 +1167,6 @@ func bytesWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]by
 // bytesReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); each
 // argument is read on its own, an element being a run of one. The name is the member called, for the errors.
 func bytesReplaced(name string, v Value, args []Value) ([]byte, error) {
-	if len(args) != 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "2", len(args))
-	}
 	if args[0].IsCallable() || args[1].IsCallable() {
 		return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
 	}
@@ -994,8 +1195,8 @@ func bytesReplaced(name string, v Value, args []Value) ([]byte, error) {
 // bytesPadded answers the receiver filled at the front (start) or the end up to n octets; a width at or below the
 // length leaves it unchanged. The name is the member called, for the errors.
 func bytesPadded(name string, v Value, args []Value, start bool) ([]byte, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 2 {
+		return nil, ErrArgCount
 	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {
@@ -1024,11 +1225,10 @@ func bytesPadded(name string, v Value, args []Value, start bool) ([]byte, error)
 	return slices.Concat(elems, pad), nil
 }
 
-// ---------------------------------------------------------------------------
-// split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
-// of runs, a predicate on single octets, or — no argument — the blank set (text.IsBlankByte). Runs match leftmost-longest
-// and never overlap; an empty run matches nothing.
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------- split(...seps) and partition(...seps): a
+// separator is a run (an element being a run of one), a homogeneous set of runs, a predicate on single octets, or — no
+// argument — the blank set (text.IsBlankByte). Runs match leftmost-longest and never overlap; an empty run matches
+// nothing. ---------------------------------------------------------------------------
 
 // bytesPiece is one piece of split/partition: new bytes, independent of the receiver.
 func bytesPiece(elems []byte) Value {

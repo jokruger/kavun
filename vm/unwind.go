@@ -137,13 +137,13 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	case value.CompiledFunction:
 		// fall through to the framed path
 	case value.BuiltinFunction:
-		_, err := core.BuiltinFunctions[callee.Data].Func(v, args)
+		_, err := core.BuiltinFunctions[callee.Data].Call(v, args)
 		if err != nil {
 			v.err = err
 		}
 		return
 	case value.BuiltinClosure:
-		_, err := (*core.BuiltinClosure)(callee.Ptr).Func(v, args)
+		_, err := (*core.BuiltinClosure)(callee.Ptr).Call(v, args)
 		if err != nil {
 			v.err = err
 		}
@@ -212,7 +212,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		}
 	}
 	if numArgs != int(cfn.NumParameters) {
-		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
+		v.err = cfn.ArgCountError("defer", len(args))
 		v.framesIndex = savedFramesIndex
 		v.sp = savedSp
 		v.ip = savedIp

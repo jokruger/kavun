@@ -50,7 +50,11 @@ out = fib(10)
 		}
 	}
 
-	fmt.Println("result:", compiled.Get("out").String())
+	out, err := compiled.Get("out")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("result:", out.String())
 }
 ```
 
@@ -80,7 +84,10 @@ if err := compiled.Run(machine); err != nil {
 After execution, retrieve output values with `Get`:
 
 ```go
-out := compiled.Get("out")
+out, err := compiled.Get("out")
+if err != nil {
+    panic(err)
+}
 sum, _ := out.AsInt()
 fmt.Println(sum)
 ```
@@ -110,6 +117,31 @@ returns an error for any other:
 | `core.Value` | itself |
 
 Other integer and float widths (`int8`, `uint`, `float32`, …) and pointers are not accepted: convert them first.
+
+**Go functions.** A bare `core.NativeFunc` becomes a closure named `anonymous` that accepts any count (arity 0,
+variadic — it renders `<builtin-closure:anonymous/0+>`): its body checks what it receives. To give a Go function a
+name and a parameter list, build the closure yourself with a `core.Signature`; the call is then checked against it
+before the body runs, exactly like a builtin's:
+
+```go
+var clampSig = core.MustSignature("(x, lo, hi)") // parsed once; a malformed template panics here
+
+clamp := core.NewBuiltinClosureValue("clamp", clampSig, func(_ core.VM, args []core.Value) (core.Value, error) {
+    x, _ := args[0].AsInt() // three arguments are guaranteed
+    lo, _ := args[1].AsInt()
+    hi, _ := args[2].AsInt()
+    return core.IntValue(min(max(x, lo), hi)), nil
+})
+// clamp(1) in a script raises: wrong_num_arguments: (clamp) expected (x, lo, hi), got 1 argument
+```
+
+A template is the parameter list a script author would write: names, an optional group `[, x]`, a rest `...xs`, and
+readings joined by ` | ` (see [conventions.md § Arity and templates](conventions.md#arity-and-templates)).
+`core.ParseSignature(template)` returns the error instead of panicking; `core.SignatureOf(arity, variadic)` builds
+the bare pair when only the count is known at run time (the error then states it: `(f) expected 2 arguments, got 1
+argument`). A body whose template names an upper bound (`"(x[, y])"`) refuses more by returning `core.ErrArgCount`.
+A closure answers its pair to callback-taking members like any function: `xs.map(clamp)` is refused (it accepts
+three arguments, not one), so a script adapts it with a lambda (`xs.map(x => clamp(x, 0, 9))`).
 
 **JSON a host decoded itself.** `encoding/json` decodes every number to `float64` by default, which silently
 changes integers above 2⁵³. Decode with `UseNumber()` instead and pass the result as is: each `json.Number` becomes
@@ -200,10 +232,10 @@ func init() {
     member.Define(memberDouble, "double")
     member.Define(memberLabel, "label")
     err := core.NewModule(myModule, "mymod", true). // true: pure — granted by default
-        PureFn(memberDouble, 0, func(_ core.VM, args []core.Value) (core.Value, error) {
+        PureFn(memberDouble, 0, "(n)", func(_ core.VM, args []core.Value) (core.Value, error) {
             n, _ := args[0].AsInt()
             return core.IntValue(2 * n), nil
-        }, 1, core.Fixed).
+        }).
         Const(memberLabel, core.NewStringValue("mine")).
         Register()
     if err != nil {
@@ -212,7 +244,10 @@ func init() {
 }
 ```
 
-`PureFn` claims a function pure (the optimizer may fold its calls), `Fn` does not. `New(f)` makes `import` answer a
+`PureFn` claims a function pure (the optimizer may fold its calls), `Fn` does not. The template is the count
+check: a call is checked against it before the function runs (`(mymod.double) expected (n), got 0 arguments`), so
+`args[0]` above is guaranteed; a function with an optional tail bounds it itself and refuses with
+`core.ErrArgCount`. `New(f)` makes `import` answer a
 fresh value per import instead of one singleton, `Type(typeID, descr)` registers a type the module owns (a handle or
 record type its functions answer, in the embedder range like the module), and `Descr()` lets you amend the module
 type's hooks before `Register`. `core.UnregisterModule(typeID)` removes an embedder module and its types again
@@ -378,12 +413,13 @@ separate type and come from `Script.Compile`, never from a run.
 
 ```go
 type RuntimeError struct {
-    Kind    string              // "division_by_zero", "conversion", "user", … or "" if the failure carried no kind
-    Fatal   bool                // bypassed every recover(); the VM was stopped
-    Message string              // human-readable detail, without the kind prefix
-    Payload core.Value          // the error value's payload — a string for runtime errors,
-                                // whatever the script passed for raise(x)
-    Trace   []ast.SourceFilePos // active frames, innermost first
+    Kind     string              // "division_by_zero", "conversion", "user", … or "" if the failure carried no kind
+    Category errs.Category      // runtime (builtin/member/module), user (raise), requirement (require), system (VM)
+    Fatal    bool                // bypassed every recover(); the VM was stopped
+    Message  string              // human-readable detail, without the kind prefix
+    Payload  core.Value          // the error value's payload — a string for runtime errors,
+                                 // whatever the script passed for raise(x)
+    Trace    []ast.SourceFilePos // active frames, innermost first
 }
 ```
 
@@ -407,7 +443,9 @@ if err := compiled.Run(machine); err != nil {
 }
 ```
 
-`Error()` renders `Runtime Error: <kind>: <message>` plus one `\n\tat file:line:col` line per frame. The sentinel
+`Error()` renders `Runtime Error: <kind>: <message>` plus one `\n\tat file:line:col` line per frame — for a script
+function called with too few arguments, `Runtime Error: wrong_num_arguments: (call) expected 2 arguments, got 1
+argument` (`Kind` `wrong_num_arguments`, `Message` the part after it). The sentinel
 comparisons keep working through `Unwrap`:
 
 ```go
@@ -433,7 +471,7 @@ if errors.As(err, &re) && re.Kind == "user" {
 ```
 
 Every kind a run can answer, with its severity and category, is listed in
-[types/error.md § Every error kind](types/error.md#every-error-kind).
+[reference/types/error.md § Every error kind](reference/types/error.md#every-error-kind).
 
 ### Which failures are the caller's fault
 
@@ -455,7 +493,7 @@ Three kinds carry that signal:
 
 A panicking hook — in a custom `ValueTypeDescr`, a host builtin, anywhere — never crosses `Run`. It is contained
 and answered as a fatal `internal` error carrying the panic text and the script's stack trace. Treat one as a bug
-report about the host code, not as a condition to handle. See `docs/extending-types.md`.
+report about the host code, not as a condition to handle. See `docs/extending_types.md`.
 
 ### A script can answer instead of failing
 

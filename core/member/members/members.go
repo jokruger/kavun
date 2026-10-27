@@ -24,21 +24,23 @@ const (
 	// 19…104 reserved
 
 	// conversions — by breadth
-	Runes   = 105
-	Int     = 106
-	Bool    = 107
-	Float   = 108
-	Time    = 109
-	Decimal = 110
-	Date    = 111
-	Array   = 112
-	Bytes   = 113
-	Byte    = 114
-	Rune    = 115
-	Dict    = 116
-	Record  = 117
-	Range   = 118
-	// 119…144 reserved
+	Runes     = 105
+	Int       = 106
+	Bool      = 107
+	Float     = 108
+	Time      = 109
+	Decimal   = 110
+	Date      = 111
+	Array     = 112
+	Bytes     = 113
+	Byte      = 114
+	Rune      = 115
+	Dict      = 116
+	Record    = 117
+	Range     = 118
+	ParseTime = 119
+	ParseDate = 120
+	// 121…144 reserved
 
 	// collections — size, search, callbacks (array, bytes, runes, string, range, dict)
 	Len      = 145

@@ -43,7 +43,7 @@ any other body-mutating hook, regardless of whether it happens to be `Ptr`-backe
 
 ### Implementing operators (`BinaryOp`/`UnaryOp`/`Equal`)
 
-See [Extending types: operators](extending-types.md) for the full contract — the three-rule dispatch model
+See [Extending types: operators](extending_types.md) for the full contract — the three-rule dispatch model
 (domain-specific, narrow safe-conversion, reflected delegate) for `BinaryOp`/`UnaryOp`, the simpler one-hop
 delegate model for `Equal` (`final` flag, no error return — `==`/`!=` are total operators), and the one hard
 cross-cutting rule shared by both (never wildcard-match `undefined`/`error`). Same weight as the Purity Contract
@@ -55,23 +55,39 @@ above: enforced by code review, not by any automated check, and required of any 
 Readability beats deduplication here: a member is read far more often than it is added, and a script author's
 question — "what exactly does `bytes.keep("ab")` do?" — should be answerable from one function. So:
 
-- **One name, one entry.** A builtin type declares its members as `Methods []Method` at the bottom of its
-  descriptor, keyed by `members.*` ids; each entry names one function `<type><Member>(vm VM, v Value, id member.ID,
-  args []Value) (Value, error)`, kept in `core/<type>_members.go` in table order. Several entries point at one
-  function only if it never branches on which member was called — it may report through `id.String()` (so an error
-  names the member that was called), but an inner `switch`/`if` on the member is not allowed. `record` and
-  embedder types without a table answer by name through `CallNamedMethod`, one `case` per name under the same rule.
-  Nothing is answered centrally: even `is_true` is an entry each builtin type declares
-  (`members.IsTrue: NewPureMethod(MemberIsTrue, 0, Fixed)`), and a host type has it only if it declares it too.
-- **Build every entry with a constructor, never a struct literal.** `NewPureMethod(fn, arity, args)` claims the
-  member pure (the optimizer may fold it — docs/purity.md); `NewMethod(fn, arity, args)` is the safe default, so a
-  forgotten claim costs speed, not correctness. `arity` is the fewest arguments the function accepts and `args` is
-  `Fixed` or `Variadic` (it also accepts more: optional or variadic arguments) — always one of the two constants,
-  never a `true`/`false` literal. Properties likewise: `NewPureProperty(get, set)` / `NewProperty(get, set)`, the
-  claim covering `get` (`set` is impure by definition, `nil` when read-only).
-- **Declare the argument count.** `arity` and `args` do not replace the function's own check — they are what a
-  bound member (`x.name` read as a value) reports, and callbacks dispatch on that. `TestMemberArity` calls every entry of every builtin type at `Arity - 1`, `Arity` and
-  `Arity + 1` arguments and fails when the declaration and the function's `wrong_num_arguments` check disagree.
+- **One name, one entry.** A builtin type's members form a `Methods []Method` table keyed by `members.*` ids,
+  generated into `core/kavun_gen.go` (`var arrayMethods = []Method{…}`, named after the root file's stem) and
+  referenced at the bottom of its descriptor (`Methods: arrayMethods,`). Each entry names one function
+  `<type><Member>(vm VM, v Value, id member.ID, args []Value) (Value, error)` in `core/<type>_members.go`, declared
+  by the `//kavun:member` directive in its doc comment (see [Declaring native
+  functions](#declaring-native-functions-directives-and-kavun-gen)); source order carries no meaning. Every entry
+  names its own function, and two bodies share logic only through a helper they call; a body may report through
+  `id.String()` (so an error names the member that was called), but never branches on which member was called.
+  `record` and embedder types without a table answer by name through `CallNamedMethod`, one `case` per name under
+  the same rule. Nothing is answered centrally: even `is_true` is an entry each builtin type declares
+  (`//kavun:member is_true pure () -> bool` on `intIsTrue`, generated as `members.IsTrue: NewPureMethod("()",
+  intIsTrue)`), and a host type has it only if it declares it too.
+- **Build every entry with a constructor, never a struct literal.** `NewPureMethod(template, fn)` claims the member
+  pure (the optimizer may fold it — docs/purity.md); `NewMethod(template, fn)` is the safe default, so a forgotten
+  claim costs speed, not correctness. `template` is the signature template — the parameter list a script author
+  would write, receiver excluded: `"()"`, `"(n[, fill])"`, `"(...xs)"` (see [Arity and
+  templates](#arity-and-templates)). The generated tables call exactly these constructors; a host type writes its
+  entries by hand the same way (or runs `kavun-gen`, see [extending_types.md](extending_types.md)). Properties
+  likewise: `NewPureProperty(get, set)` / `NewProperty(get, set)`, the claim covering `get` (`set` is impure by
+  definition, `nil` when read-only).
+- **The template is the count check's floor; the body bounds its rest.** The dispatcher (`Method.Call`,
+  `BuiltinFunction.Call`, `BuiltinClosure.Call` — every table-driven path, the VM's fast tracks included) checks
+  the count against the entry's signature before the body runs: exactly the arity when fixed, at least the arity
+  when variadic. A fixed body indexes `args[N-1]` unguarded. A body whose template names an upper bound
+  (`([sep])`) or a gap (`(a[, b, c])`, `() | (text) | (bands, min, max)`) keeps that one check and refuses by
+  `return Undefined, ErrArgCount`; the dispatcher turns the sentinel into the `wrong_num_arguments` error quoting
+  the template (`(join) expected ([sep]), got 2 arguments`), so a body never spells its own template. A count the
+  template accepts is never a count error: an argument of the wrong type for the reading that count selects is
+  `invalid_argument_type`. `errs.NewWrongNumArgumentsError` is called only by `core.ArgCountError` — the VM's
+  script-function paths reach it through `CompiledFunction.ArgCountError` (`TestArgCountSingleSource`); a host hook with no declaration (`CallNamedMethod`, a host
+  type's `Call`) reports through `core.ArgCountError` with `core.SignatureOf`. `TestMemberArity` calls every entry
+  of every table through the dispatcher with every count `0 … max+1` and fails wherever the refusals and
+  `Signature.Accepts` disagree.
 - **One function per member, `_in_place` twins included.** `arrayKeep` and `arrayKeepInPlace` are separate
   functions with the member shape. When twins share a body, it is a lowercase helper taking what differs as a
   parameter (`arrayTypeAppend(v, args, mutate)`, `decimalRoundFixed(v, id, args, mode)`), never the member name.
@@ -81,15 +97,95 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
 - **Generics only without function parameters.** A generic helper over `comparable` elements (find a run, measure
   a match) is fine; a generic that has to be configured with callbacks (`toElem`, `encode`, `alloc`, `resolve`,
   ...) is an engine, and is not.
-- **One shared member function only for a body that is identical on every type and reaches the type only
-  through its own hooks**: `MemberIsTrue` (the `IsTrue` hook), `MemberFormat` (the `Format` hook), `MemberSelf`
-  (`copy`/`freeze` of an always-immutable type answer the receiver), `memberSlice` (the `Slice` hook — `slice()` on
-  the sequence types). It must stay as simple as the per-type copy
-  it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would
-  need anything varied per type stays per type.
+- **Sharing is inside the body, in two forms by size.** A body too short to earn a name is **written out per
+  type**, even where it is the same everywhere: `copy`/`freeze` of an always-immutable type (`return v, nil`),
+  `is_true` (the type's `IsTrue` hook wrapped in a `bool`), `slice` on the sequence types (`readSliceArgs`, then the
+  `Slice` hook). A body with real logic and a clear name is a **helper called from a one-line wrapper**:
+  `format([spec])` is `return FormatWithSpec(v, id, args)` on every type (`core.FormatWithSpec` — exported, since
+  module-owned types call it too), and `undefined`'s conversions each `return undefinedConvert(id.String(), args)`.
+  A helper keeps a helper's shape (only what it needs, no `VM` it does not use), not a member's.
 - **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,
   `readElemCallback`), bounds and allocation guards (`core/tools.go` for the core-bound ones, `internal/seq` for the generic ones), and error builders, so duplicated code still raises
   byte-identical messages.
+
+### Declaring native functions: directives and `kavun-gen`
+
+Every native function — a member, a free builtin, a module function — is a named Go function whose **doc comment
+is its declaration and its documentation**, in this order:
+
+1. **the summary** — the first paragraph, one sentence ending in a period (required: it leads the reference entry
+   and its index line);
+2. **the body** — optional Markdown: contracts, fenced `go` examples (each one runs as written — see
+   [Examples](#examples-are-tests) below);
+3. **the directive, last** — one `//kavun:` line (no space after the slashes; gofmt keeps it at the end).
+
+```go
+// Pad with the fill element until length `n`.
+//
+// The fill is always **one element**, whatever its type, and defaults to `undefined`.
+//
+// ```go
+// [1, 2].pad_start(5, 0)     // => [0, 0, 0, 1, 2]
+// ```
+//
+//kavun:member pad_start pure (n[, fill]) -> array
+func arrayPadStart(_ VM, v Value, id member.ID, args []Value) (Value, error) { … }
+```
+
+The directive kinds:
+
+| directive | where | declares |
+| --- | --- | --- |
+| `//kavun:type <name>` | free-standing, in `<stem>.go` | a type; its doc block is the head of the type's page (Overview, Literals, Operators, …) |
+| `//kavun:member <name> pure\|impure <template> -> <result>` | on the member body, in `<stem>_members.go` (or `<stem>.go`) | one `Methods` entry |
+| `//kavun:builtins` | free-standing, in `vm/builtins.go` | the head of the builtins page |
+| `//kavun:builtin <name> slot=<n> pure\|impure <template> -> <result>` | on the builtin body | one free builtin function |
+| `//kavun:module <name> pure\|impure` | free-standing, in the module package | the module and its default grant; its doc block heads the module page |
+| `//kavun:fn <name> slot=<n> pure\|impure <template> -> <result>` | on the module function body | one module function |
+
+`pure`/`impure` is the purity claim (the optimizer may fold a `pure` entry — [purity.md](purity.md)); `->
+<result>` is free text for the page only. `go generate ./...` runs `cmd/kavun-gen`, which writes **one
+`kavun_gen.go` per body-owning package** — `core` (every type's table), `vm` (the builtin function table), each
+`stdlib/<module>` (the module's `init()` registration; a package with constants or owned types adds
+`func moduleExtras(m *core.ModuleBuilder)`) — and the whole of `docs/reference/` (one page per type, per module,
+the builtins page, the stdlib index and the function matrix). Both are committed and never edited by hand;
+`TestGeneratedInSync` regenerates them in memory and fails on any difference, and `go run ./cmd/kavun-gen -check
+./...` does the same from the command line.
+
+Generation is strict and stops on: an unknown directive kind or key, a malformed line or template, a member or
+`fn` name that is not a bound member name (`member.Lookup`), a duplicate member or slot, a missing or two-sentence
+summary, a `#`/`##` heading outside a type, module or builtins block, an indented line outside a fenced block, a
+`~~~` fence, a `go` fence with anything after the language but the `norun` marker, and a members file that declares
+no member.
+
+#### Examples are tests
+
+A fenced ```` ```go ```` block in a doc block is a **standalone Kavun script**, and its comments say what it shows:
+
+| line | claims |
+| --- | --- |
+| `expr // => <render>` | the expression's value renders as `<render>` — its `format()` spelling as an element (`[1, 2]`, `"ab"`, `u"ab"`, `bytes([1])`, `1.5d`, `date("2026-01-31")`, `undefined`); on an assignment, the assigned target's value |
+| `stmt // Error: <kind>[: text]` | the statement raises an error of that kind (the text after the kind is prose); the script goes on with the next line |
+| any other `// …` | prose |
+
+A note may follow a render after ` — ` (`// => [1, 2, 3] — spreads`). A check comment goes on the line that ends its
+statement, or alone on the line right after it when the statement is too long to share its line. A block that is
+not a runnable script — placeholders (`len(x)`, `{ ... }`), a signature summary, a block that needs a host binding
+or the previous block's variables — is fenced ```` ```go norun ````, optionally followed by the reason
+(```` ```go norun — a signature summary ````); the page shows a plain ```` ```go ```` fence. Prefer a setup line
+(`fin := import("fin")`, `t := t"2026-08-29T15:04:05Z"`) over `norun` when one line makes the block standalone.
+
+The harness has three edges. A `// Error:` statement runs inside a closure, so a declaration on that line does not
+reach the lines after it: bind first, then check the raising use (`x := …` on one line, `x.m() // Error: …` on the
+next). A `// =>` checks an expression or an assignment only: a `defer`, `for` or `if` line cannot carry one (check a
+value the block leaves behind instead), and a `defer` on an `// Error:` line would run when its closure returns.
+After an unexpected raise the rest of the block is not checked: the first failure is the one reported.
+
+`TestDocExamples` (`kavun_test.go`) enforces all of it: it reads every doc block through `internal/kavungen`
+(`kavungen.Examples`), runs each block that is not `norun` as one script — every module granted, an empty standard
+input, output discarded, a temporary working directory — and fails, naming the example's file:line, on a block that
+does not compile, a line that raises unexpectedly, a render that differs, and an `Error:` line that does not raise
+that kind. The render is the binary's truth: a page that spells a value differently is the page to fix.
 
 ## Kavun Language Conventions
 
@@ -137,8 +233,9 @@ The conversion family's shape is `x.T([default])`: the target type *is* the name
 
 `parse_T()` is the one prefixed family the convention reserves, and the exception is principled: it names a
 *different reading* of the receiver, not a direction of travel. A prefix that distinguishes two readings earns
-its place; a prefix that restates the receiver does not. (The family currently ships empty — it is a reserved
-convention, not a live surface.)
+its place; a prefix that restates the receiver does not. Text ships two: `s.parse_time(layout[, default])` and
+`s.parse_date(layout[, default])` read the text under a layout, beside the plain conversions `s.time([default])` /
+`s.date([default])`, which read the canonical grammar like every other `x.T([default])`.
 
 ### Qualifiers Are Suffixes
 
@@ -274,7 +371,69 @@ way a `b"..."` bytes literal is immune to reassigning `byte` — see
   `<type:detail>`, and every member is impure; **a value with text content** (`re.pattern`) has `string()` and
   renders as the expression that builds it.
 
-### Arity and Optional Arguments
+### One Name, One Template
+
+A member name shared by two or more types means the same thing on each, so it has the **same signature template
+on every type** — the same count set and the same parameter names — and code holding a value of unknown type can
+call it without a type check: every conversion is `x.T([default])`, including the total ones (the default is then
+never used) and the same-type copies; every locator is `index([x[, default]])`. A type may **refuse** a reading it
+cannot give meaning to — `dict` has no blank set, so its `contains`/`keep`/`index`/… require an argument — but never
+silently accept a narrower or different one. A different meaning under a shared name is a naming defect, not a
+licence for a second template. `TestMemberTemplateParity` walks every `Methods` table and pins the rule; its
+exception table (name, types, reason) is the record of every deliberate divergence.
+
+### Arity and templates
+
+Every callable — script function, builtin, module function, bound member, host closure — answers one pair:
+
+| term | meaning |
+| --- | --- |
+| **arity** `N` | the count of fixed parameters |
+| **variadic** | the callable also accepts more; the tail is its **rest** |
+| accepts `k` | `k == N`, or variadic and `k > N` |
+| render | `/N` fixed, `/N+` variadic ("N or more"): `<compiled-function/2+>`, `<builtin-function:min/1+>` |
+
+A script function's rest is its last parameter, an immutable array (`[]` when nothing follows):
+`func(a, b, ...c)` has arity 2 and is variadic. A native function declares its parameters with a **signature
+template** — the parameter list a script author would write for the same body, receiver excluded:
+
+| grammar | example | pair |
+| --- | --- | --- |
+| names | `(width, fill)` | 2, fixed |
+| optional group `[, x]` | `(width[, fill])`, `([sep])` | 1 / 0, variadic |
+| rest `...name` | `(first, ...rest)` | 1, variadic |
+| readings ` \| ` | `() \| (components) \| (start, stop[, step])` | the fewest over the readings (0), variadic |
+
+The arity is the fewest arguments the body accepts; variadic when it accepts more. Every reading must accept a
+count no other reading does — `(a) | (b)` or `([a]) | ()` is refused: one spelling per shape, and readings that
+share a count but differ by role belong in prose.
+
+The dispatcher checks the floor from the template before the body runs (see [Implementing
+members](#implementing-members-methods-tables)); a body keeps only a bound or a gap on its rest and refuses with
+`core.ErrArgCount`. A wrong count raises `wrong_num_arguments` in one shape: a native callable quotes its
+template — `(join) expected ([sep]), got 2 arguments`, `(range) expected () | (components) | (start, stop[,
+step]), got 4 arguments` — and a callable without one (a script function, a closure built with
+`core.SignatureOf`) states its pair — `(call) expected 2 arguments, got 1 argument`, `(call) expected 2 or more
+arguments, got 0 arguments`.
+
+### Callbacks
+
+A member that takes a function calls it in the **fewest form it accepts**, read from its pair, never from what
+kind of callable it is (`core.CallbackForm`):
+
+- an element callback (`map`, `flat_map`, `for_each`, and the predicate reading of `keep`, `remove`, `contains`,
+  `count`, `any`, `all`, `index`, …) gets the element when it accepts one argument, else `(index, element)` (a
+  dict: the key, else `(key, value)`);
+- a `reduce` callback gets `(acc, element)` when it accepts two, else `(acc, index, element)`;
+- a `fin.root` / `fin.brackets` callback gets `x`, and must accept one argument.
+
+Anything else raises `invalid_argument_type` (`expects type f/1 or f/2, got <compiled-function/0>`). So
+`func(x, ...rest)` and `func(...args)` get the element, and `min`, `int`, `"abc".contains`, `"abc".has_prefix` are
+element callbacks like any lambda. **A lambda is the one way to call a callable in another form** — to choose the
+form, reorder, fix or drop arguments: `xs.map((i, x) => f(x, i))`, `[2, 3].map(n => "7".pad_start(n, '0'))`. There is
+no adapter builtin and no per-callable dispatch rule.
+
+### Optional arguments
 
 Two argument devices exist, and a member may use **one or the other, never both**:
 

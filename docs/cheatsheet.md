@@ -1,7 +1,10 @@
 # Kavun Cheat Sheet
 
 A one-page, skimmable reference to the Kavun language. For full semantics see
-[Language Reference](language.md), [Type Reference](types.md), and [Standard Library](stdlib.md).
+[Language Reference](language.md), [Type Reference](types.md), and [Standard Library](stdlib.md); the generated
+reference has a page per [builtin function](reference/builtins.md), per [module](reference/stdlib.md) and per type
+(`reference/types/<type>.md`, e.g. [array](reference/types/array.md)), and the [function
+matrix](reference/function_matrix.md).
 
 ## Hello world
 
@@ -393,15 +396,18 @@ a.copy_shallow(); a.freeze(); a.freeze_shallow()
 r = {a: 1, b: 2}            // record: dot access, fields only, NO member functions (free builtins serve it)
 d = dict({a: 1, b: 2})      // dict: index access d["a"]; a dict is a set of KEYS with attached values
 d.keys(); d.values()        // key order on a map is LEXICAL everywhere -- iteration, members, render, encode
-d.keep((k, v) => v > 1)   // predicate: f/1 gets the KEY, f/2 gets (key, value)
+d.keep((k, v) => v > 1)     // predicate: gets the KEY, or (key, value) when it does not accept one argument
 d.remove("a", "b")          // key set; d.remove_in_place(...) mutates
 d.merge(dict({c: 3}))       // the whole add side (variadic, last wins); merge_in_place mutates
 d.map((k, v) => v * 10)     // transforms the ATTACHMENT, keys fixed
 remove(r, "a")              // free forms serve record: len/copy/freeze/format/is_true/remove/is_view
 for k in d { }              // yields KEYS in lexical order (dict and record alike); for _, v in d for values
 
-// 1-arg vs 2-arg callbacks (map/keep/remove/index/count/all/any/for_each):
-// f/1 gets the element (dict: the key); f/2 gets (index, element) (dict: (key, value))
+// callbacks (map/keep/remove/index/count/all/any/for_each/reduce) are called in the FEWEST form they accept:
+// the element (dict: the key) if the callable accepts 1 argument, else (index, element) (dict: (key, value));
+// reduce: (acc, element) if it accepts 2, else (acc, index, element). func(x, ...rest) gets the element.
+a.map(min); ["1", "2"].map(int); ["a", "z"].keep("abc".contains)   // builtins and bound members are callbacks too
+a.map((i, x) => x * i)      // a lambda is the one way to pick another form, reorder, fix or drop arguments
 // for_each makes a FULL pass, ignores the callback's return, and returns the receiver
 ```
 
@@ -418,6 +424,8 @@ array(a)             // a NEW array   -- T(x) on an x of type T constructs: shal
 a.array()            // a NEW array   -- ... and so does the member spelling; NO conversion ever aliases
 bytes(b"ab")         // bytes([97,98]) -- so this is how a constant literal becomes a writable buffer
 (5).int(0)           // 5             -- a same-type default is unreachable but accepted, on every type
+"2026-08-29".time()  // the canonical grammar, = time(s); every conversion member is x.T([default])
+"29/08/2026".parse_date("%d/%m/%Y")   // a layout is its own member: parse_time / parse_date(layout[, default])
 d.record_view()      // shares d's map -- the `_view` family is the ONLY shared storage (is_view(x) tells)
 ```
 
@@ -427,7 +435,7 @@ they are **built at run time** — a fresh, mutable body per evaluation. `bytes`
 only their literal form is constant.
 
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict` are all
-callable as top-level conversion functions; see [Built-in functions](language.md#built-in-functions) for the
+callable as top-level conversion functions; see [the builtins](reference/builtins.md) for the
 full 0-arg/1-arg/count rules and per-type outliers.
 
 An `int` next to a `time` means two different things, decided by position — **operator: a duration in
@@ -447,13 +455,14 @@ t < time(1704067200)  // say it explicitly instead
 ```
 
 Text → `time` is strict: `t"…"` / `time(s)` read only `YYYY-MM-DD[(T| )HH:MM[:SS[.f]]][Z|±HH:MM]`; any other shape
-names its layout, which the member form REQUIRES before its default. Calendar moves keep the wall clock and state
-the end-of-month rule; a wall clock a DST gap skips or an overlap repeats raises.
+names its layout — `time(s, layout)`, `s.parse_time(layout[, default])` (`s.time([default])` is `time(s)`).
+Calendar moves keep the wall clock and state the end-of-month rule; a wall clock a DST gap skips or an overlap
+repeats raises.
 
 ```go
 time("2026-08-29 15:04")                     // canonical grammar; "12/01/2026" raises
 time("29/08/2026", "%d/%m/%Y")               // free form: 2nd argument is the layout
-"29/08/2026".time("%d/%m/%Y", undefined)     // member: layout, then default; s.time() raises
+"29/08/2026".parse_time("%d/%m/%Y", undefined)   // member: layout, then default; s.time() reads the canonical grammar
 time("1700000000", "unix")                   // a digit string names its unit
 time({year: 2026, month: 3, day: 29, hour: 15, zone: "Europe/Kyiv"})   // wall clock in a zone; day: 32 raises
 t.in_zone("Asia/Tokyo")                      // same instant, other view ("Local" is not a zone)

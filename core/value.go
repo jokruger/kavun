@@ -333,7 +333,16 @@ func (v *Value) Copy(deep bool) (Value, error) {
 func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value, error) {
 	d := &ValueTypes[v.Type]
 	if id != member.Unknown && int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
-		return d.Methods[id].Fn(vm, v, id, args)
+		// Method.Call written out in place: it cannot inline, and this is the hot path of every member call
+		m := &d.Methods[id]
+		if !m.Sig.admitsFloor(len(args)) {
+			return methodCountError(m, v, id, len(args))
+		}
+		res, err := m.Fn(vm, v, id, args)
+		if err != nil {
+			return methodResult(m, v, id, len(args), res, err)
+		}
+		return res, nil
 	}
 	return d.CallNamedMethod(vm, v, name, args)
 }

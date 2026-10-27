@@ -89,14 +89,14 @@ func TestScript_SetGet(t *testing.T) {
 	require.NoError(t, c.Set("b", core.NewStringValue("foo"))) // b = "foo"  (re-define before compilation)
 	require.NoError(t, err)
 
-	require.NoError(t, c.Set("test", core.NewBuiltinClosureValue("test", func(v core.VM, args []core.Value) (core.Value, error) {
+	require.NoError(t, c.Set("test", core.NewBuiltinClosureValue("test", core.SignatureOf(1, false), func(v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) > 0 {
 			if args[0].Type == value.Int {
 				return core.IntValue(int64(args[0].Data) + 1), nil
 			}
 		}
 		return core.IntValue(0), nil
-	}, 1, false)))
+	})))
 
 	require.NoError(t, c.Run(machine))
 
@@ -585,11 +585,11 @@ e = mod1.double(s)
 
 	// an embedder module declared pure: granted by default, so the scripts below need no grant
 	require.NoError(t, core.NewModule(kavun.UserDefinedType, "mod1", true).
-		PureFn(testMemberID("double"), 0, func(v core.VM, args []core.Value) (ret core.Value, err error) {
+		PureFn(testMemberID("double"), 0, "(x)", func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			arg0, _ := args[0].AsInt()
 			ret = core.IntValue(arg0 * 2)
 			return
-		}, 1, core.Fixed).
+		}).
 		Register())
 	defer func() { require.NoError(t, core.UnregisterModule(kavun.UserDefinedType)) }()
 
@@ -740,10 +740,10 @@ func TestScriptCustomModule(t *testing.T) {
 	require.Equal(t, int64(8), v.Interface())
 
 	require.NoError(t, core.NewModule(kavun.UserDefinedType, "text1", true).
-		PureFn(testMemberID("title"), 0, func(v core.VM, args []core.Value) (core.Value, error) {
+		PureFn(testMemberID("title"), 0, "(x)", func(v core.VM, args []core.Value) (core.Value, error) {
 			s, _ := args[0].AsString()
 			return core.NewStringValue(strings.Title(s)), nil
-		}, 1, core.Fixed).
+		}).
 		Register())
 	defer func() { require.NoError(t, core.UnregisterModule(kavun.UserDefinedType)) }()
 

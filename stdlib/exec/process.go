@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -25,6 +24,31 @@ func ProcessOf(v core.Value) *os.Process {
 	return (*os.Process)(v.Ptr)
 }
 
+// A process, as `exec.start_process`, `exec.find_process` and `command.process()` answer it.
+//
+// ## Overview
+//
+// `exec.process` is owned by the [`exec`](../stdlib/exec.md) module. Every member reaches the operating system; a
+// refusal raises `io` naming the member. It renders as `<exec.process:PID>`; no `string()`.
+//
+// ```go
+// exec := import("exec")
+// p := exec.start_process("/bin/sleep", ["sleep", "0"], "", [])
+// p.pid() > 0                // => true
+// st := p.wait()             // {pid: …, exited: true, success: true, status: "exit status 0"}
+// st.success                 // => true
+// ```
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `==` / `!=` | the same process (by pid) |
+// | `!` | a process is always truthy |
+// | everything else | raises |
+//
+//kavun:type exec.process
+
 // TypeProcess is the exec.process type descriptor.
 var TypeProcess = core.ValueTypeDescr{
 	Name:   core.ConstHook(processTypeName),         // PURE by contract
@@ -33,17 +57,7 @@ var TypeProcess = core.ValueTypeDescr{
 	IsTrue: core.Const2Hook[bool, error](true, nil), // PURE by contract
 	Equal:  processTypeEqual,                        // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:  core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.Format:  core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:    core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:  core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.PID:     core.NewMethod(processPid, 0, core.Fixed),
-		members.Kill:    core.NewMethod(processKill, 0, core.Fixed),
-		members.Signal:  core.NewMethod(processSignal, 1, core.Fixed),
-		members.Wait:    core.NewMethod(processWait, 0, core.Fixed),
-		members.Release: core.NewMethod(processRelease, 0, core.Fixed),
-	},
+	Methods: processMethods,
 }
 
 // A process renders as <exec.process:PID>.

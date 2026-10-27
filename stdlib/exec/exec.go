@@ -6,7 +6,6 @@ import (
 	"os/exec"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
@@ -15,24 +14,37 @@ import (
 // The exec module runs external programs: exec.command (prepare, configure, run) and exec.process (a running
 // process). Both types live in core.
 
-func init() {
-	m := core.NewModule(value.ModuleExec, "exec", false)
+// Run external programs.
+//
+// ```go
+// exec := import("exec")
+// string(exec.exec("echo", "hi").output())   // => "hi\n" — output() answers bytes
+// p := exec.start_process("/bin/sleep", ["sleep", "0"], "", [])
+// p.wait().success                        // => true
+// ```
+//
+// The two types are documented on their own pages: [`exec.command`](../types/exec_command.md) (`run`, `start`, `wait`,
+// `output`, `combined_output`, `set_path`, `set_dir`, `set_env`, `process`) and
+// [`exec.process`](../types/exec_process.md) (`pid`, `kill`, `signal`, `wait`, `release`). `process.wait()` answers a
+// frozen record of facts: `{pid, exited, success, status}`.
+//
+// **Failures.** A program that cannot be found or run, or ends badly for `run`/`output`, raises `io` naming the call
+// (`(exec.command.run) exit status 1`).
+//
+//kavun:module exec impure
+
+// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.ExecCommand, TypeCommand)
 	m.Type(value.ExecProcess, TypeProcess)
-	m.Fn(members.Exec, 0, execExec, 1, core.Variadic)
-	m.Fn(members.ExecLookPath, 1, execLookPath, 1, core.Fixed)
-	m.Fn(members.StartProcess, 2, execStartProcess, 4, core.Fixed)
-	m.Fn(members.FindProcess, 3, execFindProcess, 1, core.Fixed)
-	// 4..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
 }
 
+// Prepare a command; configure it, then run it once.
+//
+// `name` is a `string`.
+//
+//kavun:fn exec slot=0 impure (name, ...args) -> exec.command
 func execExec(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) == 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("exec.exec", "at least 1", len(args))
-	}
 	name, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("exec.exec", "first", "string(compatible)", args[0].TypeName())
@@ -48,10 +60,12 @@ func execExec(vm core.VM, args []core.Value) (core.Value, error) {
 	return NewCommandValue(exec.Command(name, execArgs...)), nil
 }
 
+// Search `PATH` for an executable named `file`.
+//
+// `file` is a `string`.
+//
+//kavun:fn exec_look_path slot=1 impure (file) -> string
 func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("exec.exec_look_path", "1", len(args))
-	}
 	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("exec.exec_look_path", "first", "string(compatible)", args[0].TypeName())
@@ -63,10 +77,12 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(res), nil
 }
 
+// Start a process.
+//
+// `name` is a `string`, `argv` is an array of strings, `dir` is a `string` and `env` is an array of strings.
+//
+//kavun:fn start_process slot=2 impure (name, argv, dir, env) -> exec.process
 func execStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 4 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("exec.start_process", "4", len(args))
-	}
 	name, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("exec.start_process", "first", "string(compatible)", args[0].TypeName())
@@ -96,10 +112,12 @@ func execStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	return NewProcessValue(proc), nil
 }
 
+// Answer the process with that pid.
+//
+// `pid` is an `int`.
+//
+//kavun:fn find_process slot=3 impure (pid) -> exec.process
 func execFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("exec.find_process", "1", len(args))
-	}
 	i1, ok := args[0].AsInt()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("exec.find_process", "first", "int(compatible)", args[0].TypeName())

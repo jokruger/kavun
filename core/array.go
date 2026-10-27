@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/jokruger/kavun/core/member/members"
 	"slices"
 	"strings"
 	"unicode"
@@ -42,6 +41,323 @@ func NewArrayValue(arr []Value, immutable bool) Value {
 	return Value{Type: value.Array, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
+// Mutable, heterogeneous sequences of values.
+//
+// ## Overview
+//
+// Arrays are ordered, mutable sequences whose elements can be values of any type, including other arrays.
+//
+// Arrays are reference-typed: `b = a` makes both names point at the same body; use `copy()` for an independent
+// value. Every member without an `_in_place` suffix is non-mutating and returns a new array; the `_in_place` twins
+// mutate the shared body (see [In-place twins](#in-place-twins)).
+//
+// The structural edits (`trim`, `pad_start`/`pad_end`, `replace`) are sequence verbs, not text verbs: a fill
+// *element*, a set of *elements*, a run-or-element substitution.
+//
+// `first`, `last`, `min`, `max`, `sum`, `avg` all take the uniform optional trailing default. An **empty receiver
+// has no answer to give**, so without a default they raise `invalid_value` — exactly like a failed conversion, and
+// with the same one opt-out. `min`/`max` need mutually comparable elements; `sum`/`avg` need numeric ones. With
+// all-`int` input `avg` is an `int` (integer division) — include a float for a fractional mean.
+//
+// ```go
+// [1, 2, 3].first()        // => 1
+// [].first()               // Error: invalid_value: (first) empty sequence
+// [].first(0)              // => 0
+// [].sum(0)                // => 0 — the empty sum is the caller's to name, not the language's
+// [1, 2, 3].sum()          // => 6
+// [1, 2].avg()             // => 1 — all-int mean is an int
+// [1, 2.0].avg()           // => 1.5
+// [undefined, 7].first()   // => undefined — first answers the plain first element, which may itself be undefined
+// ```
+//
+// That last line is why the empty case raises rather than answering `undefined`: an element *can* be `undefined`,
+// so a silent `undefined` made "the sequence was empty" and "the first element is undefined" indistinguishable.
+//
+// Container conversions are the element conversion applied element-wise, **all-or-nothing** — one inconvertible
+// element fails the whole call.
+//
+// ## Literals and construction
+//
+// ```go
+// uniform = [1, 2, 3]
+// mixed = [1, "two", 3.0, true] // elements are any type
+// ```
+//
+// An array literal is **constructed**, not constant: its elements are expressions evaluated when execution
+// reaches them (`[f(x), i + 1]`), so each evaluation builds a fresh body — which is why an array literal is
+// mutable while a `b"..."` / `u"..."` text literal is a shared, immutable constant. See [Constant literals and
+// constructed literals](../../language.md#constant-literals-and-constructed-literals).
+//
+// The free `array(...)` constructor has two forms with two different jobs:
+// - **Arity 1**: it decomposes a convertible sequence into elements and wraps any other value as one element.
+// An array argument is *not* passed through — a constructor constructs, so `array(a)` is a new, independent,
+// mutable array (a shallow copy, exactly `a.copy_shallow()`; `a.copy()` is the deep spelling).
+// - **Arity 2**: `array(x, n)` is `n` copies of `x` as one element each and never spreads, whatever `x` is.
+//
+// ```go
+// array()                  // => []
+// array(range(1, 4))       // => [1, 2, 3]
+// array("abc")             // => ['a', 'b', 'c'] — a string materializes as its runes
+// array(5)                 // => [5] — a non-sequence value is one element
+// array(-1)                // => [-1]
+// array(undefined)         // Error: conversion: cannot convert undefined to array: value is missing
+//
+// // an array argument is copied, never aliased — and a frozen one comes back writable
+// a = [1, 2]
+// b = array(a)             // => [1, 2] — a new array
+// b[0] = 9                 // b is [9, 2]; a is still [1, 2]
+// array(freeze([1, 2]))    // => [1, 2] — mutable again (shallow: frozen ELEMENTS stay frozen)
+//
+// // the count form: n copies of x, x stays whole
+// array("ab", 2)           // => ["ab", "ab"]
+// array([1, 2], 2)         // => [[1, 2], [1, 2]] — never spreads
+// array(undefined, 3)      // => [undefined, undefined, undefined] — the preallocation spelling
+// ```
+//
+// ### Indexing and slicing
+//
+// ```go
+// a = [10, 20, 30, 40, 50]
+// a[0]             // => 10
+// a[-1]            // => 50 — negative indices count from the end
+// a[1:3]           // => [20, 30]
+// a[::-1]          // => [50, 40, 30, 20, 10] — three-part slice with negative step
+// a[7]             // Error: index_out_of_bounds: (index access) 7 out of range [0, 5]
+// ```
+//
+// Slice bounds clamp; single-element access raises out of range. Index assignment (`a[0] = 99`) mutates in place
+// and raises on an immutable array.
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `a + x` | exactly `append(x)`: an `array` operand spreads its elements in as a run; **every other value** is appended as one element; `undefined` propagates (`a + undefined` → `undefined`); an `error` operand raises |
+// | `x + a` | exactly `prepend(x)` — the mirror, for a left operand that has no reading of its own for an array |
+// | `a * n` | exactly `repeat(n)`: the right operand is a **count**, not an element. No reflected direction — `n * a` raises |
+// | `a - x` | exactly `remove(x)`: an `array` operand removes every occurrence of that contiguous run — never set difference; every other value removes every equal element; `undefined` propagates |
+// | `x in a` | the value readings of `contains`: element or run; a callable operand raises — an operator operand is always a value |
+// | `==` / `!=` | deep equality, element by element, through any nesting |
+// | `<` `>` `<=` `>=` | **not defined** — raises; an array has no total order. `sort()` orders the *elements*, which must be mutually comparable |
+//
+// ```go
+// [1, 2] + [3, 4]          // => [1, 2, 3, 4]
+// [1, 2] + 3               // => [1, 2, 3] — one element
+// [1, 2] + "ab"            // => [1, 2, "ab"] — not an array: one element
+// [9] + (1..4)             // => [9, range(1, 4)] — a range is one element too; see below
+// [1, 2] + undefined       // => undefined
+// [1, 2] + error("x")      // Error: invalid_binary_operator: array + error
+// ```
+//
+// An array on the **right** works too, and means `prepend`. A left operand that has no reading of its own for an
+// array hands the operation over, and the array adds it at the front:
+//
+// ```go
+// 3 + [1, 2]               // => [3, 1, 2] — the mirror of [1, 2] + 3
+// "ab" + [1, 2]            // => ["ab", 1, 2]
+// (1..3) + [1]             // => [range(1, 3), 1]
+// undefined + [1]          // => undefined — the universal contracts still come first
+// error("x") + [1]         // Error: invalid_binary_operator: error + array
+// ```
+//
+// Only `+` has this reflected form, because only the add side has a front member. Removal has no `prepend`
+// counterpart, so every other operator raises rather than inventing one:
+//
+// ```go
+// 3 - [1, 2]               // Error: invalid_binary_operator: int - array
+// 3 * [1, 2]               // Error: invalid_binary_operator: int * array
+// ```
+//
+// The operator adds **one** element at the front, and `+` is left-associative, so it does not chain the way
+// `prepend` does — `1 + 2 + [3]` is `(1 + 2) + [3]` = `[3, 3]`. Use `prepend` for more than one:
+//
+// ```go
+// [1].prepend(2, 3)        // => [2, 3, 1]
+// 2 + 3 + [1]              // => [5, 1] — the ints add first
+// ```
+//
+// `*` is `repeat`'s operator form — the right operand is a **count**, not an element:
+//
+// ```go
+// [1, 2] * 3               // => [1, 2, 1, 2, 1, 2]
+// [1, 2] * 0               // => []
+// [1, 2] * 2.0             // => [1, 2, 1, 2] — a lossless numeric is a count
+// [1, 2] * 2.5             // Error: invalid_value: (*) argument right operand must be a whole number
+// [1, 2] * -1              // Error: invalid_value: (*) repeat count must be non-negative
+// [1, 2] * [3]             // Error: invalid_binary_operator: array * array — only a number is a count
+// 3 * [1, 2]               // Error: invalid_binary_operator: int * array
+// ```
+//
+// There is **no** reflected direction here, unlike `+`: `a * n` reads as "apply `n` to the sequence", while
+// `n * a` would read as "apply the sequence to `n`", which has no meaning. Element-wise arithmetic — multiplying
+// each element by `n` — is a separate, future operator family (`.+`, `.-`, `.*`, `./`), never plain `*`.
+//
+// `-` removes by value, every occurrence:
+//
+// ```go
+// [1, 2, 1, 2, 3] - 1      // => [2, 2, 3] — every equal element
+// [1, 2, 3, 1, 2] - [1, 2] // => [3] — every occurrence of the contiguous run
+// [1, 2, 3] - (1..3)       // => [1, 2, 3] — a range is one element, and no element equals it
+// [1, [2], 1] - [2]        // => [1, [2], 1] — [2] means the element 2, which does not occur
+// ```
+//
+// `in` accepts values only:
+//
+// ```go
+// 2 in [1, 2, 3]                     // => true
+// [2, 3] in [1, 2, 3]                // => true — a run
+// undefined in [undefined, 1]        // => true
+// [{a: [1]}] == [{a: [1]}]           // => true — deep equality, through any nesting
+// f = func(x) { return true }
+// f in [1, 2]    // Error: invalid_value — in) an operator operand is always a value — the predicate reading is contains(f)/any(f
+// ```
+//
+// `+=`, `-=` and `*=` are the usual sugar: `a += 3` appends one element, `a -= 1` removes every `1`, `a *= 3`
+// repeats.
+//
+// ## Argument dispatch
+//
+// Every member that searches, matches, or adds selects its *reading* from the argument's type — one menu, shared
+// by members and operators alike:
+//
+// | argument | reading |
+// | --- | --- |
+// | absent | the [blank set](#the-blank-set) |
+// | a function | a predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
+// | an `array` — the receiver's own kind, and nothing else | a contiguous **run** of elements |
+// | anything else, `range` and the text types included | **one element** |
+// | a one-element array `[x]` | the element `x` — so wrapping is the uniform way to spell "this array, as one element": `[[2, 3]]` means the single element `[2, 3]` |
+//
+// **Only an `array` spreads — nothing else, however sequence-like.** A `range`, a `string`, a `runes`, a `bytes`
+// are each one element. Spreading is never inferred from a type; it is spelled at the call site:
+//
+// ```go
+// [9] + (1..4)                  // => [9, range(1, 4)]
+// [9] + (1..4).array()          // => [9, 1, 2, 3]
+// [1] + "ab"                    // => [1, "ab"]
+// [1] + "ab".array()            // => [1, 'a', 'b']
+// ```
+//
+// Two reasons, and they will still hold when the language grows typed vectors (`ints`, `floats`, …):
+//
+// - `string` and `runes` hold the *same* text and are interchangeable everywhere (see [runes](runes.md)),
+// so neither can spread while the other stays an element — and `arr + "text"` must keep meaning *append the
+// text*.
+// - a `range` that quietly became an `array` would answer an `array` today and an `ints` tomorrow, silently, in a
+// script that named neither. `.array()` puts the target where a reader — and a migration — can find it.
+//
+// ```go
+// [1, 2, 3].contains(2)              // => true — element
+// [1, 2, 3].contains([2, 3])         // => true — run
+// [1, [2, 3], 4].contains([[2, 3]])  // => true — the wrap: the element [2, 3]
+// [1, 2, 3].contains(func(x) { return x > 2 })   // => true — predicate
+// ```
+//
+// A variadic call is a homogeneous **set** — "equals the argument" becomes "is in the set". Every argument in one
+// call must have the same reading; mixing elements with runs raises, and a function among several arguments always
+// raises:
+//
+// ```go
+// [1, 2, 3].contains(4, 2)           // => true — any of the set
+// [1, 2, 1, 3].count(1, 3)           // => 3
+// [1, 2, 3].contains(9, [2, 3])      // Error: invalid_argument_type: a HOMOGENEOUS set — one reading per call
+// ```
+//
+// Each member declares which readings it takes; a reading the member does not declare raises an error naming the
+// ones it has (see `any`/`all` and `trim` below for members that refuse runs).
+//
+// Run matching is **leftmost-longest and non-overlapping**:
+//
+// ```go
+// [1, 1, 1, 1].count([1, 1])                       // => 2 — non-overlapping
+// ["a", "b", "c", "d"].remove(["a", "b"], ["a", "b", "c"])  // => ["d"] — longest wins at a tie
+// ```
+//
+// The empty run matches nothing for counting and keeping verbs, but is "contained" everywhere:
+//
+// ```go
+// [1, 2].contains([])      // => true
+// [1, 2].count([])         // => 0
+// [1, 2].remove([])        // => [1, 2]
+// ```
+//
+// ## The blank set
+//
+// The no-argument form of `remove`/`keep`, `trim`/`trim_start`/`trim_end`, `contains`/`any`/`all`, `count`, and
+// `index`/`index_last` matches the array's **blank set**: `undefined` together with each element type's own zero
+// value — `0`, `0.0`, `""`, empty containers, and so on. Blankness is about separators and filler, not arithmetic:
+// a script in which zeros are data names its own set instead.
+//
+// ```go
+// [1, 0, undefined, "", 0.0, [], 2].remove()   // => [1, 2]
+// [undefined, 0, 5, 0, undefined].trim(undefined)   // => [0, 5, 0] — zeros are data here
+// ```
+//
+// The default pad fill is `undefined` — the blank set's canonical member.
+//
+// ## Copies, freezing, rendering, truthiness
+//
+// ```go
+// a = [[1]]
+// b = a.copy()
+// b[0][0] = 9            // a is still [[1]]
+// c = a.copy_shallow()
+// c[0][0] = 7            // a is now [[7]] — nested values shared
+//
+// d = [1]
+// f = d.freeze()
+// d[0] = 9               // d is [9]; f stays [1]
+// is_immutable(f)        // => true
+//
+// [0].is_true()          // => true — non-empty, even if every element is blank
+// ```
+//
+// The free forms `len(x)`, `copy(x)`, `freeze(x)`, `format(x)`, `is_true(x)` are the same operations by another
+// spelling.
+//
+// ## In-place twins
+//
+// Every mutating member is the `_in_place` twin of a non-mutating one with the same arguments and readings.
+//
+// A twin mutates the shared body — the change is visible through every alias, no reassignment needed — and
+// returns the receiver, so twins chain and `y = x.m(args)` leaves the same content in `x` as `x.m_in_place(args)`.
+// On a frozen receiver every twin raises kind `not_mutable`:
+//
+// ```go
+// a = [1]
+// b = a                        // b shares a's body
+// a.append_in_place(2, 3)
+// b                            // => [1, 2, 3] — no reassignment needed
+//
+// [1].freeze().append_in_place(2)   // Error: not_mutable: (append_in_place) type immutable-array is immutable
+// ```
+//
+// ## Callbacks
+//
+// A member that takes a function — the predicate reading of the match members, `map`, `flat_map`, `for_each`, `reduce`
+// — calls it in the **fewest form it accepts**, read from the callable's arity and whether it is variadic, never from
+// what kind of callable it is:
+//
+// - a per-element callback gets the element when it accepts one argument, else `(index, element)`; anything else
+// raises;
+// - a `reduce` callback gets `(acc, element)` when it accepts two arguments, else `(acc, index, element)`; anything
+// else raises.
+//
+// So `func(x, ...rest)` and `func(...args)` get the element, and a builtin or a bound member is a callback like any
+// other (`min` and `"abc".contains` accept one argument). A lambda is the one way to call a callable in another form —
+// choose the form, reorder, fix or drop arguments:
+//
+// ```go
+// [5, 6].map(func(i, x) { return i })             // => [0, 1] — accepts two, not one
+// [5, 6].map(func(x, ...rest) { return x * 2 })   // => [10, 12] — accepts one: the element
+// [3, 1].map(min)                                 // => [3, 1]
+// ["a", "z"].keep("abc".contains)                 // => ["a"]
+// [5, 6].map((i, x) => [x, i])                    // => [[5, 0], [6, 1]] — a lambda picks the form and the order
+// [1, 2].reduce(0, max)                           // => 2
+// ```
+//
+//kavun:type array
+
 var TypeArray = ValueTypeDescr{
 	Name:         MutabilityNameHook(arrayTypeName, immutableArrayTypeName),                     // PURE by contract
 	String:       arrayTypeString,                                                               // PURE by contract
@@ -78,89 +394,7 @@ var TypeArray = ValueTypeDescr{
 	// (keep/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
 	// function-valued argument.
 
-	Methods: []Method{
-		members.IsTrue:              NewPureMethod(MemberIsTrue, 0, Fixed),
-		members.String:              NewPureMethod(arrayString, 0, Variadic),
-		members.Format:              NewPureMethod(MemberFormat, 0, Variadic),
-		members.Copy:                NewPureMethod(arrayCopy, 0, Fixed),
-		members.Freeze:              NewPureMethod(arrayFreeze, 0, Fixed),
-		members.Runes:               NewPureMethod(arrayRunes, 0, Variadic),
-		members.Array:               NewPureMethod(arrayArray, 0, Variadic),
-		members.Bytes:               NewPureMethod(arrayBytes, 0, Variadic),
-		members.Dict:                NewPureMethod(arrayDict, 0, Variadic),
-		members.Record:              NewPureMethod(arrayRecord, 0, Variadic),
-		members.Len:                 NewPureMethod(arrayLen, 0, Fixed),
-		members.IsEmpty:             NewPureMethod(arrayIsEmpty, 0, Fixed),
-		members.Contains:            NewPureMethod(arrayContains, 0, Variadic),
-		members.Index:               NewPureMethod(arrayIndex, 0, Variadic),
-		members.Count:               NewPureMethod(arrayCount, 0, Variadic),
-		members.All:                 NewPureMethod(arrayAll, 0, Variadic),
-		members.Any:                 NewPureMethod(arrayAny, 0, Variadic),
-		members.ForEach:             NewPureMethod(arrayForEach, 1, Fixed),
-		members.Reduce:              NewPureMethod(arrayReduce, 2, Fixed),
-		members.Keep:                NewPureMethod(arrayKeep, 0, Variadic),
-		members.Map:                 NewPureMethod(arrayMap, 1, Fixed),
-		members.Remove:              NewPureMethod(arrayRemove, 0, Variadic),
-		members.First:               NewPureMethod(arrayFirst, 0, Variadic),
-		members.Last:                NewPureMethod(arrayLast, 0, Variadic),
-		members.IndexLast:           NewPureMethod(arrayIndexLast, 0, Variadic),
-		members.Min:                 NewPureMethod(arrayMin, 0, Variadic),
-		members.Max:                 NewPureMethod(arrayMax, 0, Variadic),
-		members.Slice:               NewPureMethod(memberSlice, 0, Variadic),
-		members.Reverse:             NewPureMethod(arrayReverse, 0, Fixed),
-		members.Sort:                NewPureMethod(arraySort, 0, Fixed),
-		members.Unique:              NewPureMethod(arrayUnique, 0, Fixed),
-		members.Dedup:               NewPureMethod(arrayDedup, 0, Fixed),
-		members.Chunk:               NewPureMethod(arrayChunk, 1, Fixed),
-		members.Append:              NewPureMethod(arrayAppend, 0, Variadic),
-		members.Prepend:             NewPureMethod(arrayPrepend, 0, Variadic),
-		members.Push:                NewPureMethod(arrayPush, 0, Variadic),
-		members.PushFirst:           NewPureMethod(arrayPushFirst, 0, Variadic),
-		members.Insert:              NewPureMethod(arrayInsert, 1, Variadic),
-		members.Splice:              NewPureMethod(arraySplice, 0, Variadic),
-		members.Repeat:              NewPureMethod(arrayRepeat, 1, Fixed),
-		members.PadStart:            NewPureMethod(arrayPadStart, 1, Variadic),
-		members.PadEnd:              NewPureMethod(arrayPadEnd, 1, Variadic),
-		members.Trim:                NewPureMethod(arrayTrim, 0, Variadic),
-		members.TrimStart:           NewPureMethod(arrayTrimStart, 0, Variadic),
-		members.TrimEnd:             NewPureMethod(arrayTrimEnd, 0, Variadic),
-		members.HasPrefix:           NewPureMethod(arrayHasPrefix, 1, Variadic),
-		members.HasSuffix:           NewPureMethod(arrayHasSuffix, 1, Variadic),
-		members.RemovePrefix:        NewPureMethod(arrayRemovePrefix, 1, Variadic),
-		members.RemoveSuffix:        NewPureMethod(arrayRemoveSuffix, 1, Variadic),
-		members.Replace:             NewPureMethod(arrayReplace, 2, Fixed),
-		members.FlatMap:             NewPureMethod(arrayFlatMap, 1, Fixed),
-		members.CopyShallow:         NewPureMethod(arrayCopyShallow, 0, Fixed),
-		members.FreezeShallow:       NewPureMethod(arrayFreezeShallow, 0, Fixed),
-		members.Flatten:             NewPureMethod(arrayFlatten, 0, Variadic),
-		members.Join:                NewPureMethod(arrayJoin, 0, Variadic),
-		members.Sum:                 NewPureMethod(arraySum, 0, Variadic),
-		members.Avg:                 NewPureMethod(arrayAvg, 0, Variadic),
-		members.KeepInPlace:         NewMethod(arrayKeepInPlace, 0, Variadic),
-		members.RemoveInPlace:       NewMethod(arrayRemoveInPlace, 0, Variadic),
-		members.AppendInPlace:       NewMethod(arrayAppendInPlace, 0, Variadic),
-		members.PrependInPlace:      NewMethod(arrayPrependInPlace, 0, Variadic),
-		members.PushInPlace:         NewMethod(arrayPushInPlace, 0, Variadic),
-		members.PushFirstInPlace:    NewMethod(arrayPushFirstInPlace, 0, Variadic),
-		members.InsertInPlace:       NewMethod(arrayInsertInPlace, 1, Variadic),
-		members.SpliceInPlace:       NewMethod(arraySpliceInPlace, 0, Variadic),
-		members.PadStartInPlace:     NewMethod(arrayPadStartInPlace, 1, Variadic),
-		members.PadEndInPlace:       NewMethod(arrayPadEndInPlace, 1, Variadic),
-		members.TrimInPlace:         NewMethod(arrayTrimInPlace, 0, Variadic),
-		members.TrimStartInPlace:    NewMethod(arrayTrimStartInPlace, 0, Variadic),
-		members.TrimEndInPlace:      NewMethod(arrayTrimEndInPlace, 0, Variadic),
-		members.RemovePrefixInPlace: NewMethod(arrayRemovePrefixInPlace, 1, Variadic),
-		members.RemoveSuffixInPlace: NewMethod(arrayRemoveSuffixInPlace, 1, Variadic),
-		members.ReplaceInPlace:      NewMethod(arrayReplaceInPlace, 2, Fixed),
-		members.ReverseInPlace:      NewMethod(arrayReverseInPlace, 0, Fixed),
-		members.SortInPlace:         NewMethod(arraySortInPlace, 0, Fixed),
-		members.UniqueInPlace:       NewMethod(arrayUniqueInPlace, 0, Fixed),
-		members.DedupInPlace:        NewMethod(arrayDedupInPlace, 0, Fixed),
-		members.SliceView:           NewPureMethod(arraySliceView, 0, Variadic),
-		members.ChunkView:           NewPureMethod(arrayChunkView, 1, Fixed),
-		members.Shuffle:             NewMethod(arrayShuffle, 1, Fixed),
-		members.ShuffleInPlace:      NewMethod(arrayShuffleInPlace, 1, Fixed),
-	},
+	Methods: arrayMethods,
 }
 
 func arrayTypeString(v Value) string {
@@ -643,7 +877,7 @@ func arrayRemaining(vm VM, name string, v Value, args []Value) ([]Value, error) 
 // arrayLocate is the body of index and index_last; name is the member called, for the errors.
 func arrayLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
 	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+		return Undefined, ErrArgCount
 	}
 	elems := (*Array)(v.Ptr).Elements
 
@@ -815,9 +1049,6 @@ func arrayTrimmed(name string, v Value, args []Value, start, end bool) ([]Value,
 // the end) of the receiver, or -1 when none is. The empty run is anchored everywhere. The name is the member
 // called, for the errors.
 func arrayAnchoredRun(name string, v Value, args []Value, suffix bool) (int, error) {
-	if len(args) == 0 {
-		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
-	}
 	runs, err := arrayReadRunSet(name, args, "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)")
 	if err != nil {
 		return 0, err
@@ -860,9 +1091,6 @@ func arrayWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]Va
 // arrayReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); an
 // array argument is a run, anything else a run of one element. The name is the member called, for the errors.
 func arrayReplaced(name string, v Value, args []Value) ([]Value, error) {
-	if len(args) != 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "2", len(args))
-	}
 	if args[0].IsCallable() || args[1].IsCallable() {
 		return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
 	}
@@ -890,8 +1118,8 @@ func arrayReplaced(name string, v Value, args []Value) ([]Value, error) {
 // arrayPadded answers the receiver filled at the front (start) or the end up to n elements; a width at or below
 // the length leaves it unchanged. The fill is any one value. The name is the member called, for the errors.
 func arrayPadded(name string, v Value, args []Value, start bool) ([]Value, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return nil, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	if len(args) > 2 {
+		return nil, ErrArgCount
 	}
 	n, err := parseIntArg(name, "first", args[0])
 	if err != nil {
@@ -1069,9 +1297,6 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 func arrayFnSort(name string, v Value, args []Value, mutate bool) (Value, error) {
 	if mutate && v.Immutable {
 		return Undefined, errs.NewNotMutableError(name, v.TypeName())
-	}
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 
 	var err error

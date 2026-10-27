@@ -1307,7 +1307,7 @@ func TestOptimizer_MethodCallPurityGate(t *testing.T) {
 			// carry only the offset (see TestOptimizer_NamedZoneTimeNeverBecomesAConstant). The receiver's own
 			// conversion still folds, so changed=true; the in_zone call stays.
 			name:        "time.in_zone() result is not folded into a literal",
-			src:         `out = "2024-06-15T10:00:00Z".time("iso").in_zone("Asia/Tokyo")`,
+			src:         `out = "2024-06-15T10:00:00Z".parse_time("iso").in_zone("Asia/Tokyo")`,
 			wantAST:     `out = t"2024-06-15T10:00:00Z".in_zone("Asia/Tokyo")`,
 			wantChanged: []string{"foldConstantSubexpressions"},
 			oc:          only,
@@ -1316,7 +1316,7 @@ func TestOptimizer_MethodCallPurityGate(t *testing.T) {
 			// ...and, folding being bottom-up, an accessor chained after it sees a non-literal receiver and stays
 			// too. Conservative by construction: nothing zone-named is evaluated at compile time.
 			name:        "a wall-clock accessor through in_zone is transitively not folded",
-			src:         `out = "2024-06-15T10:00:00Z".time("iso").in_zone("Asia/Tokyo").hour()`,
+			src:         `out = "2024-06-15T10:00:00Z".parse_time("iso").in_zone("Asia/Tokyo").hour()`,
 			wantAST:     `out = t"2024-06-15T10:00:00Z".in_zone("Asia/Tokyo").hour()`,
 			wantChanged: []string{"foldConstantSubexpressions"},
 			wantOut:     19,

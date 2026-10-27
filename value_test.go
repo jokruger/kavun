@@ -418,6 +418,11 @@ func TestObject_Value(t *testing.T) {
 	bad[6], bad[7], bad[8], bad[9] = 0, 0, 0, 0 // D1 = 0
 	require.Error(t, x.DecodeBinary(bad))
 
+	// the exported Go constructor never leaks core.ErrArgCount: a Go caller has no dispatcher to translate it
+	_, err = fin.NewTieredChargesFrom("fin.tiered_charges", []core.Value{core.IntValue(1), core.IntValue(2)})
+	require.False(t, errors.Is(err, core.ErrArgCount))
+	require.Equal(t, "wrong_num_arguments: (fin.tiered_charges) expected (text) | (bands, min, max), got 2 arguments", err.Error())
+
 	// the fin tables: the binary form is the text form, re-validated through the constructor on decode
 	for _, tc := range []struct {
 		build func(string) (core.Value, error)
@@ -538,7 +543,7 @@ func TestObject_TypeName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "immutable-dict", o.TypeName())
 
-	o = core.NewBuiltinClosureValue("fn", nil, 0, false)
+	o = core.NewBuiltinClosureValue("fn", core.SignatureOf(0, false), nil)
 	require.NoError(t, err)
 	require.Equal(t, "<builtin-closure:fn/0>", o.TypeName())
 
@@ -754,7 +759,7 @@ func TestUndefined_BinaryOp(t *testing.T) {
 
 // error has no rule-1/rule-2 pairing with anything for arithmetic/bitwise/ordering — always a vm
 // error, except it must decline to undefined first (undefined always wins), per the implementor
-// contract in docs/extending-types.md.
+// contract in docs/extending_types.md.
 func TestError_BinaryOp(t *testing.T) {
 	e := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 

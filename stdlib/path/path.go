@@ -5,37 +5,29 @@ import (
 	"path/filepath"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
 )
 
-// The path module is path TEXT: joining, splitting and cleaning file paths with the host's separator. It never
-// touches the file system (that is fs), so it is pure and importable without a grant.
-func init() {
-	m := core.NewModule(value.ModulePath, "path", true)
-	m.PureFn(members.Join, 0, pathJoin, 0, core.Variadic)
-	m.PureFn(members.Base, 1, pathBase, 1, core.Fixed)
-	m.PureFn(members.Dir, 2, pathDir, 1, core.Fixed)
-	m.PureFn(members.Ext, 3, pathExt, 1, core.Fixed)
-	m.PureFn(members.Clean, 4, pathClean, 1, core.Fixed)
-	m.PureFn(members.Split, 5, pathSplit, 1, core.Fixed)
-	m.PureFn(members.Rel, 6, pathRel, 2, core.Fixed)
-	m.PureFn(members.IsAbs, 7, pathIsAbs, 1, core.Fixed)
-	m.PureFn(members.Match, 8, pathMatch, 2, core.Fixed)
-	// 9..127 reserved
-	if err := m.Register(); err != nil {
-		panic(err)
-	}
-}
+// Path TEXT with the host's separator — joining, splitting, cleaning.
+//
+// It never touches the file system (that is [`fs`](fs.md)), so it is pure and importable by default.
+//
+// ```go
+// path := import("path")
+// path.join("a", "b", "../c")     // => "a/c"
+// path.split("/x/y.txt")          // => ["/x/", "y.txt"]
+// ```
+//
+// Failures: `invalid_value` (`rel`, `match`), `invalid_argument_type` (a non-string), `wrong_num_arguments`.
+//
+//kavun:module path pure
 
-// pathArgs reads n string arguments of a path function.
-func pathArgs(name string, args []core.Value, n int) ([]string, error) {
-	if len(args) != n {
-		return nil, errs.NewWrongNumArgumentsError(name, fmt.Sprint(n), len(args))
-	}
-	out := make([]string, n)
+// pathArgs reads the string arguments of a fixed-count path function (one or two: the dispatcher has checked the
+// count against the template).
+func pathArgs(name string, args []core.Value) ([]string, error) {
+	out := make([]string, len(args))
 	for i, a := range args {
 		if a.Type != value.String {
 			return nil, errs.NewInvalidArgumentTypeError(name, ordinal(i), "string", a.TypeName())
@@ -49,7 +41,9 @@ func ordinal(i int) string {
 	return [...]string{"first", "second"}[i]
 }
 
-// join(parts...): the parts joined with the separator and cleaned; "" for no parts.
+// Join the parts with the separator and clean the result; `""` for no parts.
+//
+//kavun:fn join slot=0 pure (...parts) -> string
 func pathJoin(_ core.VM, args []core.Value) (core.Value, error) {
 	parts := make([]string, len(args))
 	for i, a := range args {
@@ -61,45 +55,59 @@ func pathJoin(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(filepath.Join(parts...)), nil
 }
 
-// base(p): the last element ("." for "", the separator for a root).
+// Answer the last element (`"."` for `""`).
+//
+// A root answers the separator itself.
+//
+//kavun:fn base slot=1 pure (p) -> string
 func pathBase(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.base", args, 1)
+	p, err := pathArgs("path.base", args)
 	if err != nil {
 		return core.Undefined, err
 	}
 	return core.NewStringValue(filepath.Base(p[0])), nil
 }
 
-// dir(p): everything but the last element, cleaned.
+// Answer everything but the last element, cleaned.
+//
+//kavun:fn dir slot=2 pure (p) -> string
 func pathDir(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.dir", args, 1)
+	p, err := pathArgs("path.dir", args)
 	if err != nil {
 		return core.Undefined, err
 	}
 	return core.NewStringValue(filepath.Dir(p[0])), nil
 }
 
-// ext(p): the extension of the last element, dot included ("" when none).
+// Answer the extension of the last element, dot included (`""` when none).
+//
+//kavun:fn ext slot=3 pure (p) -> string
 func pathExt(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.ext", args, 1)
+	p, err := pathArgs("path.ext", args)
 	if err != nil {
 		return core.Undefined, err
 	}
 	return core.NewStringValue(filepath.Ext(p[0])), nil
 }
 
-// clean(p): the shortest equivalent path (no "." or "..", no doubled separators).
+// Answer the shortest equivalent path.
+//
+// The result has no `.` or `..` elements and no doubled separators.
+//
+//kavun:fn clean slot=4 pure (p) -> string
 func pathClean(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.clean", args, 1)
+	p, err := pathArgs("path.clean", args)
 	if err != nil {
 		return core.Undefined, err
 	}
 	return core.NewStringValue(filepath.Clean(p[0])), nil
 }
 
-// split(p): [dir, file], with dir keeping its trailing separator, so dir + file == p.
+// Split `p` into directory and file, `dir` keeping its trailing separator so `dir + file == p`.
+//
+//kavun:fn split slot=5 pure (p) -> [dir, file]
 func pathSplit(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.split", args, 1)
+	p, err := pathArgs("path.split", args)
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -107,9 +115,13 @@ func pathSplit(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.NewArrayValue([]core.Value{core.NewStringValue(dir), core.NewStringValue(file)}, false), nil
 }
 
-// rel(base, target): target relative to base; raises when there is no such path (one absolute, one not).
+// Answer `target` relative to `base`; raises `invalid_value` when there is none.
+//
+// There is no such path when one of `base` and `target` is absolute and the other is not.
+//
+//kavun:fn rel slot=6 pure (base, target) -> string
 func pathRel(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.rel", args, 2)
+	p, err := pathArgs("path.rel", args)
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -120,18 +132,24 @@ func pathRel(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(r), nil
 }
 
-// is_abs(p): whether p is absolute.
+// Report whether `p` is absolute.
+//
+//kavun:fn is_abs slot=7 pure (p) -> bool
 func pathIsAbs(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.is_abs", args, 1)
+	p, err := pathArgs("path.is_abs", args)
 	if err != nil {
 		return core.Undefined, err
 	}
 	return core.BoolValue(filepath.IsAbs(p[0])), nil
 }
 
-// match(pattern, name): whether name matches the shell pattern (* ? [...]); a malformed pattern raises.
+// Report whether `name` matches the shell `pattern` (`*`, `?`, `[...]`).
+//
+// A malformed pattern raises `invalid_value`.
+//
+//kavun:fn match slot=8 pure (pattern, name) -> bool
 func pathMatch(_ core.VM, args []core.Value) (core.Value, error) {
-	p, err := pathArgs("path.match", args, 2)
+	p, err := pathArgs("path.match", args)
 	if err != nil {
 		return core.Undefined, err
 	}

@@ -1881,9 +1881,9 @@ func (c *Compiler) addStaticCompiledFunction(v core.CompiledFunction) int {
 	if c.trace != nil {
 		var s string
 		if v.VarArgs {
-			s = fmt.Sprintf("<compiled-function/%d+>", v.NumParameters)
+			s = fmt.Sprintf("<compiled-function/%d+>", v.Arity())
 		} else {
-			s = fmt.Sprintf("<compiled-function/%d>", v.NumParameters)
+			s = fmt.Sprintf("<compiled-function/%d>", v.Arity())
 		}
 		c.printTrace(fmt.Sprintf("CONST %04d %s", n, s))
 	}

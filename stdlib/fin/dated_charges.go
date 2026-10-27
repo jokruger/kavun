@@ -1,7 +1,6 @@
 package fin
 
 import (
-	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/fin128"
@@ -85,6 +84,22 @@ func datedChargesEqual(a, b fin128.DatedCharges) bool {
 	return true
 }
 
+// An immutable date-banded fee table: a standing charge that changes on given dates.
+//
+// ## Overview
+//
+// `fin.dated_charges` is owned by the [`fin`](../stdlib/fin.md) module (see [Rate and charge
+// tables](../stdlib/fin.md#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
+// form or from band records:
+//
+// | text form | band record |
+// | --- | --- |
+// | `"2024-01-01:25.00, 2025-01-01:30.00"` | `{from: date, amount}` |
+//
+// A dated charge has no `apply` member (`dc.apply(…)` is `invalid_method`).
+//
+//kavun:type fin.dated_charges
+
 // TypeDatedCharges is the fin.dated_charges type descriptor.
 var TypeDatedCharges = core.ValueTypeDescr{
 	Name: core.ConstHook(datedChargesTypeName), // PURE by contract
@@ -120,13 +135,5 @@ var TypeDatedCharges = core.ValueTypeDescr{
 	},
 	AsString: func(v core.Value) (string, bool) { return DatedChargesOf(v).String(), true }, // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue: core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.String: core.NewPureMethod(datedChargesString, 0, core.Variadic),
-		members.Format: core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:   core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze: core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.At:     core.NewPureMethod(datedChargesAt, 1, core.Fixed),
-		members.Bands:  core.NewPureMethod(datedChargesBands, 0, core.Fixed),
-	},
+	Methods: datedChargesMethods,
 }

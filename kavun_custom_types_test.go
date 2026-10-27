@@ -104,7 +104,7 @@ func toCustomNumber(v core.Value) *CustomNumber {
 // equal to whatever it wraps and applies operators to the wrapped value. Its whole reason to exist is
 // to exercise the delegate paths from the *builtin* side — nothing in core/*.go can name MyBox, so
 // every `builtin == box` / `builtin op box` row can only ever work if the builtin's own hook
-// delegates to the type it doesn't recognize. See docs/extending-types.md.
+// delegates to the type it doesn't recognize. See docs/extending_types.md.
 type Box struct {
 	inner core.Value
 }
@@ -182,16 +182,13 @@ func init() {
 		Name:   func(core.Value) string { return "tabled" },
 		String: func(v core.Value) string { return fmt.Sprintf("tabled(%d)", int64(v.Data)) },
 		Methods: []core.Method{
-			memberScaled: core.NewPureMethod(func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
-				if len(args) != 1 {
-					return core.Undefined, errs.NewWrongNumArgumentsError(id.String(), "1", len(args))
-				}
+			memberScaled: core.NewPureMethod("(x)", func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 				n, ok := args[0].AsInt()
 				if !ok {
 					return core.Undefined, errs.NewInvalidArgumentTypeError(id.String(), "first", "int", args[0].TypeName())
 				}
 				return core.IntValue(int64(v.Data) * n), nil
-			}, 1, core.Fixed),
+			}),
 		},
 		Properties: []core.Property{
 			memberLabel: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
@@ -287,7 +284,7 @@ func init() {
 		Name:   func(v core.Value) string { return "box" },
 		String: func(v core.Value) string { return "box(" + toBox(v).inner.String() + ")" },
 		// Recognizes every type, so it never needs the delegate itself and `final` is irrelevant —
-		// the unrecognized-type obligation in docs/extending-types.md doesn't arise here.
+		// the unrecognized-type obligation in docs/extending_types.md doesn't arise here.
 		Equal: func(v core.Value, other core.Value, _ bool) bool {
 			inner := toBox(v).inner
 			if other.Type == MyBox {
@@ -381,7 +378,8 @@ func init() {
 		},
 		Call: func(vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
 			if len(args) != 1 {
-				return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
+				// a host Call hook has no declaration for the dispatcher to check: it reports through the checker
+				return core.Undefined, core.ArgCountError(core.SignatureOf(1, false), "StringArray.Call", len(args))
 			}
 			s1, ok := args[0].AsString()
 			if !ok {
@@ -532,7 +530,7 @@ func TestEmbedderTypeEqualityDelegation(t *testing.T) {
 		{"bytes-iterator", core.NewBytesIteratorValue([]byte("ab"))},
 		{"runes-iterator", core.NewRunesIteratorValue([]rune("ab"))},
 		{"format-spec", core.NewStaticFormatSpecValue(fs)},
-		{"builtin-closure", core.NewBuiltinClosureValue("f", func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }, 0, false)},
+		{"builtin-closure", core.NewBuiltinClosureValue("f", core.SignatureOf(0, false), func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil })},
 	}
 
 	for _, c := range builtins {
@@ -748,10 +746,10 @@ func TestEmbedderModule(t *testing.T) {
 	const tid = uint8(230)
 	imports := 0
 	b := core.NewModule(tid, "per_import", true).
-		PureFn(memberScaled, 0, func(_ core.VM, args []core.Value) (core.Value, error) {
+		PureFn(memberScaled, 0, "(x)", func(_ core.VM, args []core.Value) (core.Value, error) {
 			n, _ := args[0].AsInt()
 			return core.IntValue(2 * n), nil
-		}, 1, core.Fixed).
+		}).
 		Const(memberLabel, core.NewStringValue("embedder")).
 		New(func() core.Value {
 			imports++
@@ -777,11 +775,11 @@ func TestModuleBuilderRefusals(t *testing.T) {
 		b    *core.ModuleBuilder
 		msg  string
 	}{
-		{"unbound id", core.NewModule(231, "m1", true).PureFn(member.ID(4000), 0, noop, 0, core.Fixed), "is not bound"},
-		{"universal name", core.NewModule(231, "m1", true).PureFn(members.Format, 0, noop, 0, core.Fixed), "universal member"},
-		{"same name twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).Const(memberScaled, core.IntValue(1)), "declared twice"},
-		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, noop, 0, core.Fixed).PureFn(memberLabel, 0, noop, 0, core.Fixed), "already filled"},
-		{"slot out of range", core.NewModule(231, "m1", true).PureFn(memberScaled, 128, noop, 0, core.Fixed), "out of range"},
+		{"unbound id", core.NewModule(231, "m1", true).PureFn(member.ID(4000), 0, "()", noop), "is not bound"},
+		{"universal name", core.NewModule(231, "m1", true).PureFn(members.Format, 0, "()", noop), "universal member"},
+		{"same name twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, "()", noop).Const(memberScaled, core.IntValue(1)), "declared twice"},
+		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, "()", noop).PureFn(memberLabel, 0, "()", noop), "already filled"},
+		{"slot out of range", core.NewModule(231, "m1", true).PureFn(memberScaled, 128, "()", noop), "out of range"},
 		{"language type id", core.NewModule(value.Array, "m1", true), "not a module type id"},
 		{"builtin name", core.NewModule(231, "math", true), "name already registered"},
 		{"builtin module id", core.NewModule(value.ModuleMath, "m1", true), "already module 'math'"},

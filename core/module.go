@@ -66,7 +66,7 @@ func PureModuleNames() []string {
 //
 //	core.NewModule(value.ModuleMath, "math", true).
 //		Const(members.Pi, core.FloatValue(math.Pi)).
-//		PureFn(members.Cbrt, 2, mathCbrt, 1, core.Fixed).
+//		PureFn(members.Cbrt, 2, "(x)", mathCbrt).
 //		Register()
 //
 // Builtin modules take a type id in 112–143 (their owned types 144–191), embedder modules one in 192–255 (shared
@@ -86,24 +86,67 @@ func NewModule(typeID uint8, name string, pure bool) *ModuleBuilder {
 	def := &ModuleDef{Name: name, Type: typeID, Pure: pure}
 	def.New = func() Value { return Value{Type: typeID, Immutable: true, Ptr: unsafe.Pointer(def)} }
 	b := &ModuleBuilder{def: def, descr: moduleDescr(), roster: map[string]Value{}, slots: map[uint64]bool{}, types: map[uint8]ValueTypeDescr{}}
-	b.method(members.IsTrue, NewPureMethod(MemberIsTrue, 0, Fixed))
-	b.method(members.Format, NewPureMethod(MemberFormat, 0, Variadic))
-	b.method(members.Copy, NewPureMethod(MemberSelf, 0, Fixed))
-	b.method(members.Freeze, NewPureMethod(MemberSelf, 0, Fixed))
+	b.method(members.IsTrue, NewPureMethod("()", moduleIsTrue))
+	b.method(members.Format, NewPureMethod("([spec])", moduleFormat))
+	b.method(members.Copy, NewPureMethod("()", moduleCopy))
+	b.method(members.Freeze, NewPureMethod("()", moduleFreeze))
 	return b
 }
 
+// moduleIsTrue is a module's is_true(): the type's IsTrue hook, as a bool.
+// PURE by contract
+func moduleIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	t, err := ValueTypes[v.Type].IsTrue(v)
+	if err != nil {
+		return Undefined, err
+	}
+	return BoolValue(t), nil
+}
+
+// moduleFormat is a module's format([spec]).
+// PURE by contract
+func moduleFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return FormatWithSpec(v, id, args)
+}
+
+// moduleCopy is a module's copy(): the receiver — a module is immutable, so a copy of any depth is the value itself.
+// PURE by contract
+func moduleCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	return v, nil
+}
+
+// moduleFreeze is a module's freeze(): the receiver — a module is immutable already.
+// PURE by contract
+func moduleFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
+	return v, nil
+}
+
 // Fn declares a module function the optimizer never folds, at slot (0–127) of the module's builtin-function slots.
-func (b *ModuleBuilder) Fn(id member.ID, slot uint64, fn NativeFunc, arity int, args Arguments) *ModuleBuilder {
-	return b.fn(id, slot, fn, arity, args, false)
+// template is its signature template ("(...parts)"); a malformed one is reported by Register.
+func (b *ModuleBuilder) Fn(id member.ID, slot uint64, template string, fn NativeFunc) *ModuleBuilder {
+	return b.fnTemplate(id, slot, template, fn, false)
 }
 
-// PureFn declares a module function the optimizer may fold: an explicit purity claim (docs/purity.md).
-func (b *ModuleBuilder) PureFn(id member.ID, slot uint64, fn NativeFunc, arity int, args Arguments) *ModuleBuilder {
-	return b.fn(id, slot, fn, arity, args, true)
+// PureFn declares a module function the optimizer may fold: an explicit purity claim (docs/purity.md). template is
+// as for Fn.
+func (b *ModuleBuilder) PureFn(id member.ID, slot uint64, template string, fn NativeFunc) *ModuleBuilder {
+	return b.fnTemplate(id, slot, template, fn, true)
 }
 
-func (b *ModuleBuilder) fn(id member.ID, slot uint64, fn NativeFunc, arity int, args Arguments, pure bool) *ModuleBuilder {
+// fnTemplate parses template and declares the function; a malformed template is the builder's refusal, reported
+// by Register rather than panicking.
+func (b *ModuleBuilder) fnTemplate(id member.ID, slot uint64, template string, fn NativeFunc, pure bool) *ModuleBuilder {
+	if b.err != nil {
+		return b
+	}
+	sig, err := ParseSignature(template)
+	if err != nil {
+		return b.fail(fmt.Errorf("function %q: %w", id.String(), err))
+	}
+	return b.fn(id, slot, fn, sig, pure)
+}
+
+func (b *ModuleBuilder) fn(id member.ID, slot uint64, fn NativeFunc, sig Signature, pure bool) *ModuleBuilder {
 	name, ok := b.name(id)
 	if !ok {
 		return b
@@ -116,14 +159,10 @@ func (b *ModuleBuilder) fn(id member.ID, slot uint64, fn NativeFunc, arity int, 
 		return b.fail(fmt.Errorf("function %q: slot %d already filled", name, slot))
 	}
 	b.slots[slot] = true
-	BuiltinFunctions[abs] = &BuiltinFunction{Func: fn, Module: b.def.Name, Name: name, Arity: arity, Variadic: bool(args), Pure: pure}
+	BuiltinFunctions[abs] = &BuiltinFunction{Func: fn, Module: b.def.Name, Name: name, Sig: sig, Pure: pure}
 	fnValue := BuiltinFunctionValue(abs)
 	call := func(vm VM, _ Value, _ member.ID, args []Value) (Value, error) { return fn(vm, args) }
-	if pure {
-		b.method(id, NewPureMethod(call, arity, args))
-	} else {
-		b.method(id, NewMethod(call, arity, args))
-	}
+	b.method(id, Method{Fn: call, Pure: pure, Sig: sig, name: b.def.Name + "." + name})
 	b.property(id, NewPureProperty(func(VM, Value, member.ID) (Value, error) { return fnValue, nil }, nil))
 	b.roster[name] = fnValue
 	return b

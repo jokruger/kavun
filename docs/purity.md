@@ -123,36 +123,31 @@ and otherwise the type's `ValueTypeDescr.IsNamedMethodPure(name string) bool`. B
 member on this type is safe for the optimizer to fold. A table entry's `Pure` is optimizer information only — it is
 never read on the call path — and `SetValueType` refuses a `Pure` entry whose name ends in `_in_place`.
 The contract for `IsNamedMethodPure`: it answers `true` only for a name the type actually answers on the name path;
-an unknown name is `false`. The suffix derivation the mutable-body types still use (below) predates that contract and
-answers `true` for a name the type does not have — harmless, because the speculative fold of an unknown member raises
-and is discarded, and it disappears as those types move their members into tables.
+an unknown name is `false`.
 
 - **Signature is name-only, no `Value` or args.** Purity of a method is a property of the *type*, not of any
   particular receiver instance or call site — the same method name is pure (or not) for every value of that type.
 - **Conservative by construction.** `DefaultValueType.IsNamedMethodPure` always returns `false`, and a table entry is
-  impure unless it says `Pure: true`. A type — built-in or
-  registered via `SetValueType` — that doesn't explicitly override it is treated as "unknown, don't fold." This
-  means adding a new type, or a new method to an existing type, never silently becomes foldable; it must opt in.
+  impure unless it was built with `NewPureMethod`. A type — built-in or registered via `SetValueType` — that
+  doesn't explicitly claim a member is treated as "unknown, don't fold." This means adding a new type, or a new
+  method to an existing type, never silently becomes foldable; it must opt in.
 - **Only consulted when the receiver's type is already statically known** — i.e. the receiver AST node is already a
   literal (either written directly in source, or already folded to one earlier in the same bottom-up optimizer
   pass — see `isFoldableExpr`'s `MethodCall` case in `compiler/optimizer_impl.go`). If the receiver isn't (yet) a
   literal, its type is unknown and the method call is never a folding candidate, regardless of `MemberIsPure`.
-- **Current overrides:** every immutable-by-construction type (`bool`, `int`, `float`, `decimal`, `string`,
-  `rune`, `byte`, `time`, `range`, `error`, `undefined`) returns `true` unconditionally — including the
-  higher-order members (`keep`, `map`, `for_each`, ...); see the caveat below for why that alone doesn't make
-  a call with a callback argument foldable. The four mutable-body types (`array`, `bytes`, `runes`, `dict`)
-  DERIVE purity from the naming convention itself: `!strings.HasSuffix(name, "_in_place")`. That derivation is
-  why the `_in_place` suffix is load-bearing and not just style — an unsuffixed mutating member on those types
-  would be reported pure and silently constant-folded by the optimizer. Never overload a non-mutating name with
-  mutation; a new `_in_place` twin costs zero bookkeeping.
-
-- **History note:** the exclusion lists used to be hand-enumerated per type and went stale twice
-  (`splice_in_place`, then `delete_in_place`, were each missed when added). The suffix derivation above replaced
-  the lists precisely to kill that failure class. The composite-literal receiver check (`IsScalarLiteral()` is
-  `false` for array/bytes/runes/dict literals, so `isFoldableExpr` rejects the receiver before `MemberIsPure`
-  is consulted) remains a second, independent line of defence. `record` returns `false` unconditionally, for a
-  different reason: it has no member surface at all — a method call on a record is field access to a stored
-  callable, whose purity is unknowable by name.
+- **Where the claims sit.** Every builtin type except `record` tables its members, and each entry's claim is the
+  `pure`/`impure` word of its `//kavun:member` directive — the generated table builds a `pure`
+  entry with `NewPureMethod`, an `impure` one with `NewMethod` ([conventions.md § Declaring native
+  functions](conventions.md#declaring-native-functions-directives-and-kavun-gen)). The name path claims nothing:
+  the two builtin types that set `IsNamedMethodPure` — `record` and `module` — set it to a constant `false`, and
+  every other builtin type keeps the default `false`. A mutating member carries the `_in_place` suffix and is declared `impure`, and
+  `SetValueType` refuses a `Pure` entry whose name ends in `_in_place`, so the suffix stays load-bearing: a
+  mutating member is never folded. The composite-literal receiver check (`IsScalarLiteral()` is `false` for
+  array/bytes/runes/dict literals, so `isFoldableExpr` rejects the receiver before `MemberIsPure` is consulted)
+  is a second, independent line of defence. `record`'s constant `false` has its own reason: it has no member
+  surface at all — a method call on a record is field access to a stored callable, whose purity is unknowable by
+  name. `module` answers its functions through its table (each `fn` directive's `pure`/`impure`), so its name path
+  is never a folding candidate either.
 
 ### The higher-order caveat: function-valued arguments
 

@@ -156,8 +156,8 @@ func TestMemberTables(t *testing.T) {
 	err := core.SetValueType(tt, core.ValueTypeDescr{
 		Name: func(core.Value) string { return "tabled" },
 		Methods: []core.Method{
-			tblRead:  core.NewPureMethod(readFn, 0, core.Fixed),
-			tblWrite: core.NewMethod(readFn, 0, core.Fixed),
+			tblRead:  core.NewPureMethod("()", readFn),
+			tblWrite: core.NewMethod("()", readFn),
 		},
 		Properties: []core.Property{
 			tblRead: core.NewProperty(func(_ core.VM, _ core.Value, id member.ID) (core.Value, error) {
@@ -215,9 +215,9 @@ func TestMemberTablesValidation(t *testing.T) {
 		name string
 		d    core.ValueTypeDescr
 	}{
-		{"method at an unbound id", core.ValueTypeDescr{Methods: []core.Method{tblUnbound: core.NewMethod(noop, 0, core.Fixed)}}},
+		{"method at an unbound id", core.ValueTypeDescr{Methods: []core.Method{tblUnbound: core.NewMethod("()", noop)}}},
 		{"property at an unbound id", core.ValueTypeDescr{Properties: []core.Property{tblUnbound: core.NewProperty(get, nil)}}},
-		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.Method{tblWrite: core.NewPureMethod(noop, 0, core.Fixed)}}},
+		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.Method{tblWrite: core.NewPureMethod("()", noop)}}},
 		{"Methods longer than member.Max", core.ValueTypeDescr{Methods: make([]core.Method, int(member.Max)+1)}},
 		{"Properties longer than member.Max", core.ValueTypeDescr{Properties: make([]core.Property, int(member.Max)+1)}},
 	}

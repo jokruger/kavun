@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 )
 
@@ -26,6 +25,32 @@ func CommandOf(v core.Value) *exec.Cmd {
 	return (*exec.Cmd)(v.Ptr)
 }
 
+// A prepared external command, as `exec.exec(name, args...)` answers it.
+//
+// ## Overview
+//
+// `exec.command` is owned by the [`exec`](../stdlib/exec.md) module. Configure it (`set_dir`, `set_env`, `set_path`),
+// then run it once — `run()`, `output()`, `combined_output()`, or `start()` followed by `wait()`. A refusal or a failed
+// run raises `io` naming the member. It renders as `<exec.command:NAME>`; no `string()`.
+//
+// ```go
+// exec := import("exec")
+// string(exec.exec("echo", "hi").output())   // => "hi\n" — output() answers bytes
+// c := exec.exec("sh", "-c", "exit 3")
+// c.start()
+// c.process().wait().success            // => false
+// ```
+//
+// ## Operators
+//
+// | operator | reading |
+// | --- | --- |
+// | `==` / `!=` | the same command (identity) |
+// | `!` | a command is always truthy |
+// | everything else | raises |
+//
+//kavun:type exec.command
+
 // TypeCommand is the exec.command type descriptor.
 var TypeCommand = core.ValueTypeDescr{
 	Name:   core.ConstHook(commandTypeName),         // PURE by contract
@@ -34,21 +59,7 @@ var TypeCommand = core.ValueTypeDescr{
 	IsTrue: core.Const2Hook[bool, error](true, nil), // PURE by contract
 	Equal:  core.SamePtrEqual,                       // PURE by contract
 
-	Methods: []core.Method{
-		members.IsTrue:         core.NewPureMethod(core.MemberIsTrue, 0, core.Fixed),
-		members.Format:         core.NewPureMethod(core.MemberFormat, 0, core.Variadic),
-		members.Copy:           core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Freeze:         core.NewPureMethod(core.MemberSelf, 0, core.Fixed),
-		members.Run:            core.NewMethod(commandRun, 0, core.Fixed),
-		members.Start:          core.NewMethod(commandStart, 0, core.Fixed),
-		members.Wait:           core.NewMethod(commandWait, 0, core.Fixed),
-		members.Output:         core.NewMethod(commandOutput, 0, core.Fixed),
-		members.CombinedOutput: core.NewMethod(commandCombinedOutput, 0, core.Fixed),
-		members.SetPath:        core.NewMethod(commandSetPath, 1, core.Fixed),
-		members.SetDir:         core.NewMethod(commandSetDir, 1, core.Fixed),
-		members.SetEnv:         core.NewMethod(commandSetEnv, 1, core.Fixed),
-		members.Process:        core.NewMethod(commandProcess, 0, core.Fixed),
-	},
+	Methods: commandMethods,
 }
 
 // A command renders as <exec.command:NAME>, the name it was given.
