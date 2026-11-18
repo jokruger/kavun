@@ -249,6 +249,7 @@ See [embedding](../../embedding.md#time-zone-data) for pinning tzdata and replay
 - [`add_days(n) -> time`](#add_days)
 - [`add_months(n, rule) -> time`](#add_months)
 - [`add_years(n, rule) -> time`](#add_years)
+- [`array([default]) -> array`](#array)
 - [`components() -> record`](#components)
 - [`copy() -> time`](#copy)
 - [`date([default]) -> date`](#date)
@@ -322,6 +323,17 @@ a.utc().add_days(1)    // => time("2026-03-29T01:30:00Z") — exactly 24h later,
 ### `add_years(n, rule) -> time`
 
 Move by `n` calendar years in the value's own zone, keeping the wall clock, with the end-of-month `rule`; see [`add_months`](#add_months).
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+t"2024-01-02T03:04:05Z".array()   // => [time("2024-01-02T03:04:05Z")]
+```
 
 <a id="components"></a>
 ### `components() -> record`

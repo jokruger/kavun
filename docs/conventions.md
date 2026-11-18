@@ -382,6 +382,13 @@ silently accept a narrower or different one. A different meaning under a shared 
 licence for a second template. `TestMemberTemplateParity` walks every `Methods` table and pins the rule; its
 exception table (name, types, reason) is the record of every deliberate divergence.
 
+The free conversion builtins (`vm/builtins.go`) do not implement the conversions a second time: `T(x)` calls
+`x`'s `T` entry through the dispatcher when that entry is pure and has the conversion template `([default])`, so
+the two spellings cannot drift ([purity.md](purity.md#method-purity)). A member of the same name with another template (`rand.generator`'s `int(lo, hi)`) is a
+different operation and is never reached by the free form. The free builtin keeps only what has no member: the
+zero value, the construction parameters of its second argument, `undefined`, `record`, and an embedder type's hook
+fallback. `TestFreeConversionParity` pins it.
+
 ### Arity and templates
 
 Every callable — script function, builtin, module function, bound member, host closure — answers one pair:

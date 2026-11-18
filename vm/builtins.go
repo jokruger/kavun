@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
@@ -45,6 +44,11 @@ var BuiltinFunctionNames []string
 // immutable and carry no identity, so there is nothing to observe: they answer the same value.
 // - **1 arg, any other type** — converted. A conversion that cannot succeed **raises** a catchable error — it
 // never answers a silent `undefined` or a silent zero.
+// - **The free form calls the member.** When `x`'s type has the conversion member `x.T([default])` (a pure entry),
+// `T(x)` is that call, so the two spellings answer the same value or raise the same error. A type without the
+// member — a module-owned type as much as a builtin one — has no conversion to `T`: the free form raises. The free-only receivers are `undefined` (absence converts to
+// nothing), `record`, which has no members (`array(r)`, `dict(r)`, `record(r)`, and the components forms
+// `time(r)` / `date(r)`), and an embedder's own type, whose hooks answer when it declares no member.
 // - **The explicit fallback is the member form's**: `x.T(default)` answers the default instead of raising on a
 // failed conversion. The fallback is the *opt-out*, so it is not type-checked, and it is answered **as-is** —
 // a container default is **not** copied, unlike a converted value: nothing was converted, so nothing was
@@ -901,37 +905,7 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return ctorRepeat(vm, r, args[1])
 	}
-	return convertBuiltin("string", args, core.EmptyString, func(t uint8) bool {
-		switch t {
-		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
-			value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Time, value.Error:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.String:
-			return src, true
-		case value.Byte:
-			s, ok := text.ByteSymbolString(byte(src.Data))
-			return core.NewStringValue(s), ok
-		case value.Bytes:
-			// TOTAL: a string holds octets, so the bytes become its octets as they are — exactly .string()
-			b, _ := src.AsBytes()
-			return core.NewStringValue(string(b)), true
-		case value.Array, value.IntRange:
-			// a range past MaxSequenceLen declines
-			elems, ok := src.AsArray()
-			if !ok {
-				return core.Undefined, false
-			}
-			rs, ok := core.ElementsToRunes(elems)
-			return core.NewStringValue(text.EncodeText(rs)), ok
-		case value.Error:
-			o := (*core.Error)(src.Ptr)
-			s, err := o.Payload.Format(fspec.FormatSpec{})
-			return core.NewStringValue(s), err == nil
-		}
+	return convertBuiltin(vm, members.String, args, core.EmptyString, nil, func(src core.Value) (core.Value, bool) {
 		s, ok := src.AsString()
 		return core.NewStringValue(s), ok
 	})
@@ -955,37 +929,7 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return ctorRepeat(vm, r, args[1])
 	}
-	return convertBuiltin("runes", args, core.NewRunesValue(nil, false), func(t uint8) bool {
-		switch t {
-		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
-			value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Time, value.Error:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.Runes:
-			return ctorSameType(src)
-		case value.Byte:
-			s, ok := text.ByteSymbolString(byte(src.Data))
-			return core.NewRunesValue(text.DecodeText(s), false), ok
-		case value.Bytes:
-			// TOTAL: an undecodable octet decodes to its escape, as .runes() answers
-			b, _ := src.AsBytes()
-			return core.NewRunesValue(text.DecodeOctets(b), false), true
-		case value.Array, value.IntRange:
-			// a range past MaxSequenceLen declines
-			elems, ok := src.AsArray()
-			if !ok {
-				return core.Undefined, false
-			}
-			rs, ok := core.ElementsToRunes(elems)
-			return core.NewRunesValue(rs, false), ok
-		case value.Error:
-			o := (*core.Error)(src.Ptr)
-			s, err := o.Payload.Format(fspec.FormatSpec{})
-			return core.NewRunesValue(text.DecodeText(s), false), err == nil
-		}
+	return convertBuiltin(vm, members.Runes, args, core.NewRunesValue(nil, false), nil, func(src core.Value) (core.Value, bool) {
 		s, ok := src.AsString()
 		return core.NewRunesValue(text.DecodeText(s), false), ok
 	})
@@ -1011,26 +955,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return ctorRepeat(vm, r, args[1])
 	}
-	return convertBuiltin("bytes", args, core.NewBytesValue(nil, false), func(t uint8) bool {
-		switch t {
-		case value.String, value.Runes, value.Bytes, value.Array, value.Byte, value.Rune:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.Bytes:
-			return ctorSameType(src)
-		case value.Array:
-			elems, _ := src.AsArray()
-			bs, ok := core.ElementsToBytes(elems)
-			return core.NewBytesValue(bs, false), ok
-		case value.Byte:
-			return core.NewBytesValue([]byte{byte(src.Data)}, false), true
-		case value.Rune:
-			// a rune contributes its encoding; an escape's encoding is its octet
-			return core.NewBytesValue([]byte(text.EncodeRuneText(rune(src.Data))), false), true
-		}
+	return convertBuiltin(vm, members.Bytes, args, core.NewBytesValue(nil, false), nil, func(src core.Value) (core.Value, bool) {
 		b, ok := src.AsBytes()
 		return core.NewBytesValue(b, false), ok
 	})
@@ -1055,52 +980,32 @@ func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
 		wrapped := core.NewArrayValue([]core.Value{args[0]}, false)
 		return ctorRepeat(vm, wrapped, args[1])
 	}
-	return convertBuiltin("array", args, core.NewArrayValue(nil, false), func(t uint8) bool {
-		// every present value has an array reading: decompose or wrap
-		return true
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.Array:
-			return ctorSameType(src)
-		case value.Dict:
-			// a map's conversion elements are its entries, key-sorted
-			return core.NewArrayValue(core.MapToSortedEntries((*core.Dict)(src.Ptr).Elements), false), true
-		case value.Record:
+	return convertBuiltin(vm, members.Array, args, core.NewArrayValue(nil, false), isRecordType, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Record {
+			// a map's conversion elements are its entries, key-sorted — as dict.array() answers
 			return core.NewArrayValue(core.MapToSortedEntries((*core.Record)(src.Ptr).Elements), false), true
-		case value.String, value.Runes, value.Bytes, value.IntRange:
-			elems, ok := src.AsArray()
-			return core.NewArrayValue(elems, false), ok
 		}
-		if core.IsExtensionType(src.Type) {
-			if elems, ok := src.AsArray(); ok {
-				return core.NewArrayValue(elems, false), true
-			}
+		// an embedder type without the member: its sequence reading, else one element
+		if elems, ok := src.AsArray(); ok {
+			return core.NewArrayValue(elems, false), true
 		}
-		// a non-sequence value is one element
 		return core.NewArrayValue([]core.Value{src}, false), true
 	})
+}
+
+// isRecordType is the free-only edge of the conversions a record reaches only through the free form: a record has
+// no members.
+func isRecordType(t uint8) bool {
+	return t == value.Record
 }
 
 // Convert `x` to a `dict`; with no argument, the empty dict; see [the outliers](#dictrecord-are-outliers).
 //
 //kavun:builtin dict slot=21 pure ([x]) -> dict
 func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("dict", args, core.NewDictValue(nil, false), func(t uint8) bool {
-		switch t {
-		case value.Dict, value.Record, value.Array:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.Dict:
-			return ctorSameType(src)
-		case value.Record:
+	return convertBuiltin(vm, members.Dict, args, core.NewDictValue(nil, false), isRecordType, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Record {
 			return core.RecordToDict(src, false), true
-		case value.Array:
-			// the entries reading, agreeing with arr.dict()
-			m, ok := core.ElementsToEntries((*core.Array)(src.Ptr).Elements)
-			return core.NewDictValue(m, false), ok
 		}
 		return core.Undefined, false
 	})
@@ -1110,21 +1015,9 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin record slot=46 pure ([x]) -> record
 func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("record", args, core.NewRecordValue(nil, false), func(t uint8) bool {
-		switch t {
-		case value.Dict, value.Record, value.Array:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		switch src.Type {
-		case value.Record:
+	return convertBuiltin(vm, members.Record, args, core.NewRecordValue(nil, false), isRecordType, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Record {
 			return ctorSameType(src)
-		case value.Dict:
-			return core.DictToRecord(src, false), true
-		case value.Array:
-			m, ok := core.ElementsToEntries((*core.Array)(src.Ptr).Elements)
-			return core.NewRecordValue(m, false), ok
 		}
 		return core.Undefined, false
 	})
@@ -1158,40 +1051,16 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return core.NewTimeValue(t), nil
 	}
-	// a components MAP is a conversion and rebuilds the instant; unknown keys
+	// a record's components rebuild the instant, as dict.time() does for a dict; unknown keys
 	// raise inside TimeFromComponents, so a typo never silently means year 1
-	if len(args) == 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
-		var m map[string]core.Value
-		if args[0].Type == value.Dict {
-			m = (*core.Dict)(args[0].Ptr).Elements
-		} else {
-			m = (*core.Record)(args[0].Ptr).Elements
-		}
-		t, err := core.TimeFromComponents(m)
+	if len(args) == 1 && args[0].Type == value.Record {
+		t, err := core.TimeFromComponents((*core.Record)(args[0].Ptr).Elements)
 		if err != nil {
 			return core.Undefined, err
 		}
 		return core.NewTimeValue(t), nil
 	}
-	if len(args) == 1 && (args[0].Type == value.String || args[0].Type == value.Runes) {
-		// the canonical grammar, with the reason a text was refused in the message
-		text, _ := args[0].AsString()
-		t, err := core.ParseTimeText(text)
-		if err != nil {
-			return core.Undefined, errs.NewConversionError(args[0].TypeName(), "time", err.Error())
-		}
-		return core.NewTimeValue(t), nil
-	}
-	return convertBuiltin("time", args, core.NewTimeValue(core.ZeroTime), func(t uint8) bool {
-		switch t {
-		case value.Time, value.Date, value.String, value.Runes, value.Int, value.Float, value.Decimal:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Time {
-			return src, true
-		}
+	return convertBuiltin(vm, members.Time, args, core.NewTimeValue(core.ZeroTime), nil, func(src core.Value) (core.Value, bool) {
 		t, ok := src.AsTime()
 		return core.NewTimeValue(t), ok
 	})
@@ -1204,19 +1073,13 @@ func builtinDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if err := checkTextLayoutReading("date", args); err != nil {
 		return core.Undefined, err
 	}
-	if len(args) >= 1 && (args[0].Type == value.String || args[0].Type == value.Runes) {
-		text, _ := args[0].AsString()
-		var d civil.Date
-		var err error
-		if len(args) == 1 {
-			d, err = core.ParseDateText(text)
-		} else {
-			if args[1].Type != value.String {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("date", "second (layout)", "string", args[1].TypeName())
-			}
-			layout, _ := args[1].AsString()
-			d, err = core.ParseDateLayout(text, layout)
+	if len(args) == 2 {
+		if args[1].Type != value.String {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("date", "second (layout)", "string", args[1].TypeName())
 		}
+		text, _ := args[0].AsString()
+		layout, _ := args[1].AsString()
+		d, err := core.ParseDateLayout(text, layout)
 		if err != nil {
 			var le *core.LayoutError
 			if errors.As(err, &le) {
@@ -1226,26 +1089,15 @@ func builtinDate(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return core.DateValue(d), nil
 	}
-	if len(args) == 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
-		var m map[string]core.Value
-		if args[0].Type == value.Dict {
-			m = (*core.Dict)(args[0].Ptr).Elements
-		} else {
-			m = (*core.Record)(args[0].Ptr).Elements
-		}
-		d, err := core.DateFromComponents(m)
+	// a record's components build the date, as dict.date() does for a dict
+	if len(args) == 1 && args[0].Type == value.Record {
+		d, err := core.DateFromComponents((*core.Record)(args[0].Ptr).Elements)
 		if err != nil {
 			return core.Undefined, err
 		}
 		return core.DateValue(d), nil
 	}
-	return convertBuiltin("date", args, core.DateValue(core.ZeroDate), func(t uint8) bool {
-		switch t {
-		case value.Date, value.Time, value.Int:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
+	return convertBuiltin(vm, members.Date, args, core.DateValue(core.ZeroDate), nil, func(src core.Value) (core.Value, bool) {
 		d, ok := src.AsDate()
 		return core.DateValue(d), ok
 	})
@@ -1265,12 +1117,15 @@ func checkTextLayoutReading(name string, args []core.Value) error {
 }
 
 // convertBuiltin implements the uniform free-constructor shape T([x]).
-// T() is the zero value; T(x) builds the value from x's CONTENT — a safe, unambiguous
-// conversion — and raises on failure: there is no free default form. The fallible-conversion
-// idiom is the member's, where the receiver opts into recovery: x.T(default).
+// T() is the zero value; T(x) is the conversion x.T(): when x's type has the conversion member, the free form
+// calls it through the dispatcher, so the two spellings cannot drift. The free form never takes a default — the
+// fallible-conversion idiom is the member's, where the receiver opts into recovery: x.T(default).
 //
-// Host-defined types always get an attempt: their hooks decide.
-func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge func(uint8) bool, conv func(core.Value) (core.Value, bool)) (core.Value, error) {
+// What the member does not answer is free-only: an undefined argument (absence converts to nothing), a source
+// freeEdge names (record, which has no members), and an embedder type without the member, whose hooks decide
+// through conv. Anything else — a module-owned type and a module, whoever registered it, included — has no
+// conversion.
+func convertBuiltin(vm core.VM, id member.ID, args []core.Value, zero core.Value, freeEdge func(uint8) bool, conv func(core.Value) (core.Value, bool)) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return zero, nil
@@ -1279,16 +1134,36 @@ func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge fun
 		return core.Undefined, core.ErrArgCount
 	}
 	src := args[0]
+	name := id.String()
 	if src.Type == value.Undefined {
 		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "value is missing")
 	}
-	if !hasEdge(src.Type) && !core.IsExtensionType(src.Type) {
+	if hasConversionMember(src, id) {
+		return src.CallMember(vm, id, name, nil)
+	}
+	if (freeEdge == nil || !freeEdge(src.Type)) && (!src.IsUserDefined() || core.ModuleByType(src.Type) != nil) {
 		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "no conversion exists")
 	}
 	if r, ok := conv(src); ok {
 		return r, nil
 	}
 	return core.Undefined, errs.NewConversionError(src.TypeName(), name, "")
+}
+
+// conversionTemplate is the one template every conversion member declares: x.T([default]).
+const conversionTemplate = "([default])"
+
+// hasConversionMember reports whether v's type answers the conversion member id: a pure entry with the conversion
+// template. A member of the same name with another template is a different operation under that name
+// (rand.generator's int(lo, hi)), never the conversion; an impure one cannot be what a pure builtin answers
+// (docs/purity.md). Either is treated as a missing member. A module's function members are never conversions,
+// whatever their template: of a module, only the universal array() is.
+func hasConversionMember(v core.Value, id member.ID) bool {
+	if id != members.Array && core.ModuleByType(v.Type) != nil {
+		return false
+	}
+	ms := core.ValueTypes[v.Type].Methods
+	return int(id) < len(ms) && ms[id].Fn != nil && ms[id].Pure && ms[id].Sig.Template() == conversionTemplate
 }
 
 // ctorSameType answers a constructor's same-type argument. A constructor CONSTRUCTS: `T(x)` where `x` is
@@ -1316,15 +1191,6 @@ func ctorRepeat(vm core.VM, seq core.Value, count core.Value) (core.Value, error
 	return seq.CallMember(vm, members.Repeat, member.ID(members.Repeat).String(), []core.Value{count})
 }
 
-// the numeric targets share one source set: the numerics themselves, text, and time
-func numericConvEdge(t uint8) bool {
-	switch t {
-	case value.Int, value.Float, value.Decimal, value.String, value.Runes, value.Time:
-		return true
-	}
-	return false
-}
-
 // Convert `x` to an `int`; with no argument, `0`.
 //
 // ```go
@@ -1335,12 +1201,7 @@ func numericConvEdge(t uint8) bool {
 //
 //kavun:builtin int slot=6 pure ([x]) -> int
 func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("int", args, core.IntValue(0), func(t uint8) bool {
-		return numericConvEdge(t) || t == value.Bool || t == value.Byte || t == value.Rune
-	}, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Int {
-			return src, true
-		}
+	return convertBuiltin(vm, members.Int, args, core.IntValue(0), nil, func(src core.Value) (core.Value, bool) {
 		i, ok := src.AsInt()
 		return core.IntValue(i), ok
 	})
@@ -1354,10 +1215,7 @@ func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin float slot=8 pure ([x]) -> float
 func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("float", args, core.FloatValue(0), numericConvEdge, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Float {
-			return src, true
-		}
+	return convertBuiltin(vm, members.Float, args, core.FloatValue(0), nil, func(src core.Value) (core.Value, bool) {
 		f, ok := src.AsFloat()
 		return core.FloatValue(f), ok
 	})
@@ -1371,10 +1229,7 @@ func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin decimal slot=34 pure ([x]) -> decimal
 func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("decimal", args, core.NewDecimalValue(dec128.Decimal0), numericConvEdge, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Decimal {
-			return src, true
-		}
+	return convertBuiltin(vm, members.Decimal, args, core.NewDecimalValue(dec128.Decimal0), nil, func(src core.Value) (core.Value, bool) {
 		d, ok := src.AsDecimal()
 		if ok && d.IsNaN() {
 			// a NaN decimal is an error state, never a produced value
@@ -1384,7 +1239,7 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	})
 }
 
-// Convert `x` to a `bool`: a numeric zero test or a text parse; with no argument, `false`.
+// Convert `x` to a `bool` — exactly `x.bool()`; with no argument, `false`.
 //
 // ```go
 // bool(0.0)             // => false — bool(x) is a numeric zero test / text parse
@@ -1393,25 +1248,15 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin bool slot=7 pure ([x]) -> bool
 func builtinBool(vm core.VM, args []core.Value) (core.Value, error) {
-	// the conversion, not truthiness: a text receiver parses a boolean literal,
-	// a numeric receiver is a zero check; everything else has no edge and raises.
-	// Truthiness is is_true(x) / !!x.
-	return convertBuiltin("bool", args, core.False, func(t uint8) bool {
-		switch t {
-		case value.Bool, value.Int, value.Float, value.Decimal, value.String, value.Runes:
-			return true
-		}
-		return false
-	}, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Bool {
-			return src, true
-		}
+	// the conversion, not truthiness — the receiver's bool member answers it (a text parse, a numeric zero
+	// test, ...); a type without the member raises. Truthiness is is_true(x) / !!x.
+	return convertBuiltin(vm, members.Bool, args, core.False, nil, func(src core.Value) (core.Value, bool) {
 		b, ok := src.AsBool()
 		return core.BoolValue(b), ok
 	})
 }
 
-// Convert `x` to a `byte`; with no argument, `byte(0)`.
+// Convert `x` to a `byte` — exactly `x.byte()`; with no argument, `byte(0)`.
 //
 // ```go
 // byte(999)             // Error: conversion — out of the octet range
@@ -1419,14 +1264,8 @@ func builtinBool(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin byte slot=38 pure ([x]) -> byte
 func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
-	// int is the sole gateway from the numeric domain; a rune converts iff its
-	// UTF-8 form is one octet (ASCII); text does not parse into an ordinal type
-	return convertBuiltin("byte", args, core.ByteValue(0), func(t uint8) bool {
-		return t == value.Byte || t == value.Int || t == value.Rune
-	}, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Byte {
-			return src, true
-		}
+	// the conversion is the receiver's byte member (int, rune, byte); a type without the member raises
+	return convertBuiltin(vm, members.Byte, args, core.ByteValue(0), nil, func(src core.Value) (core.Value, bool) {
 		b, ok := src.AsByte()
 		return core.ByteValue(b), ok
 	})
@@ -1447,12 +1286,7 @@ func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
 //
 //kavun:builtin rune slot=9 pure ([x]) -> rune
 func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
-	return convertBuiltin("rune", args, core.RuneValue(0), func(t uint8) bool {
-		return t == value.Rune || t == value.Int || t == value.Byte
-	}, func(src core.Value) (core.Value, bool) {
-		if src.Type == value.Rune {
-			return src, true
-		}
+	return convertBuiltin(vm, members.Rune, args, core.RuneValue(0), nil, func(src core.Value) (core.Value, bool) {
 		c, ok := src.AsRune()
 		return core.RuneValue(c), ok
 	})

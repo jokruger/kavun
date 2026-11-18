@@ -125,6 +125,7 @@ truthiness, spelled `is_true`/`!!x`.
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
 - [`copy() -> bool`](#copy)
 - [`format([spec]) -> string`](#format)
@@ -133,6 +134,17 @@ truthiness, spelled `is_true`/`!!x`.
 - [`is_true() -> bool`](#is_true)
 - [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+true.array()        // => [true]
+```
 
 <a id="bool"></a>
 ### `bool([default]) -> bool`

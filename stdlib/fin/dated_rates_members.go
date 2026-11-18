@@ -42,12 +42,37 @@ func datedRatesFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (cor
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("fin").dated_rates().array()   // => [fin.dated_rates("0001-01-01:0")]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func datedRatesArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), datedRatesTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 // Answer the text form.
 //
 //kavun:member string pure ([default]) -> string
 func datedRatesString(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	t := DatedRatesOf(v)
 	return tableString(v, t.String(), args)
+}
+
+// Answer the text form as `runes`; see [`string`](#string).
+//
+// ```go
+// import("fin").dated_rates().runes()   // => u"0001-01-01:0"
+// ```
+//
+//kavun:member runes pure ([default]) -> runes
+func datedRatesRunes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	t := DatedRatesOf(v)
+	return tableRunes(v, t.String(), args)
 }
 
 // Answer the bands as records in constructor shape, so the table rebuilds from them: `fin.dated_rates(t.bands()) == t`.

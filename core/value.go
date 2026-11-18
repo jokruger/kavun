@@ -187,8 +187,9 @@ func (v Value) Arity() int {
 
 // PURE by contract
 // IsExtensionType reports whether type t is one the language core does not know by id — a module-owned type
-// (144–191) or an embedder type (192+). The free builtins (conversions, len, copy_shallow, …) answer such a value
-// through its own hooks instead of refusing it.
+// (144–191) or an embedder type (192+). The free builtins len, copy_shallow and freeze_shallow answer such a value
+// through its own hooks instead of refusing it; the free conversions fall back to hooks for an embedder type only
+// (Value.IsUserDefined), since a module-owned type declares its conversions as members.
 func IsExtensionType(t uint8) bool {
 	return t >= value.FirstModuleOwnedType
 }

@@ -65,6 +65,19 @@ func dateFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// d"2024-01-02".array()   // => [date("2024-01-02")]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func dateArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), dateTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the receiver, the identity conversion.
 //
 //kavun:member date pure ([default]) -> date

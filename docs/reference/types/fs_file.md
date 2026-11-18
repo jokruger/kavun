@@ -30,6 +30,7 @@ f.close()
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`chdir() -> undefined`](#chdir)
 - [`chmod(mode) -> undefined`](#chmod)
 - [`chown(uid, gid) -> undefined`](#chown)
@@ -46,6 +47,19 @@ f.close()
 - [`sync() -> undefined`](#sync)
 - [`write(data) -> int`](#write)
 - [`write_string(s) -> int`](#write_string)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+f := import("fs").create("array.txt")
+f.array().len()   // => 1
+f.close()
+```
 
 <a id="chdir"></a>
 ### `chdir() -> undefined`

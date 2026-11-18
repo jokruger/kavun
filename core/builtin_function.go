@@ -53,6 +53,7 @@ var TypeBuiltinFunction = ValueTypeDescr{
 		members.Format: NewPureMethod("([spec])", builtinFunctionFormat),
 		members.Copy:   NewPureMethod("()", builtinFunctionCopy),
 		members.Freeze: NewPureMethod("()", builtinFunctionFreeze),
+		members.Array:  NewPureMethod("([default])", builtinFunctionArray),
 	},
 }
 
@@ -83,6 +84,15 @@ func builtinFunctionCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 // PURE by contract
 func builtinFunctionFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
+}
+
+// builtinFunctionArray is a builtin function's array([default]): a new one-element array holding the receiver.
+// PURE by contract
+func builtinFunctionArray(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	return NewArrayValue([]Value{v}, false), nil
 }
 
 // builtinFunctionAt answers the function registered at slot, or nil for a slot out of range or empty.

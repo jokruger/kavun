@@ -371,6 +371,7 @@ There is no `byte()` or `rune()` conversion — `int` is the sole gateway to the
 - [`abs() -> decimal`](#abs)
 - [`allocate(ratios, n) -> array`](#allocate)
 - [`allocate_residual(ratios, n, index, mode) -> array`](#allocate_residual)
+- [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
 - [`can_fit(precision, scale) -> bool`](#can_fit)
 - [`canonical() -> decimal`](#canonical)
@@ -449,6 +450,17 @@ Split into shares at scale `n`, proportional to `ratios`, that sum to exactly th
 ### `allocate_residual(ratios, n, index, mode) -> array`
 
 Split proportionally to `ratios`, each share rounded with `mode` and the one at `index` taking what is left; see [Splitting an amount](#splitting-an-amount).
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+1.5d.array()        // => [1.5d]
+```
 
 <a id="bool"></a>
 ### `bool([default]) -> bool`

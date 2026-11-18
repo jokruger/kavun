@@ -44,12 +44,37 @@ func tieredRatesFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (co
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("fin").tiered_rates().array()   // => [fin.tiered_rates("0:0")]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func tieredRatesArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), tieredRatesTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 // Answer the text form.
 //
 //kavun:member string pure ([default]) -> string
 func tieredRatesString(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	t := TieredRatesOf(v)
 	return tableString(v, t.String(), args)
+}
+
+// Answer the text form as `runes`; see [`string`](#string).
+//
+// ```go
+// import("fin").tiered_rates().runes()   // => u"0:0"
+// ```
+//
+//kavun:member runes pure ([default]) -> runes
+func tieredRatesRunes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	t := TieredRatesOf(v)
+	return tableRunes(v, t.String(), args)
 }
 
 // Answer the bands as records in constructor shape, so the table rebuilds from them: `fin.tiered_rates(t.bands()) ==

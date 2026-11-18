@@ -6,6 +6,7 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // fin.year_fraction's members: one function per member, each declared by the //kavun:member directive in its doc
@@ -45,6 +46,19 @@ func yearFractionFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (c
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("fin").year_fraction(1, 2).array()   // => [fin.year_fraction(1, 2)]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func yearFractionArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), yearFractionTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 // Answer `[n1, d1]` or `[n1, d1, n2, d2]`; `fin.year_fraction(f.terms()...) == f` always holds.
 //
 //kavun:member terms pure () -> array
@@ -82,6 +96,18 @@ func yearFractionValue(_ core.VM, v core.Value, id member.ID, args []core.Value)
 func yearFractionString(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	f := YearFractionOf(v)
 	return core.ConvMember(id.String(), yearFractionTypeName, args, true, core.NewStringValue(f.String()))
+}
+
+// Answer the terms as `runes`; see [`string`](#string).
+//
+// ```go
+// import("fin").year_fraction(1, 2).runes()   // => u"1/2"
+// ```
+//
+//kavun:member runes pure ([default]) -> runes
+func yearFractionRunes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	f := YearFractionOf(v)
+	return core.ConvMember(id.String(), yearFractionTypeName, args, true, core.NewRunesValue(text.DecodeText(f.String()), false))
 }
 
 // Report whether the fraction is zero.

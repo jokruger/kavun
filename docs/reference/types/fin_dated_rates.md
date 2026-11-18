@@ -18,12 +18,14 @@ form or from band records:
 - [`accrue(principal, start, end, convention, scale, mode) -> decimal`](#accrue)
 - [`accrue_parts(principal, start, end, convention, scale, mode) -> array`](#accrue_parts)
 - [`apply(amount, on, scale, mode) -> decimal` / `apply(amount, on, fallback, scale, mode) -> decimal`](#apply)
+- [`array([default]) -> array`](#array)
 - [`at(on[, fallback]) -> decimal`](#at)
 - [`bands() -> array`](#bands)
 - [`copy() -> fin.dated_rates`](#copy)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> fin.dated_rates`](#freeze)
 - [`is_true() -> bool`](#is_true)
+- [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 
 <a id="accrue"></a>
@@ -46,6 +48,17 @@ Answer each stretch of the accrual, as `[{start, end, rate, amount}]`; see [`acc
 ### `apply(amount, on, scale, mode) -> decimal` / `apply(amount, on, fallback, scale, mode) -> decimal`
 
 Answer `amount` × the rate in force on `on`, rounded once.
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("fin").dated_rates().array()   // => [fin.dated_rates("0001-01-01:0")]
+```
 
 <a id="at"></a>
 ### `at(on[, fallback]) -> decimal`
@@ -83,6 +96,15 @@ Answer the table itself; see [`copy`](#copy).
 ### `is_true() -> bool`
 
 Report truthiness: the zero-rate table is falsy.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the text form as `runes`; see [`string`](#string).
+
+```go
+import("fin").dated_rates().runes()   // => u"0001-01-01:0"
+```
 
 <a id="string"></a>
 ### `string([default]) -> string`

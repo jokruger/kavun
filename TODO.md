@@ -2,8 +2,6 @@
 
 ## potential problems
 
-7.  **`TestBuiltinFunctionBytes` says `bytes('8')` agrees with `'8'.bytes()`, but `rune` has no `bytes()`
-    member.** Either the comment is stale or the member is missing (`'8'.bytes()` raises `invalid_method`).
 8.  **`kavun_test.go` cannot see a wrong cached symbol count in an all-literal script.** The harness compiles at O3,
     the optimizer folds the call chain into a constant, and the static pool recounts the folded string — so `.len()`
     is right even when a member stored a wrong count (found 2026-10-13: a pad mutant counting a fused result as its

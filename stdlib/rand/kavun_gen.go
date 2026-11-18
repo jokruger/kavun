@@ -17,6 +17,7 @@ var generatorMethods = []core.Method{
 	members.Freeze:    core.NewPureMethod("()", generatorFreeze),
 	members.Int:       core.NewMethod("() | (hi) | (lo, hi)", generatorInt),
 	members.Float:     core.NewMethod("() | (hi) | (lo, hi)", generatorFloat),
+	members.Array:     core.NewPureMethod("([default])", generatorArray),
 	members.Bytes:     core.NewMethod("(n)", generatorBytes),
 	members.ExpFloat:  core.NewMethod("()", generatorExpFloat),
 	members.NormFloat: core.NewMethod("()", generatorNormFloat),

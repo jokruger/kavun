@@ -45,6 +45,19 @@ func commandFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.V
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("exec").exec("echo").array().len()   // => 1 — building a command runs nothing
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func commandArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), commandTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 func commandContext(id member.ID) string {
 	return "exec.command." + id.String()
 }

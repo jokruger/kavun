@@ -47,6 +47,7 @@ var TypeBuiltinClosure = ValueTypeDescr{
 		members.Format: NewPureMethod("([spec])", builtinClosureFormat),
 		members.Copy:   NewPureMethod("()", builtinClosureCopy),
 		members.Freeze: NewPureMethod("()", builtinClosureFreeze),
+		members.Array:  NewPureMethod("([default])", builtinClosureArray),
 	},
 }
 
@@ -77,6 +78,15 @@ func builtinClosureCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 // PURE by contract
 func builtinClosureFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
+}
+
+// builtinClosureArray is a builtin closure's array([default]): a new one-element array holding the receiver.
+// PURE by contract
+func builtinClosureArray(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	return NewArrayValue([]Value{v}, false), nil
 }
 
 func builtinClosureTypeName(v Value) string {

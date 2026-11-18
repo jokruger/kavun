@@ -255,6 +255,7 @@ var TypeCompiledFunction = ValueTypeDescr{
 		members.Format: NewPureMethod("([spec])", compiledFunctionFormat),
 		members.Copy:   NewPureMethod("()", compiledFunctionCopy),
 		members.Freeze: NewPureMethod("()", compiledFunctionFreeze),
+		members.Array:  NewPureMethod("([default])", compiledFunctionArray),
 	},
 }
 
@@ -285,6 +286,15 @@ func compiledFunctionCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) 
 // PURE by contract
 func compiledFunctionFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
+}
+
+// compiledFunctionArray is a compiled function's array([default]): a new one-element array holding the receiver.
+// PURE by contract
+func compiledFunctionArray(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	return NewArrayValue([]Value{v}, false), nil
 }
 
 func compiledFunctionTypeName(v Value) string {

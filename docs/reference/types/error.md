@@ -234,6 +234,7 @@ not on the message text. See [embedding](../../embedding.md#handling-errors).
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
 - [`copy() -> error`](#copy)
 - [`format([spec]) -> string`](#format)
@@ -246,6 +247,17 @@ not on the message text. See [embedding](../../embedding.md#handling-errors).
 - [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 - [`value() -> value`](#value)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+error(1).array()    // => [error(1)]
+```
 
 <a id="bool"></a>
 ### `bool([default]) -> bool`

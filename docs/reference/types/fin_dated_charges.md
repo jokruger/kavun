@@ -17,13 +17,26 @@ A dated charge has no `apply` member (`dc.apply(…)` is `invalid_method`).
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`at(on) -> decimal`](#at)
 - [`bands() -> array`](#bands)
 - [`copy() -> fin.dated_charges`](#copy)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> fin.dated_charges`](#freeze)
 - [`is_true() -> bool`](#is_true)
+- [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("fin").dated_charges().array()   // => [fin.dated_charges("0001-01-01:0")]
+```
 
 <a id="at"></a>
 ### `at(on) -> decimal`
@@ -54,6 +67,15 @@ Answer the table itself; see [`copy`](#copy).
 ### `is_true() -> bool`
 
 Report truthiness: the zero table is falsy.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the text form as `runes`; see [`string`](#string).
+
+```go
+import("fin").dated_charges().runes()   // => u"0001-01-01:0"
+```
 
 <a id="string"></a>
 ### `string([default]) -> string`

@@ -19,6 +19,7 @@ rate).
 ## Members
 
 - [`accrue(principal, f, rule, scale, mode) -> decimal`](#accrue)
+- [`array([default]) -> array`](#array)
 - [`at(amount) -> record`](#at)
 - [`bands() -> array`](#bands)
 - [`charge(amount, rule, scale, mode) -> decimal`](#charge)
@@ -28,12 +29,24 @@ rate).
 - [`freeze() -> fin.tiered_rates`](#freeze)
 - [`is_true() -> bool`](#is_true)
 - [`rate(amount, rule, scale, mode) -> decimal`](#rate)
+- [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 
 <a id="accrue"></a>
 ### `accrue(principal, f, rule, scale, mode) -> decimal`
 
 Answer the interest on `principal` over a year fraction `f`.
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("fin").tiered_rates().array()   // => [fin.tiered_rates("0:0")]
+```
 
 <a id="at"></a>
 ### `at(amount) -> record`
@@ -86,6 +99,15 @@ Report truthiness: the zero-rate table is falsy.
 ### `rate(amount, rule, scale, mode) -> decimal`
 
 Answer the applied rate (blended under `"marginal"`) — for statements, not postings.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the text form as `runes`; see [`string`](#string).
+
+```go
+import("fin").tiered_rates().runes()   // => u"0:0"
+```
 
 <a id="string"></a>
 ### `string([default]) -> string`

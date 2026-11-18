@@ -5046,7 +5046,7 @@ func TestBuiltinFunctionBytes(t *testing.T) {
 	expectError(t, `out = bytes(true)`, nil, "no conversion exists")
 	expectError(t, `out = bytes(false)`, nil, "no conversion exists")
 	expectRun(t, `out = bytes(b'\x07')`, nil, []byte{7}) // a byte is one octet
-	expectRun(t, `out = bytes('8')`, nil, []byte{'8'})   // a rune converts as its UTF-8 encoding, agreeing with '8'.bytes()
+	expectRun(t, `out = bytes('8')`, nil, []byte{'8'})   // a rune converts as its UTF-8 encoding: the free form calls '8'.bytes()
 	expectRun(t, `out = bytes('\u00e9')`, nil, []byte{0xC3, 0xA9})
 	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = bytes(e)`, nil, []byte{0xff}) // an escape's encoding is its octet
 	expectRun(t, `out = bytes([1])`, nil, []byte{1})
@@ -10803,8 +10803,10 @@ func TestRange_Int64Bounds(t *testing.T) {
 		{name: "limit_chunk", src: `range(0, 1 << 62).chunk(1)`, err: "invalid_value: (chunk) result would be"},
 		{name: "limit_for_each", src: `range(0, 1 << 62).for_each(func(x) {})`, err: "invalid_value: (for_each) result would be"},
 		{name: "limit_bytes", src: `range(0, 1 << 62).bytes()`, err: "invalid_value: (bytes) result would be"},
-		{name: "limit_array_ctor", src: `array(range(0, 1 << 62))`, err: "conversion"},
-		{name: "limit_string_ctor", src: `string(range(0, 1 << 62))`, err: "conversion"},
+		{name: "limit_array_ctor", src: `array(range(0, 1 << 62))`, err: "invalid_value: (array) result would be"},
+		{name: "limit_string_ctor", src: `string(range(0, 1 << 62))`, err: "invalid_value: (string) result would be"},
+		{name: "limit_runes_ctor", src: `runes(range(0, 1 << 62))`, err: "invalid_value: (runes) result would be"},
+		{name: "limit_bytes_ctor", src: `bytes(range(0, 1 << 62))`, err: "invalid_value: (bytes) result would be"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -12757,6 +12759,182 @@ func TestMemberTemplateParity(t *testing.T) {
 	for name := range exceptions {
 		require.True(t, len(templates[name]) >= 2, "exception %q names a member fewer than two types declare", name)
 	}
+}
+
+// TestFreeConversionParity pins the conversion rule of docs/types.md: the free spelling T(x) is the conversion
+// x.T(). Every conversion builtin is called on a sample of every type that has a Methods table (builtin,
+// callable kinds, every module, module-owned) plus record and edge values, and compared with the member called
+// through the dispatcher. Where the type has the conversion member — the pure T entry with the conversion template
+// ([default]) — both must answer equal values (== and the same type_name) or raise the same kind. Where it has none
+// (rand.generator's int(lo, hi) draws: another operation under the name), the free form must refuse with a
+// conversion error ("no conversion exists"), module-owned types as much as builtin ones. The exception table holds the free-only cells, each with its reason; an exception that no
+// longer diverges fails, so the table cannot go stale.
+func TestFreeConversionParity(t *testing.T) {
+	src := `
+fin := import("fin")
+rand := import("rand")
+out = [undefined, true, false, byte(0), b'A', b'\xff', '\x00', '8', 'є', '\udce9', 0, 5, -1, 300, 1.5, 0.0,
+	float("nan"), float("inf"), 0d, 1.5d, t"2024-01-02T03:04:05Z", time(), d"2024-01-02", date(), error(1), error("x"),
+	"", "12", "abc", "true", "1.5", "2024-01-02", "2024-01-02T03:04:05Z", u"", u"12", u"2024-01-02",
+	bytes(), bytes("ab"), b"\xff", [], [1, 2], [["a", 1]], [b'A'], freeze([1, [2]]), dict(), dict({a: 1}),
+	dict({year: 2024, month: 1, day: 2}), {}, {a: 1}, {year: 2024, month: 1, day: 2}, range(0, 3), range(0, 0),
+	range(0, 300), len, func(x) { return x }, "a".upper,
+	fin.year_fraction(1, 2), fin.tiered_rates(), fin.tiered_charges(), fin.dated_rates(), fin.dated_charges(),
+	import("re").pattern("a"), rand.generator(1)]
+`
+	c, err := kavun.NewScript([]byte(src), "out").Compile()
+	require.NoError(t, err)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	require.NoError(t, c.Run(machine))
+	out, _ := c.Get("out")
+	samples, _ := out.AsArray()
+	samples = append(samples, core.NewBuiltinClosureValue("f", core.SignatureOf(0, false), func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }))
+	file, err := os.CreateTemp(t.TempDir(), "parity")
+	require.NoError(t, err)
+	defer file.Close()
+	proc, err := os.FindProcess(1 << 30)
+	require.NoError(t, err)
+	require.NoError(t, proc.Release())
+	samples = append(samples, fs.NewFileValue(file), exec.NewCommandValue(osexec.Command("kavun-no-such-program")),
+		exec.NewProcessValue(proc))
+	for _, name := range core.ModuleNames() {
+		def, _ := core.LookupModule(name)
+		samples = append(samples, def.New())
+	}
+
+	// the free-only cells: the type reaches the conversion only through the free form
+	const recordFree = "record has no members by design: it reaches the conversions through the free forms"
+	exceptTypes := map[uint8]string{value.Record: recordFree}
+	type cell struct {
+		typ  uint8
+		name string
+	}
+	// none today; an entry is a (type, conversion) cell with its reason
+	exceptCells := map[cell]string{}
+
+	conversions := []string{"bool", "int", "float", "decimal", "byte", "rune", "string", "runes", "bytes", "array",
+		"dict", "record", "time", "date"}
+	free := map[string]*core.BuiltinFunction{}
+	for _, f := range core.BuiltinFunctions {
+		if f != nil && f.Module == "" && slices.Contains(conversions, f.Name) {
+			free[f.Name] = f
+		}
+	}
+	require.Equal(t, len(conversions), len(free))
+
+	kindOf := func(err error) string {
+		if e := errs.AsError(err); e != nil {
+			return e.Kind
+		}
+		return err.Error()
+	}
+	render := func(v core.Value, err error) string {
+		if err != nil {
+			return "raise " + kindOf(err)
+		}
+		return v.TypeName() + " " + v.String()
+	}
+	same := func(a core.Value, aerr error, b core.Value, berr error) bool {
+		if aerr != nil || berr != nil {
+			return aerr != nil && berr != nil && kindOf(aerr) == kindOf(berr)
+		}
+		if a.TypeName() != b.TypeName() {
+			return false
+		}
+		// NaN is the one value unequal to itself: an identical render of the same type is the same value there
+		return a.Equal(b) || strings.Contains(a.String(), "NaN") && a.String() == b.String()
+	}
+
+	covered, seen := map[uint8]bool{}, map[cell]bool{}
+	agreed, refused := 0, 0
+	for _, x := range samples {
+		covered[x.Type] = true
+		if _, ok := exceptTypes[x.Type]; ok {
+			continue
+		}
+		for _, name := range conversions {
+			id := member.Lookup(name)
+			label := fmt.Sprintf("%s(%s)", name, x.String())
+			fr, ferr := free[name].Call(machine, []core.Value{x})
+			mr, merr := x.CallMember(machine, id, name, nil)
+			if reason, ok := exceptCells[cell{x.Type, name}]; ok {
+				seen[cell{x.Type, name}] = true
+				require.False(t, same(fr, ferr, mr, merr), "exception %s (%s) no longer diverges: remove it from the table", label, reason)
+				continue
+			}
+			ms := core.ValueTypes[x.Type].Methods
+			if int(id) < len(ms) && ms[id].Fn != nil && ms[id].Pure && ms[id].Sig.Template() == "([default])" {
+				require.True(t, same(fr, ferr, mr, merr), "%s: free %s, member %s", label, render(fr, ferr), render(mr, merr))
+				agreed++
+			} else {
+				require.True(t, ferr != nil && kindOf(ferr) == errs.KindConversion && strings.Contains(ferr.Error(), "no conversion exists"),
+					"%s has no conversion member: free must refuse, got %v", label, ferr)
+				refused++
+			}
+		}
+	}
+	for c, reason := range exceptCells {
+		require.True(t, seen[c], "exception %s on type %d (%s) has no sample", c.name, c.typ, reason)
+	}
+	for id := range int(value.FirstUserDefinedType) {
+		if core.ValueTypes[id].Methods != nil || uint8(id) == value.Record {
+			require.True(t, covered[uint8(id)], "type %d has no sample", id)
+		}
+	}
+	t.Logf("%d cells agree with the member, %d refused without one", agreed, refused)
+}
+
+// TestFreeConversionFollowsMember pins the cells the free conversions answer by calling the member — the ones they
+// answered differently before they did — and the scalar bytes()/array() members.
+func TestFreeConversionFollowsMember(t *testing.T) {
+	// bytes on the scalars: a rune its encoding, an escape its one octet, a byte itself
+	expectRun(t, `out = '8'.bytes()`, nil, []byte{'8'})
+	expectRun(t, `out = 'є'.bytes()`, nil, []byte{0xD1, 0x94})
+	expectRun(t, `out = '\udce9'.bytes()`, nil, []byte{0xE9})
+	expectRun(t, `out = bytes('\udce9')`, nil, []byte{0xE9})
+	expectRun(t, `out = b'\xff'.bytes()`, nil, []byte{0xFF})
+	expectRun(t, `out = b'A'.bytes('x')`, nil, []byte{'A'}) // total: the default is never used
+	expectError(t, `b'A'.bytes(1, 2)`, nil, "wrong_num_arguments")
+
+	// array is universal: a value without elements is one element
+	expectRun(t, `out = 5.array()`, nil, ARR{int64(5)})
+	expectRun(t, `out = array(5)`, nil, ARR{int64(5)})
+	expectRun(t, `out = true.array()`, nil, ARR{true})
+	expectRun(t, `out = 'a'.array()`, nil, ARR{'a'})
+	expectRun(t, `out = d"2024-01-02".array().len()`, nil, int64(1))
+	expectRun(t, `out = error(1).array()[0].value()`, nil, int64(1))
+	expectRun(t, `out = len.array().len()`, nil, int64(1))
+	expectRun(t, `out = func(){}.array().len()`, nil, int64(1))
+	expectRun(t, `out = "a".upper.array().len()`, nil, int64(1))
+	expectRun(t, `out = import("math").array().len()`, nil, int64(1))
+	expectRun(t, `out = import("re").pattern("a").array().len()`, nil, int64(1))
+	expectRun(t, `a := 5.array(); a.push_in_place(6); out = a`, nil, ARR{int64(5), int64(6)}) // a new, mutable array
+	expectError(t, `5.array(1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `undefined.array()`, nil, "conversion")
+	expectError(t, `array(undefined)`, nil, "conversion")
+
+	// the cells the free form refused before it called the member
+	expectRun(t, `out = string(d"2024-01-02")`, nil, "2024-01-02")
+	expectRun(t, `out = runes(d"2024-01-02")`, nil, []rune("2024-01-02"))
+	expectRun(t, `out = int(d"2024-01-02")`, nil, int64(19724))
+	expectRun(t, `out = bytes(range(0, 3))`, nil, []byte{0, 1, 2})
+	expectRun(t, `out = bool(error(1))`, nil, true)
+
+	// a member of a conversion's name that is not the conversion is never reached by the free form
+	expectError(t, `int(import("rand").generator(1))`, nil, "conversion")
+	expectError(t, `float(import("rand").generator(1))`, nil, "conversion")
+	expectError(t, `bytes(import("rand").generator(1))`, nil, "conversion")
+
+	// a module-owned type converts like a builtin one: through its members, never its hooks
+	expectRun(t, `out = runes(import("re").pattern("a+"))`, nil, []rune("a+"))
+	expectRun(t, `out = import("fin").year_fraction(1, 2).runes()`, nil, []rune("1/2"))
+	expectError(t, `int(import("re").pattern("a"))`, nil, "cannot convert re.pattern to int: no conversion exists")
+
+	// record reaches the conversions through the free forms only
+	expectRun(t, `out = array({a: 1})`, nil, ARR{ARR{"a", int64(1)}})
+	expectRun(t, `out = dict({a: 1}).keys()`, nil, ARR{"a"})
+	expectRun(t, `out = date({year: 2024, month: 1, day: 2}).string()`, nil, "2024-01-02")
+	expectError(t, `int({a: 1})`, nil, "conversion")
 }
 
 // TestMemberArity is the count probe — the dispatcher checks the floor, bodies keep bounds and gaps: every entry of

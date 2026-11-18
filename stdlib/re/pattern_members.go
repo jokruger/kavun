@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/seq"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // re.pattern's members: one function per member, each declared by the //kavun:member directive in its doc comment. The
@@ -46,6 +47,19 @@ func patternFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.V
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("re").pattern("a").array()   // => [re.pattern("a")]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func patternArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), patternTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 func patternContext(id member.ID) string {
 	return "re.pattern." + id.String()
 }
@@ -64,6 +78,17 @@ func textArg(id member.ID, pos string, a core.Value) (string, error) {
 //kavun:member string pure ([default]) -> string
 func patternString(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	return core.ConvMember(id.String(), patternTypeName, args, true, core.NewStringValue(PatternOf(v).String()))
+}
+
+// Answer the source text as `runes`; see [`string`](#string).
+//
+// ```go
+// import("re").pattern("a+").runes()   // => u"a+"
+// ```
+//
+//kavun:member runes pure ([default]) -> runes
+func patternRunes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), patternTypeName, args, true, core.NewRunesValue(text.DecodeText(PatternOf(v).String()), false))
 }
 
 // Report whether the expression matches anywhere in `s`.

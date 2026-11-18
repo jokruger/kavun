@@ -225,6 +225,7 @@ the ordinal scalars (`x.int().byte()`).
 ## Members
 
 - [`abs() -> float`](#abs)
+- [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
 - [`clamp(lo, hi) -> float`](#clamp)
 - [`copy() -> float`](#copy)
@@ -281,6 +282,17 @@ Answer the absolute value.
 
 ```go
 (-2.5).abs()            // => 2.5
+```
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+1.5.array()         // => [1.5]
 ```
 
 <a id="bool"></a>

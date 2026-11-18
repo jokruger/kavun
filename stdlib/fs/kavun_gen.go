@@ -15,6 +15,7 @@ var fileMethods = []core.Method{
 	members.Format:       core.NewPureMethod("([spec])", fileFormat),
 	members.Copy:         core.NewPureMethod("()", fileCopy),
 	members.Freeze:       core.NewPureMethod("()", fileFreeze),
+	members.Array:        core.NewPureMethod("([default])", fileArray),
 	members.Name:         core.NewMethod("()", fileName),
 	members.Read:         core.NewMethod("(buffer)", fileRead),
 	members.Chdir:        core.NewMethod("()", fileChdir),

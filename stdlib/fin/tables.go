@@ -17,6 +17,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // Shared machinery of the fin module's types (fin.year_fraction and the four rate/charge tables) and functions:
@@ -173,13 +174,18 @@ func tableFormat(v core.Value, typeName, text string, sp fspec.FormatSpec) (stri
 	return fspec.ApplyGenerics(text, sp, fspec.AlignLeft), nil
 }
 
-// The members every table has — copy/freeze (identities on an immutable value), string(), format([spec]) — are
-// entries in each table's member table, each its own function: copy/freeze answer the receiver, format calls
-// core.FormatWithSpec, and string calls tableString below.
+// The members every table has — is_true(), copy/freeze (identities on an immutable value), string(), runes(),
+// array(), format([spec]) — are entries in each table's member table, each its own function: copy/freeze answer
+// the receiver, format calls core.FormatWithSpec, string and runes call tableString / tableRunes below.
 
 // tableString is string([default]): the table's canonical text, the form its constructor reads back.
 func tableString(v core.Value, text string, args []core.Value) (core.Value, error) {
 	return core.ConvMember("string", v.TypeName(), args, true, core.NewStringValue(text))
+}
+
+// tableRunes is the tables' runes([default]): the text form as runes, total.
+func tableRunes(v core.Value, s string, args []core.Value) (core.Value, error) {
+	return core.ConvMember("runes", v.TypeName(), args, true, core.NewRunesValue(text.DecodeText(s), false))
 }
 
 // chargeArgs reads the amount-banded tables' (amount, rule, scale, mode): charge, rate, charge_parts.

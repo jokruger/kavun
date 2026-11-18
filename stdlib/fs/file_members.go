@@ -44,6 +44,21 @@ func fileFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.Valu
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// f := import("fs").create("array.txt")
+// f.array().len()   // => 1
+// f.close()
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func fileArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), fileTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 func fileContext(id member.ID) string {
 	return "fs.file." + id.String()
 }

@@ -41,6 +41,7 @@ var TypeBoundMember = ValueTypeDescr{
 		members.Format: NewPureMethod("([spec])", boundMemberFormat),
 		members.Copy:   NewPureMethod("()", boundMemberCopy),
 		members.Freeze: NewPureMethod("()", boundMemberFreeze),
+		members.Array:  NewPureMethod("([default])", boundMemberArray),
 	},
 }
 
@@ -71,6 +72,15 @@ func boundMemberCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 // PURE by contract
 func boundMemberFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
+}
+
+// boundMemberArray is a bound member's array([default]): a new one-element array holding the receiver.
+// PURE by contract
+func boundMemberArray(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	return NewArrayValue([]Value{v}, false), nil
 }
 
 // entry is the receiver type's table entry for the bound member, or a zero entry for a name-path member.

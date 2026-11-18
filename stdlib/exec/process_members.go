@@ -44,6 +44,22 @@ func processFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.V
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// c := import("exec").exec("echo")
+// c.start()
+// c.process().array().len()   // => 1
+// c.wait()
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func processArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), processTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 func processContext(id member.ID) string {
 	return "exec.process." + id.String()
 }

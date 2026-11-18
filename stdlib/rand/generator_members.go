@@ -43,6 +43,19 @@ func generatorFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("rand").generator(1).array().len()   // => 1
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func generatorArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), generatorTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 func generatorContext(id member.ID) string {
 	return "rand.generator." + id.String()
 }

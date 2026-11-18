@@ -83,6 +83,19 @@ func intFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// 5.array()           // => [5]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func intArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), intTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the receiver, the identity conversion.
 //
 //kavun:member int pure ([default]) -> int

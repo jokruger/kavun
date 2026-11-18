@@ -27,6 +27,7 @@ c.process().wait().success            // => false
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`combined_output() -> bytes`](#combined_output)
 - [`copy() -> exec.command`](#copy)
 - [`format([spec]) -> string`](#format)
@@ -40,6 +41,17 @@ c.process().wait().success            // => false
 - [`set_path(p) -> undefined`](#set_path)
 - [`start() -> undefined`](#start)
 - [`wait() -> undefined`](#wait)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("exec").exec("echo").array().len()   // => 1 — building a command runs nothing
+```
 
 <a id="combined_output"></a>
 ### `combined_output() -> bytes`

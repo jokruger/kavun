@@ -24,6 +24,11 @@ handed in, so a frozen element stays frozen; `x.copy()` is the deep spelling. `s
 immutable and carry no identity, so there is nothing to observe: they answer the same value.
 - **1 arg, any other type** — converted. A conversion that cannot succeed **raises** a catchable error — it
 never answers a silent `undefined` or a silent zero.
+- **The free form calls the member.** When `x`'s type has the conversion member `x.T([default])` (a pure entry),
+`T(x)` is that call, so the two spellings answer the same value or raise the same error. A type without the
+member — a module-owned type as much as a builtin one — has no conversion to `T`: the free form raises. The free-only receivers are `undefined` (absence converts to
+nothing), `record`, which has no members (`array(r)`, `dict(r)`, `record(r)`, and the components forms
+`time(r)` / `date(r)`), and an embedder's own type, whose hooks answer when it declares no member.
 - **The explicit fallback is the member form's**: `x.T(default)` answers the default instead of raising on a
 failed conversion. The fallback is the *opt-out*, so it is not type-checked, and it is answered **as-is** —
 a container default is **not** copied, unlike a converted value: nothing was converted, so nothing was
@@ -187,7 +192,7 @@ array([1, 2])         // => [1, 2] — a NEW array: writing into it never touche
 <a id="bool"></a>
 ### `bool([x]) -> bool`
 
-Convert `x` to a `bool`: a numeric zero test or a text parse; with no argument, `false`.
+Convert `x` to a `bool` — exactly `x.bool()`; with no argument, `false`.
 
 ```go
 bool(0.0)             // => false — bool(x) is a numeric zero test / text parse
@@ -197,7 +202,7 @@ bool("false")         // => false — parses; distinct from is_true("false"), wh
 <a id="byte"></a>
 ### `byte([x]) -> byte`
 
-Convert `x` to a `byte`; with no argument, `byte(0)`.
+Convert `x` to a `byte` — exactly `x.byte()`; with no argument, `byte(0)`.
 
 ```go
 byte(999)             // Error: conversion — out of the octet range

@@ -186,12 +186,14 @@ func ByteValue(v byte) Value {
 // | `byte()` | identity | total |
 // | `rune()` | the symbol its one-octet text reads as | **total** — ASCII as itself, above `0x7F` the octet's escape |
 // | `string()` / `runes()` | the one-octet text holding it | **total** — above `0x7F` the text holds the octet |
+// | `bytes()` | the one-octet `bytes` holding it | total |
+// | `array()` | `[b]`, the byte as one element | total |
 //
 // Every conversion is total. `rune()` answers the symbol the one-octet text holding the byte reads as — the
 // ASCII symbol itself, or above `0x7F` the octet's [escape](string.md#undecodable-octets) `U+DC80`–`U+DCFF` — so
-// it is the exact inverse of `rune.byte()`; the Latin-1 reading is `.int().rune()`. There is deliberately no `bool()`, `float()`,
-// `decimal()`, or `bytes()` member: `int` is the sole gateway to the numeric and boolean domains
-// (`b.int().float()`, `b'0'.int().bool()`), and `string` is the gateway to octets (`b.string().bytes()`).
+// it is the exact inverse of `rune.byte()`; the Latin-1 reading is `.int().rune()`. There is deliberately no `bool()`, `float()`
+// or `decimal()` member: `int` is the sole gateway to the numeric and boolean domains (`b.int().float()`,
+// `b'0'.int().bool()`).
 // Text never parses directly into `byte` either — `"65".byte()` raises; write `"65".int().byte()`.
 //
 //kavun:type byte

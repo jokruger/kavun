@@ -42,12 +42,37 @@ func tieredChargesFreeze(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// import("fin").tiered_charges().array()   // => [fin.tiered_charges("0:0")]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func tieredChargesArray(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	return core.ConvMember(id.String(), tieredChargesTypeName, args, true, core.NewArrayValue([]core.Value{v}, false))
+}
+
 // Answer the text form.
 //
 //kavun:member string pure ([default]) -> string
 func tieredChargesString(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	t := TieredChargesOf(v)
 	return tableString(v, t.String(), args)
+}
+
+// Answer the text form as `runes`; see [`string`](#string).
+//
+// ```go
+// import("fin").tiered_charges().runes()   // => u"0:0"
+// ```
+//
+//kavun:member runes pure ([default]) -> runes
+func tieredChargesRunes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+	t := TieredChargesOf(v)
+	return tableRunes(v, t.String(), args)
 }
 
 // Answer the bands as records in constructor shape, so the table rebuilds from them with its bounds.

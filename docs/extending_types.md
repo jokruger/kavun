@@ -586,6 +586,23 @@ reference pages, with `-docs <dir>`) — with one limit today: a member name mus
 (modules need a `value.Module*` constant). A type whose members go beyond the builtin names writes its `Methods`
 entries by hand with `core.NewMethod` / `core.NewPureMethod`, exactly as the generated code does.
 
+**The universal members and the conversions.** Every module-owned type, every module, and every builtin type
+except `record` (which has no members) declares the five universal members — `is_true()`, `format([spec])`,
+`copy()`, `freeze()` and `array([default])` (a new one-element array holding the receiver, for a type without
+elements); `undefined` declares no `copy()`/`freeze()`. They let generic code call them without a type check; declare
+them on an embedder type as well. A conversion member has the template `([default])` (`int([default])`,
+`string([default])`, …) and is pure, and the free spelling `int(x)` calls that entry when `x`'s type has it in its
+`Methods` table (a member answered only through the named `CallNamedMethod` hook is not seen), so the two answer
+the same. The free conversions are pure builtins, so they call only a **pure** entry with the
+`([default])` template ([purity.md](purity.md#method-purity)); an impure entry, or one with another template, is
+treated as no entry at all. An embedder type (type id 192 and up) without the entry reaches the free form through
+its hooks instead (`AsInt`, `AsString`, `AsBytes`, `AsArray`, `AsTime`, … — `array(x)`
+wraps the value when `AsArray` declines); `dict(x)` and `record(x)` have no hook fallback. A module-owned type has
+no hook fallback either: like a builtin type it converts through its members only, so it declares each conversion
+it answers (`string([default])` and `runes([default])` together). A module, builtin or embedder, converts through
+nothing but its universal `array()`: its functions are never conversions (an embedder module may declare a function
+`int(lo, hi)` or even `int([default])`; `int(m)` still raises), and its descriptor's `As*` hooks are not read.
+
 An `AccessNamedProperty`/`AssignNamedProperty` that wants the table behaviour for a name the access site carried no
 member id for ends in `core.PropertyByLookup(vm, v, name)` / `core.AssignPropertyByLookup(vm, v, name, r)`, which
 answer `ok == false` on a miss so the hook keeps its own error.

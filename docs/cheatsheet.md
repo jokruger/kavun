@@ -425,6 +425,8 @@ array(0, 3)          // [0, 0, 0]     -- T(x, count): n copies of x, kept whole 
 dict([["a", 1]])     // dict({"a": 1}) -- the entries reading: each element is exactly [key, value]
 array(a)             // a NEW array   -- T(x) on an x of type T constructs: shallow copy, always mutable
 a.array()            // a NEW array   -- ... and so does the member spelling; NO conversion ever aliases
+5.array()            // [5]           -- array() is universal: a value without elements is one element
+'є'.bytes()          // bytes([209, 148]) -- a rune's UTF-8 octets (an escape rune: its one octet); b'A'.bytes() is bytes([65])
 bytes(b"ab")         // bytes([97,98]) -- so this is how a constant literal becomes a writable buffer
 (5).int(0)           // 5             -- a same-type default is unreachable but accepted, on every type
 "2026-08-29".time()  // the canonical grammar, = time(s); every conversion member is x.T([default])
@@ -438,8 +440,10 @@ they are **built at run time** — a fresh, mutable body per evaluation. `bytes`
 only their literal form is constant.
 
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict` are all
-callable as top-level conversion functions; see [the builtins](reference/builtins.md) for the
-full 0-arg/1-arg/count rules and per-type outliers.
+callable as top-level conversion functions: `T(x)` calls `x.T([default])`, so the two spellings agree wherever that
+member exists (a type without it raises; a same-named member with another template, such as `rand.generator`'s
+`int(lo, hi)`, is not the conversion; `record` has no members and converts through the free forms only); see
+[the builtins](reference/builtins.md) for the full 0-arg/1-arg/count rules and per-type outliers.
 
 An `int` next to a `time` means two different things, decided by position — **operator: a duration in
 nanoseconds; conversion: a unix timestamp**. There is no `time` vs `int` ordering or equality; convert first.

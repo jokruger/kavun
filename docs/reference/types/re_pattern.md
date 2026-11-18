@@ -33,6 +33,7 @@ cannot be made to run away on hostile text.
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`copy() -> re.pattern`](#copy)
 - [`find(s[, count]) -> [match]`](#find)
 - [`format([spec]) -> string`](#format)
@@ -40,8 +41,20 @@ cannot be made to run away on hostile text.
 - [`is_true() -> bool`](#is_true)
 - [`match(s) -> bool`](#match)
 - [`replace(s, repl) -> string`](#replace)
+- [`runes([default]) -> runes`](#runes)
 - [`split(s[, count]) -> [string]`](#split)
 - [`string([default]) -> string`](#string)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("re").pattern("a").array()   // => [re.pattern("a")]
+```
 
 <a id="copy"></a>
 ### `copy() -> re.pattern`
@@ -86,6 +99,15 @@ Report whether the expression matches anywhere in `s`.
 Answer `s` with every match replaced; `$1`, `${name}` expand groups.
 
 A result past the sequence ceiling raises `invalid_value`.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the source text as `runes`; see [`string`](#string).
+
+```go
+import("re").pattern("a+").runes()   // => u"a+"
+```
 
 <a id="split"></a>
 ### `split(s[, count]) -> [string]`

@@ -90,6 +90,19 @@ func errorFreeze(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return v.Freeze()
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// error(1).array()    // => [error(1)]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func errorArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), errorTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the payload, exactly as wrapped.
 //
 // The payload, exactly as wrapped — and the ONLY structured channel an error has. `kind()` is a tag; there is no

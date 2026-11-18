@@ -120,8 +120,8 @@ decides whether *this particular call* is safe given what was actually passed to
 
 `core.MemberIsPure(t, name) bool` answers the bound `Methods[id]` entry's `Pure` flag when the type tables the name,
 and otherwise the type's `ValueTypeDescr.IsNamedMethodPure(name string) bool`. Both report whether calling the named
-member on this type is safe for the optimizer to fold. A table entry's `Pure` is optimizer information only — it is
-never read on the call path — and `SetValueType` refuses a `Pure` entry whose name ends in `_in_place`.
+member on this type is safe for the optimizer to fold. A table entry's `Pure` is the optimizer's claim — on the call
+path only the free conversions read it (below) — and `SetValueType` refuses a `Pure` entry whose name ends in `_in_place`.
 The contract for `IsNamedMethodPure`: it answers `true` only for a name the type actually answers on the name path;
 an unknown name is `false`.
 
@@ -148,6 +148,11 @@ an unknown name is `false`.
   surface at all — a method call on a record is field access to a stored callable, whose purity is unknowable by
   name. `module` answers its functions through its table (each `fn` directive's `pure`/`impure`), so its name path
   is never a folding candidate either.
+- **The free conversions read the claim on the call path.** The conversion builtins (`int`, `string`, `array`, …)
+  are declared pure, and `T(x)` answers by calling `x`'s `T` entry — but only an entry that is `Pure` and has the
+  conversion template `([default])`. An impure entry of that name is treated as a missing member: the free form
+  falls back to the type's hooks (or raises), so a pure builtin never runs an impure body. This is the one place a
+  table entry's `Pure` flag changes what a call does.
 
 ### The higher-order caveat: function-valued arguments
 

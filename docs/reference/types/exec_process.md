@@ -26,6 +26,7 @@ st.success                 // => true
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`copy() -> exec.process`](#copy)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> exec.process`](#freeze)
@@ -35,6 +36,20 @@ st.success                 // => true
 - [`release() -> undefined`](#release)
 - [`signal(sig) -> undefined`](#signal)
 - [`wait() -> record`](#wait)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+c := import("exec").exec("echo")
+c.start()
+c.process().array().len()   // => 1
+c.wait()
+```
 
 <a id="copy"></a>
 ### `copy() -> exec.process`

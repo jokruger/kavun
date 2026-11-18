@@ -64,6 +64,19 @@ func runeFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// 'A'.array()         // => ['A']
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func runeArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), runeTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the receiver, the identity conversion.
 //
 //kavun:member rune pure ([default]) -> rune
@@ -120,6 +133,21 @@ func runeString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 //kavun:member runes pure ([default]) -> runes
 func runeRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return ConvMember(id.String(), runeTypeName, args, true, NewRunesValue([]rune{rune(v.Data)}, false))
+}
+
+// Answer the symbol's octets: its UTF-8 encoding; an escape answers its one octet.
+//
+// Total, so the default is never used.
+//
+// ```go
+// 'A'.bytes()        // => bytes([65])
+// 'є'.bytes()        // => bytes([209, 148])
+// '\udce9'.bytes()   // => bytes([233]) — the octet the escape stands for
+// ```
+//
+//kavun:member bytes pure ([default]) -> bytes
+func runeBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), runeTypeName, args, true, NewBytesValue([]byte(text.EncodeRuneText(rune(v.Data))), false))
 }
 
 // Report whether this is a real symbol rather than an octet escape.

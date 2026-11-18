@@ -36,6 +36,7 @@ an array back, which `fin.year_fraction(v...)` rebuilds.
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`copy() -> fin.year_fraction`](#copy)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> fin.year_fraction`](#freeze)
@@ -43,9 +44,21 @@ an array back, which `fin.year_fraction(v...)` rebuilds.
 - [`is_positive() -> bool`](#is_positive)
 - [`is_true() -> bool`](#is_true)
 - [`is_zero() -> bool`](#is_zero)
+- [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 - [`terms() -> array`](#terms)
 - [`value(scale, mode) -> decimal`](#value)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("fin").year_fraction(1, 2).array()   // => [fin.year_fraction(1, 2)]
+```
 
 <a id="copy"></a>
 ### `copy() -> fin.year_fraction`
@@ -81,6 +94,15 @@ Report truthiness: `0/1` is falsy, every other fraction truthy.
 ### `is_zero() -> bool`
 
 Report whether the fraction is zero.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the terms as `runes`; see [`string`](#string).
+
+```go
+import("fin").year_fraction(1, 2).runes()   // => u"1/2"
+```
 
 <a id="string"></a>
 ### `string([default]) -> string`

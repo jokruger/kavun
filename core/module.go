@@ -90,6 +90,7 @@ func NewModule(typeID uint8, name string, pure bool) *ModuleBuilder {
 	b.method(members.Format, NewPureMethod("([spec])", moduleFormat))
 	b.method(members.Copy, NewPureMethod("()", moduleCopy))
 	b.method(members.Freeze, NewPureMethod("()", moduleFreeze))
+	b.method(members.Array, NewPureMethod("([default])", moduleArray))
 	return b
 }
 
@@ -119,6 +120,15 @@ func moduleCopy(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 // PURE by contract
 func moduleFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
+}
+
+// moduleArray is a module's array([default]): a new one-element array holding the receiver.
+// PURE by contract
+func moduleArray(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, ErrArgCount
+	}
+	return NewArrayValue([]Value{v}, false), nil
 }
 
 // Fn declares a module function the optimizer never folds, at slot (0–127) of the module's builtin-function slots.
@@ -282,7 +292,7 @@ func UnregisterModule(typeID uint8) error {
 }
 
 // name answers id's member name, recording the builder's first refusal: an unbound id, a name this module already
-// declares, or one of the four universal members every module answers itself.
+// declares, or one of the five universal members every module answers itself.
 func (b *ModuleBuilder) name(id member.ID) (string, bool) {
 	if b.err != nil {
 		return "", false
@@ -291,7 +301,7 @@ func (b *ModuleBuilder) name(id member.ID) (string, bool) {
 	switch {
 	case id == member.Unknown || name == "":
 		b.fail(fmt.Errorf("member id %d is not bound", id))
-	case id == members.IsTrue || id == members.Format || id == members.Copy || id == members.Freeze:
+	case id == members.IsTrue || id == members.Format || id == members.Copy || id == members.Freeze || id == members.Array:
 		b.fail(fmt.Errorf("%q is a universal member and cannot be declared", name))
 	case b.has(name):
 		b.fail(fmt.Errorf("%q is declared twice", name))

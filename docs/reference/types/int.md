@@ -217,6 +217,7 @@ The default rescues *data*, never a program error — a wrong argument type rais
 ## Members
 
 - [`abs() -> int`](#abs)
+- [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
 - [`byte([default]) -> byte`](#byte)
 - [`copy() -> int`](#copy)
@@ -265,6 +266,17 @@ Answer the absolute value.
 ```
 
 `math.min_int.abs()` raises `int overflow`: the true absolute value does not fit in 64 bits.
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+5.array()           // => [5]
+```
 
 <a id="bool"></a>
 ### `bool([default]) -> bool`

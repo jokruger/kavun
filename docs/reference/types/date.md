@@ -131,6 +131,7 @@ reads it back with `date(cfg.due)`. The binary codec is 4 bytes and re-validates
 - [`add_days(n) -> date`](#add_days)
 - [`add_months(n, rule) -> date`](#add_months)
 - [`add_years(n, rule) -> date`](#add_years)
+- [`array([default]) -> array`](#array)
 - [`components() -> record`](#components)
 - [`copy() -> date`](#copy)
 - [`date([default]) -> date`](#date)
@@ -188,6 +189,17 @@ d"2026-01-31".add_months(1)               // Error: wrong_num_arguments — stat
 ### `add_years(n, rule) -> date`
 
 Move by `n` calendar years with the end-of-month `rule`; see [`add_months`](#add_months).
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+d"2024-01-02".array()   // => [date("2024-01-02")]
+```
 
 <a id="components"></a>
 ### `components() -> record`

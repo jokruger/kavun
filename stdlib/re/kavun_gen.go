@@ -16,6 +16,8 @@ var patternMethods = []core.Method{
 	members.Format:  core.NewPureMethod("([spec])", patternFormat),
 	members.Copy:    core.NewPureMethod("()", patternCopy),
 	members.Freeze:  core.NewPureMethod("()", patternFreeze),
+	members.Runes:   core.NewPureMethod("([default])", patternRunes),
+	members.Array:   core.NewPureMethod("([default])", patternArray),
 	members.Find:    core.NewPureMethod("(s[, count])", patternFind),
 	members.Replace: core.NewPureMethod("(s, repl)", patternReplace),
 	members.Split:   core.NewPureMethod("(s[, count])", patternSplit),

@@ -18,6 +18,7 @@ rate). A tiered charge has no `rate` member: a fixed charge is money, not a rate
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`at(amount) -> record`](#at)
 - [`bands() -> array`](#bands)
 - [`bounds() -> record`](#bounds)
@@ -27,7 +28,19 @@ rate). A tiered charge has no `rate` member: a fixed charge is money, not a rate
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> fin.tiered_charges`](#freeze)
 - [`is_true() -> bool`](#is_true)
+- [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("fin").tiered_charges().array()   // => [fin.tiered_charges("0:0")]
+```
 
 <a id="at"></a>
 ### `at(amount) -> record`
@@ -81,6 +94,15 @@ Answer the table itself; see [`copy`](#copy).
 ### `is_true() -> bool`
 
 Report truthiness: the zero table is falsy.
+
+<a id="runes"></a>
+### `runes([default]) -> runes`
+
+Answer the text form as `runes`; see [`string`](#string).
+
+```go
+import("fin").tiered_charges().runes()   // => u"0:0"
+```
 
 <a id="string"></a>
 ### `string([default]) -> string`

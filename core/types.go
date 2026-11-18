@@ -159,7 +159,7 @@ type Method struct {
 	// when fixed, at least the arity when variadic — so a fixed body indexes its arguments unguarded; a body bounds
 	// or gaps its rest itself and refuses a count by returning ErrArgCount.
 	Fn   func(vm VM, v Value, id member.ID, args []Value) (Value, error)
-	Pure bool // optimizer information only (docs/purity.md); never read on the call path
+	Pure bool // the optimizer's claim (docs/purity.md); on the call path only the free conversions read it
 
 	// Sig is what Fn accepts: the dispatcher's count check and error text, and a bound member's Arity and
 	// IsVariadic, which callback-taking members dispatch on.

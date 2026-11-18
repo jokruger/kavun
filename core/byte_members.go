@@ -75,6 +75,19 @@ func byteFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// b'A'.array()        // => [byte(65)]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func byteArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), byteTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the receiver, the identity conversion.
 //
 //kavun:member byte pure ([default]) -> byte
@@ -138,6 +151,20 @@ func byteString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 //kavun:member runes pure ([default]) -> runes
 func byteRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return ConvMember(id.String(), byteTypeName, args, true, NewRunesValue(text.DecodeOctets([]byte{byte(v.Data)}), false))
+}
+
+// Answer the one-octet `bytes` holding the byte.
+//
+// Total, so the default is never used.
+//
+// ```go
+// b'A'.bytes()           // => bytes([65])
+// byte(200).bytes()      // => bytes([200])
+// ```
+//
+//kavun:member bytes pure ([default]) -> bytes
+func byteBytes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), byteTypeName, args, true, NewBytesValue([]byte{byte(v.Data)}, false))
 }
 
 // Report whether the octet is a symbol on its own (`0x00`–`0x7F`).

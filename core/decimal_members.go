@@ -103,6 +103,19 @@ func decimalFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// 1.5d.array()        // => [1.5d]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func decimalArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), decimalTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the receiver, the identity conversion.
 //
 //kavun:member decimal pure ([default]) -> decimal

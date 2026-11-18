@@ -157,6 +157,8 @@ func RuneValue(c rune) Value {
 // | `rune()` | identity | total |
 // | `byte()` | the same symbol as one octet | ASCII, **or an escape** — raises otherwise |
 // | `string()` / `runes()` | the symbol as text; an escape gives its octet | total (the default is never used) |
+// | `bytes()` | the symbol's UTF-8 octets; an escape gives its one octet | total |
+// | `array()` | `[r]`, the rune as one element | total |
 //
 // `byte()` is encoding-based: it succeeds iff the symbol's UTF-8 representation is a single octet — exactly
 // ASCII. `U+0080`–`U+00FF` do *not* convert (their UTF-8 form is two octets); the Latin-1 numeric reading is
@@ -165,8 +167,8 @@ func RuneValue(c rune) Value {
 // The other way, `rune(b)` / `b.rune()` is total and the exact inverse: an ASCII octet is that symbol, a higher
 // one its escape — so `rune(b).byte() == b` for every byte, and `rune(b'\xff')` is `'\udcff'`, not `'ÿ'`.
 //
-// There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway)
-// and no `bytes()` (write `.string().bytes()`). Text never parses into `rune` — `"65".rune()` raises; write
+// There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway).
+// Text never parses into `rune` — `"65".rune()` raises; write
 // `"65".int().rune()`.
 //
 //kavun:type rune

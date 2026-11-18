@@ -41,7 +41,7 @@ not callable.
 
 ## Members
 
-A module answers its own functions and constants, plus the four universal members. It has **no** `string()`:
+A module answers its own functions and constants, plus the five universal members. It has **no** `string()`:
 a module has no text content, so `string(math)` raises `conversion` and `math.string()` raises like any missing
 member.
 
@@ -52,6 +52,7 @@ member.
 | `is_true()` | `true` |
 | `format([spec])` | the render, `import("math")`, with the generic spec (`math.format(">20")`); `{:T}` → `module` |
 | `copy()` / `freeze()` | the module itself |
+| `array([default])` | `[m]`, a new one-element array holding the module |
 
 A name the module does not have raises, naming the module — as a read and as a call:
 

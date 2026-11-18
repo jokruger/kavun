@@ -66,6 +66,19 @@ func boolFreeze(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return v, nil
 }
 
+// Answer a new one-element `array` holding the receiver.
+//
+// Total, so the default is never used.
+//
+// ```go
+// true.array()        // => [true]
+// ```
+//
+//kavun:member array pure ([default]) -> array
+func boolArray(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	return ConvMember(id.String(), boolTypeName, args, true, NewArrayValue([]Value{v}, false))
+}
+
 // Answer the bool's text, `"true"` or `"false"`.
 //
 // ```go

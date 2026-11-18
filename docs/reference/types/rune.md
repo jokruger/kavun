@@ -134,6 +134,8 @@ Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the 
 | `rune()` | identity | total |
 | `byte()` | the same symbol as one octet | ASCII, **or an escape** — raises otherwise |
 | `string()` / `runes()` | the symbol as text; an escape gives its octet | total (the default is never used) |
+| `bytes()` | the symbol's UTF-8 octets; an escape gives its one octet | total |
+| `array()` | `[r]`, the rune as one element | total |
 
 `byte()` is encoding-based: it succeeds iff the symbol's UTF-8 representation is a single octet — exactly
 ASCII. `U+0080`–`U+00FF` do *not* convert (their UTF-8 form is two octets); the Latin-1 numeric reading is
@@ -142,13 +144,15 @@ ASCII. `U+0080`–`U+00FF` do *not* convert (their UTF-8 form is two octets); th
 The other way, `rune(b)` / `b.rune()` is total and the exact inverse: an ASCII octet is that symbol, a higher
 one its escape — so `rune(b).byte() == b` for every byte, and `rune(b'\xff')` is `'\udcff'`, not `'ÿ'`.
 
-There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway)
-and no `bytes()` (write `.string().bytes()`). Text never parses into `rune` — `"65".rune()` raises; write
+There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway).
+Text never parses into `rune` — `"65".rune()` raises; write
 `"65".int().rune()`.
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`byte([default]) -> byte`](#byte)
+- [`bytes([default]) -> bytes`](#bytes)
 - [`copy() -> rune`](#copy)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> rune`](#freeze)
@@ -160,6 +164,17 @@ and no `bytes()` (write `.string().bytes()`). Text never parses into `rune` — 
 - [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+'A'.array()         // => ['A']
+```
+
 <a id="byte"></a>
 ### `byte([default]) -> byte`
 
@@ -169,6 +184,19 @@ Convert to the same symbol as one octet; a rune that is neither ASCII nor an esc
 'A'.byte()         // => byte(65)
 'є'.byte()         // Error: conversion: cannot convert rune to byte
 'є'.byte(b'?')     // => byte(63) — the default covers the partial edge
+```
+
+<a id="bytes"></a>
+### `bytes([default]) -> bytes`
+
+Answer the symbol's octets: its UTF-8 encoding; an escape answers its one octet.
+
+Total, so the default is never used.
+
+```go
+'A'.bytes()        // => bytes([65])
+'є'.bytes()        // => bytes([209, 148])
+'\udce9'.bytes()   // => bytes([233]) — the octet the escape stands for
 ```
 
 <a id="copy"></a>

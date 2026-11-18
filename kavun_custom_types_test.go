@@ -34,6 +34,7 @@ var (
 	MyBox                 = kavun.UserDefinedType + 7
 	MyPanicker            = kavun.UserDefinedType + 8
 	MyTabled              = kavun.UserDefinedType + 9
+	MyHooked              = kavun.UserDefinedType + 10
 )
 
 // A member name the embedder binds for its own type, in the embedder range. Its other member, label, reuses the
@@ -189,7 +190,19 @@ func init() {
 				}
 				return core.IntValue(int64(v.Data) * n), nil
 			}),
+			// conversion entries: the free form calls a pure ([default]) entry, never an impure one
+			members.String: core.NewPureMethod("([default])", func(_ core.VM, v core.Value, _ member.ID, args []core.Value) (core.Value, error) {
+				return core.ConvMember("string", "tabled", args, true, core.NewStringValue(fmt.Sprintf("member:%d", int64(v.Data))))
+			}),
+			members.Array: core.NewPureMethod("([default])", func(_ core.VM, v core.Value, _ member.ID, args []core.Value) (core.Value, error) {
+				return core.ConvMember("array", "tabled", args, true, core.NewArrayValue([]core.Value{core.NewStringValue("member"), v}, false))
+			}),
+			members.Int: core.NewMethod("([default])", func(_ core.VM, _ core.Value, _ member.ID, args []core.Value) (core.Value, error) {
+				return core.ConvMember("int", "tabled", args, true, core.IntValue(999))
+			}),
 		},
+		// the hook the free int(x) falls back to, since the int entry is impure
+		AsInt: func(v core.Value) (int64, bool) { return int64(v.Data), true },
 		Properties: []core.Property{
 			memberLabel: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
 				return core.NewStringValue(fmt.Sprintf("#%d", int64(v.Data))), nil
@@ -207,6 +220,23 @@ func init() {
 				return core.IntValue(int64(v.Data)), nil
 			}
 			return core.Undefined, errs.NewInvalidMethodError(name, "tabled")
+		},
+	})
+
+	// Register Hooked — no Methods table: the free conversions reach it through its hooks only. AsArray answers
+	// [n, n + 1] for a positive n and declines otherwise.
+	core.SetValueType(MyHooked, core.ValueTypeDescr{
+		Name:   func(core.Value) string { return "hooked" },
+		String: func(v core.Value) string { return fmt.Sprintf("hooked(%d)", int64(v.Data)) },
+		Equal:  func(v core.Value, r core.Value, _ bool) bool { return r.Type == MyHooked && r.Data == v.Data },
+		AsString: func(v core.Value) (string, bool) {
+			return fmt.Sprintf("hook:%d", int64(v.Data)), true
+		},
+		AsArray: func(v core.Value) ([]core.Value, bool) {
+			if n := int64(v.Data); n > 0 {
+				return []core.Value{core.IntValue(n), core.IntValue(n + 1)}, true
+			}
+			return nil, false
 		},
 	})
 
@@ -740,6 +770,30 @@ func TestEmbedderMemberTables(t *testing.T) {
 	require.False(t, core.HasMember(MyTabled, "raw"))
 }
 
+// A free conversion on a host type calls the type's pure ([default]) entry; without one — no entry, or an impure
+// one, which a pure builtin never runs — the type's hooks answer (docs/extending_types.md).
+func TestEmbedderFreeConversions(t *testing.T) {
+	tabled := Opts().Symbol("x", core.Value{Type: MyTabled, Data: 6}).Skip2ndPass()
+	expectRun(t, `out = string(x)`, tabled, "member:6")
+	expectRun(t, `out = x.string()`, tabled, "member:6")
+	expectRun(t, `out = array(x)[0]`, tabled, "member")
+	expectRun(t, `out = x.array()[0]`, tabled, "member")
+	expectRun(t, `out = x.int()`, tabled, 999) // the impure entry answers the member call...
+	expectRun(t, `out = int(x)`, tabled, 6)    // ...but not the free form: the AsInt hook does
+	expectError(t, `dict(x)`, tabled, "conversion")
+
+	hooked := Opts().Symbol("x", core.Value{Type: MyHooked, Data: 2}).Skip2ndPass()
+	expectRun(t, `out = string(x)`, hooked, "hook:2")
+	expectRun(t, `out = array(x)`, hooked, ARR{2, 3})
+	expectError(t, `dict(x)`, hooked, "conversion")
+	expectError(t, `record(x)`, hooked, "conversion")
+	expectError(t, `int(x)`, hooked, "conversion")
+	expectError(t, `x.array()`, hooked, "invalid_method")
+	empty := Opts().Symbol("x", core.Value{Type: MyHooked, Data: 0}).Skip2ndPass()
+	expectRun(t, `out = array(x).len()`, empty, 1) // AsArray declines: one element
+	expectRun(t, `out = array(x)[0] == x`, empty, true)
+}
+
 // An embedder module is a type in the embedder range: it can answer a fresh value per import through New and amend
 // its descriptor before Register; UnregisterModule removes it again.
 func TestEmbedderModule(t *testing.T) {
@@ -767,6 +821,24 @@ func TestEmbedderModule(t *testing.T) {
 	require.True(t, slices.Contains(core.PureModuleNames(), "per_import"))
 }
 
+// A module converts through its universal array() only — an embedder module included: a function named like a
+// conversion with the conversion template is not one, and the descriptor's As* hooks are not read.
+func TestEmbedderModuleConversions(t *testing.T) {
+	const tid = uint8(230)
+	b := core.NewModule(tid, "conv_mod", true).
+		PureFn(members.Int, 0, "([default])", func(core.VM, []core.Value) (core.Value, error) { return core.IntValue(7), nil })
+	b.Descr().AsInt = func(core.Value) (int64, bool) { return 9, true }
+	b.Descr().AsString = func(core.Value) (string, bool) { return "hook", true }
+	require.NoError(t, b.Register())
+	defer func() { require.NoError(t, core.UnregisterModule(tid)) }()
+
+	expectRun(t, `m := import("conv_mod"); out = m.int()`, nil, 7) // a function of the module, not its conversion
+	expectError(t, `m := import("conv_mod"); int(m)`, nil, "cannot convert module to int: no conversion exists")
+	expectError(t, `m := import("conv_mod"); string(m)`, nil, "cannot convert module to string: no conversion exists")
+	expectRun(t, `m := import("conv_mod"); out = [array(m)[0] == m, m.array()[0] == m]`, nil, ARR{true, true})
+	expectError(t, `int(import("math"))`, nil, "cannot convert module to int: no conversion exists")
+}
+
 // The builder refuses what would make a module ambiguous; each refusal is a host error from Register.
 func TestModuleBuilderRefusals(t *testing.T) {
 	noop := func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }
@@ -777,6 +849,7 @@ func TestModuleBuilderRefusals(t *testing.T) {
 	}{
 		{"unbound id", core.NewModule(231, "m1", true).PureFn(member.ID(4000), 0, "()", noop), "is not bound"},
 		{"universal name", core.NewModule(231, "m1", true).PureFn(members.Format, 0, "()", noop), "universal member"},
+		{"universal array", core.NewModule(231, "m1", true).PureFn(members.Array, 0, "()", noop), "universal member"},
 		{"same name twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, "()", noop).Const(memberScaled, core.IntValue(1)), "declared twice"},
 		{"slot twice", core.NewModule(231, "m1", true).PureFn(memberScaled, 0, "()", noop).PureFn(memberLabel, 0, "()", noop), "already filled"},
 		{"slot out of range", core.NewModule(231, "m1", true).PureFn(memberScaled, 128, "()", noop), "out of range"},

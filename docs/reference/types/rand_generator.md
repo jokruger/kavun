@@ -47,6 +47,7 @@ no `string()`.
 
 ## Members
 
+- [`array([default]) -> array`](#array)
 - [`bytes(n) -> bytes`](#bytes)
 - [`copy() -> rand.generator`](#copy)
 - [`exp_float() -> float`](#exp_float)
@@ -57,6 +58,17 @@ no `string()`.
 - [`is_true() -> bool`](#is_true)
 - [`norm_float() -> float`](#norm_float)
 - [`perm(n) -> array`](#perm)
+
+<a id="array"></a>
+### `array([default]) -> array`
+
+Answer a new one-element `array` holding the receiver.
+
+Total, so the default is never used.
+
+```go
+import("rand").generator(1).array().len()   // => 1
+```
 
 <a id="bytes"></a>
 ### `bytes(n) -> bytes`

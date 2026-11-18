@@ -93,13 +93,14 @@ positional members (see the `dict` page's Exclusions).
 
 `record` belongs here semantically but has **no member surface at all** — that is deliberate. Everything a
 record needs is a free builtin with universal domain: `len(r)`, `copy(r)`/`freeze(r)` (and the `_shallow`
-pair), `format(r)`, `is_true(r)`, `remove(r, key)`. Field access and assignment (`r.name`, `r.name = v`) are
+pair), `format(r)`, `is_true(r)`, `remove(r, key)`, and the free conversions `array(r)`, `dict(r)`, `record(r)`,
+`time(r)`/`date(r)` (components). Field access and assignment (`r.name`, `r.name = v`) are
 the operator surface.
 
 ### Callables
 
 Functions, closures, builtins and bound members carry exactly the universal set: `copy`, `freeze`, `format`,
-`is_true` — nothing else. `copy`/`freeze` are provable no-ops kept so generic code never type-errors; `format()`
+`is_true`, `array` — nothing else. `copy`/`freeze` are provable no-ops kept so generic code never type-errors; `format()`
 renders the detail form, which states the callable's **arity** — the count of its fixed parameters — and a `+`
 when it is **variadic** (accepts more: "N or more"). A script function's rest parameter `...r` is not counted:
 
@@ -284,20 +285,25 @@ A script that means amounts, where `0` is significant, passes its own set: `amou
 
 ## The universal surface
 
-Four members exist on (nearly) everything; `record` reaches them through the free forms.
+Five members exist on (nearly) everything; `record` reaches them through the free forms.
 
 | member | domain | contract |
 | --- | --- | --- |
 | `is_true()` | every type except `record` (`r.is_true()` calls a field; use `is_true(r)`) | truthiness (see the table below); raises on an error state (NaN) |
 | `copy()` / `freeze()` | every type except `undefined` | never type-errors in generic code; no-ops on scalars and callables, real deep operations on containers and `error` |
 | `format([spec])` | every type | the render — total, callables included; f-strings use the same path. `spec` is text (`string`, `runes` or `bytes`); any other type raises |
+| `array([default])` | every type except `record` (`r.array()` calls a field; use `array(r)`); `undefined` raises without a default | a conversion: a sequence decomposes into its elements, a map into its entries; any other value is one element — `5.array()` is `[5]`, a new mutable array (total there, so the default is never used) |
 | `copy_shallow()` / `freeze_shallow()` | `array` and `dict` only (+ `record` free forms) | one level deep — the only types whose elements can be containers |
 
 `undefined` takes no `copy` or `freeze` — `copy(undefined)` raises — but predicates about it answer honestly
 (`is_view(undefined)` is `false`, `is_immutable(undefined)` is `true`).
 
 **Conversions** are `x.T([default])`; the free spelling `T(x)` is the same conversion — `"123".int()` ≡
-`int("123")`, on `x`'s own type as much as any other — but the default slot is the member's alone
+`int("123")`, on `x`'s own type as much as any other: the free form calls `x`'s conversion member, so the two
+answer the same value or raise the same error. A type without the member has no conversion to `T` and the free form
+raises — a module-owned type as much as a builtin one — except where the free form is the only spelling: `record`,
+and an embedder type's own hooks (see
+[extending_types.md](extending_types.md)). The default slot is the member's alone
 (`int("12x", -1)` raises `wrong_num_arguments`). Every conversion member has the same `([default])` interface on
 every type, so code holding a value of unknown type can call it without a type check; a total conversion takes the
 default and never uses it. Text → `time` / `date` reads the canonical grammar both ways — `s.time([default])` ≡
