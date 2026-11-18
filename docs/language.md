@@ -97,9 +97,9 @@ true == 2     // false (bool converts to 0/1)
 array() == 5  // false, not an error -- unrelated types simply aren't equal
 ```
 
-Ordering (`< > <= >=`) crosses the same numeric boundaries `bool`/`byte`/`rune`/`int`/`decimal`/`float`
-all order against each other now — but stops there: it doesn't cross into text the way equality does
-(`byte(1) < "1"` is still a runtime error). Comparisons against `float` are exact, not a lossy
+Ordering (`< > <= >=`) crosses the same numeric boundaries — `bool`/`byte`/`rune`/`int`/`decimal`/`float`
+all order against each other — but stops there: it doesn't cross into text the way equality does
+(`byte(1) < "1"` is a runtime error). Comparisons against `float` are exact, not a lossy
 round-trip through `float64`, which matters once numbers get large or have a fractional part with no
 exact binary form:
 

@@ -592,23 +592,6 @@ func joinElementParts(elems []Value) ([]string, int, error) {
 	return parts, total, nil
 }
 
-// coerceSepToBytes converts the separator argument of split/partition to a
-// []byte. Accepted types: bytes, byte, string, rune.
-func coerceSepToBytes(name string, sep Value) ([]byte, error) {
-	switch sep.Type {
-	case value.Bytes:
-		return (*Bytes)(sep.Ptr).Elements, nil
-	case value.Byte:
-		return []byte{byte(sep.Data)}, nil
-	case value.String:
-		return []byte(*(*string)(sep.Ptr)), nil
-	case value.Rune:
-		return []byte(text.EncodeRuneText(rune(sep.Data))), nil
-	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
-	}
-}
-
 // PURE by contract
 func defaultFormat(v Value, _ fspec.FormatSpec) (string, error) {
 	return "", errs.NewNoFormattingError(v.TypeName())
@@ -833,24 +816,6 @@ func textOperandRunes(a Value) ([]rune, bool, error) {
 			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
 		}
 		return []rune{rune(a.Data)}, true, nil
-	}
-	return nil, false, nil
-}
-
-// textOperandOctets reads an operand as OCTET content (bytes receivers) — encoding is total, so every text
-// operand is accepted; symbols contribute their UTF-8 encoding.
-func textOperandOctets(a Value) ([]byte, bool, error) {
-	switch a.Type {
-	case value.Bytes:
-		return (*Bytes)(a.Ptr).Elements, true, nil
-	case value.String:
-		return []byte(*(*string)(a.Ptr)), true, nil
-	case value.Runes:
-		return []byte(text.EncodeText((*Runes)(a.Ptr).Elements)), true, nil
-	case value.Rune:
-		return []byte(text.EncodeRuneText(rune(a.Data))), true, nil
-	case value.Byte:
-		return []byte{byte(a.Data)}, true, nil
 	}
 	return nil, false, nil
 }

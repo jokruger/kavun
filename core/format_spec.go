@@ -39,7 +39,3 @@ func formatSpecTypeString(v Value) string {
 	o := (*FormatSpec)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
-
-type formatSpecGob struct {
-	Text string
-}

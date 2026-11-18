@@ -16,7 +16,6 @@
    as the octet. No rune literal spells an escape (`'\xff'` is U+00FF, `'\udcff'` is a parse error), so a quoted
    form has no round-trip spelling: needs a ruling — raise `unsupported_format_spec`, or add a literal form for
    escape runes. Sites: `core/rune.go` (`q`), `core/int.go` (`q`).
-6.  **`coerceSepToBytes` (`core/tools.go`) has no caller** — dead code; delete it, or route a member through it.
 7.  **`TestBuiltinFunctionBytes` says `bytes('8')` agrees with `'8'.bytes()`, but `rune` has no `bytes()`
     member.** Either the comment is stale or the member is missing (`'8'.bytes()` raises `invalid_method`).
 8.  **`kavun_test.go` cannot see a wrong cached symbol count in an all-literal script.** The harness compiles at O3,
@@ -90,10 +89,6 @@
     a `string` is parsed — a duration passed by mistake (`clock.since(elapsed)`) is silently a time near 1970.
     Decide: accept `time` only (the caller converts explicitly with `x.time()`), or keep "time-compatible" and
     say so on the `clock` page; whichever wins should hold for every other `time`-taking module function.
-21. **The `bool` arithmetic note below cites a heading that does not exist.** Found 2026-10-26. The "random
-    ideas" entry on `bool` arithmetic points at `docs/types.md`'s "Operators across types"; the page has no such
-    heading (the cross-type ordering lives under "Members and operators correspond" / the `bool` reference page).
-    The note's claims hold on the binary (`true < 2`, `true == 1` answer `true`); only the pointer is stale.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
@@ -203,8 +198,8 @@
 - **`bool` arithmetic scope** — deliberately deferred out of the type/operator redesign, not
   rejected. `bool` currently has no arithmetic at all, including with itself (`true + 1`,
   `true + true` are both errors) — that redesign only gave it same-type ordering (`false < true`)
-  and unary `^` (logical negation); the comparison redesign (see `docs/types.md`'s "Operators
-  across types") later extended `bool`'s ordering (and `==`/`!=`) across the rest of the numeric
+  and unary `^` (logical negation); the comparison redesign (see `## Operators` → "Comparison" in
+  `docs/reference/types/bool.md`, and "Truthiness and equality" in `docs/language.md`) later extended `bool`'s ordering (and `==`/`!=`) across the rest of the numeric
   family too (`true < 2`, `true == 1`), but arithmetic is still untouched and still deliberately
   undecided. Whether `bool` should widen into `int` the way `byte` eventually might, or stay
   arithmetic-free permanently, is real future design work, not decided either way yet.
@@ -441,7 +436,6 @@
 
 - add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
 
-- refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
 - refactor member functions - in many cases we can have generic implementation used from concrete types
 
 - make sure you cannot crash VM from script: limit num of allocs, total size of containers and mem used, catch panics

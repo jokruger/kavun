@@ -1155,7 +1155,7 @@ func arrayPadded(name string, v Value, args []Value, start bool) ([]Value, error
 // the + operator (an array operand spreads, see arrayAddItems); push/push_first/insert never spread.
 // ---------------------------------------------------------------------------
 
-// arrayDeduped answers the elements with each run of equal neighbours collapsed to one.
+// arrayDeduped answers the elements with each run of equal neighbors collapsed to one.
 func arrayDeduped(elems []Value) []Value {
 	out := make([]Value, 0, len(elems))
 	for i, e := range elems {
@@ -1211,16 +1211,6 @@ func arrayTypeContains(v Value, e Value) (bool, error) {
 		}
 	}
 	return false, nil
-}
-
-// arrayEncodeStructuralArg reads a structural member's argument on an array receiver: an argument of the
-// receiver's own kind (another array) is a run; anything else is one element. Callables never reach it —
-// the classifiers dispatch them first (a predicate where the member declares one, a refusal elsewhere).
-func arrayEncodeStructuralArg(_ string, a Value) ([]Value, bool, error) {
-	if a.Type == value.Array {
-		return (*Array)(a.Ptr).Elements, false, nil
-	}
-	return []Value{a}, true, nil
 }
 
 // arrayAddItems flattens append/prepend's variadic operands: an argument of the receiver's OWN KIND — another
