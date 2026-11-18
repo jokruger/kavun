@@ -339,8 +339,9 @@ Render the value per the [format mini-language](../../format_mini_language.md).
 
 `format([spec])` renders the value; with no spec it is the plain decimal rendering. Verbs: `d` (decimal,
 default), `b` / `o` / `x` / `X` (binary / octal / hex, prefixed `0b` / `0o` / `0x`), `c` (the code point as a
-character), `q` (the code point as a quoted character literal). Grouping (`,` for decimal, `_` for the other
-bases), sign, and zero-padding compose with them:
+character), `q` (the code point as a rune literal that reads back: an octet escape as `'\udcNN'`). Both raise
+on an int that is not a rune — a surrogate other than an escape, a negative, anything past U+10FFFF.
+Grouping (`,` for decimal, `_` for the other bases), sign, and zero-padding compose with them:
 
 ```go
 (255).format("x")          // => "0xff"
@@ -352,6 +353,8 @@ bases), sign, and zero-padding compose with them:
 (42).format("08d")         // => "00000042"
 (65).format("c")           // => "A"
 (10).format("q")           // => "'\\n'"
+(0xDCFF).format("q")       // => "'\\udcff'"
+(0xD800).format("q")       // Error: unsupported_format_spec
 ```
 
 <a id="freeze"></a>

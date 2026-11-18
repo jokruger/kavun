@@ -12,7 +12,8 @@ wraps modulo 256. Every other numeric type (`int`, `float`, `decimal`, `rune`) r
 - **A symbol in ASCII, an octet above it.** As text content, an octet reads as a symbol in `0x00`–`0x7F`;
 `0x80`–`0xFF` alone is not valid UTF-8, so its text is the **octet itself**, which reads back as that
 octet's [escape](string.md#undecodable-octets) and converts back to this same byte. The conversion is
-total and lossless in both directions. The Latin-1 reading is never assumed — `b'\xFF' == "ÿ"` is `false`,
+total and lossless in both directions, and a `rune` reads the byte the same way (`rune(b'\xff')` is the escape
+`'\udcff'`). The Latin-1 reading is never assumed — `b'\xFF' == "ÿ"` and `b'\xFF' == 'ÿ'` are both `false` —
 and the Latin-1 value is reachable explicitly through `.int()`.
 
 `byte` values are immutable. The element type of [`bytes`](bytes.md).
@@ -27,8 +28,10 @@ nl := b'\n'        // => byte(10) — byte-sized escapes accepted
 ff := b'\xFF'      // => byte(255)
 ```
 
-A `b'...'` literal must resolve to exactly one octet: empty contents, multi-character contents, and code
-points above 255 are compile errors.
+A `b'...'` literal reads its content the way `b"..."` does — a character contributes its UTF-8 octets, `\xNN`
+one octet, `\uNNNN` the UTF-8 of the code point — and must come to exactly one octet. An ASCII character or
+escape spells itself; every other octet is written `\xNN`. `b'ÿ'` and `b'\u00ff'` are compile errors (two octets
+each: write `b'\xff'`), as are empty and multi-character contents.
 
 ```go
 byte()              // => byte(0) — the zero value
@@ -47,22 +50,29 @@ bytes(b'A', 3)     // => bytes([65, 65, 65])
 
 ### Arithmetic — wraps mod 256
 
-`+` and `-` accept a `byte` or a plain `int` on either side; the result is always a `byte`, reduced mod 256
-for *any* magnitude of the `int` operand:
+`+` and `-` with a `byte` or a plain `int` on either side answer a `byte`, reduced mod 256 for *any* magnitude
+of the `int` operand. With a `rune`, `-` is the code-point distance (an `int`) once the byte is read as text —
+`.rune()`: ASCII as itself, a high octet as its [escape](string.md#undecodable-octets) — and `+` raises, as
+`rune + rune` does. Every other numeric type raises:
 
 ```go
 byte(10) + byte(3)   // => byte(13)
-b'\xFF' + 1          // => byte(0) — wraps; every other numeric type raises here
+b'\xFF' + 1          // => byte(0) — wraps
 b'\x00' - 1          // => byte(255)
 byte(0) - 300        // => byte(212) — any magnitude, still mod 256
 1 + b'\xFF'          // => byte(0) — either operand order
 -b'\x01'             // => byte(255) — unary minus is the additive inverse mod 256
+b'B' - 'A'           // => 1 — a distance, an int
+b'\xe9' - 'é'        // => 56320 — U+DCE9 − U+00E9: the octet is its escape, never U+00E9
+b'A' + 'A'           // Error: invalid_binary_operator: byte + rune
+b'A' + 1.5           // Error: invalid_binary_operator: byte + float
 ```
 
-| operator | with `byte` | with `int` | with `float` / `decimal` |
-| --- | --- | --- | --- |
-| `+` `-` | `byte`, wraps | `byte`, wraps | raises |
-| `*` `/` `%` | raises | raises | raises |
+| operator | with `byte` | with `int` | with `rune` | with `float` / `decimal` |
+| --- | --- | --- | --- | --- |
+| `+` | `byte`, wraps | `byte`, wraps | raises | raises |
+| `-` | `byte`, wraps | `byte`, wraps | `int` — the distance, the byte read as text | raises |
+| `*` `/` `%` | raises | raises | raises | raises |
 
 ### Bitwise
 
@@ -80,8 +90,9 @@ b'\x01' & 5          // Error: invalid_binary_operator: byte & int
 ### Comparison
 
 `==`/`!=`/`<`/`<=`/`>`/`>=` compare `byte` with the other numeric-valued scalars by numeric value —
-`byte`, `int`, `rune`, `bool` (as 0/1), and `float`. Next to *text*, equality reads the canonical text —
-the symbol — exactly like `rune` (ordering against text raises):
+`byte`, `int`, `bool` (as 0/1), and `float`. Against a `rune` the byte is read as text first (`.rune()`: ASCII
+as itself, a high octet as its escape), then compared by code point — never as its Latin-1 code point. Next to
+*text*, equality reads the canonical text — the symbol — exactly like `rune` (ordering against text raises):
 
 ```go
 b'A' == 65           // => true
@@ -92,19 +103,23 @@ b'A' == 'A'          // => true — same code point
 b'A' < 65.5          // => true
 "A" == b'A'          // => true — equality against text reads the symbol, like rune
 "65" == b'A'         // => false — the text is the symbol, never the number
+b'\xe9' == 233       // => true — the number
+b'\xe9' == 'é'       // => false — against a rune the byte is text: its escape, not U+00E9
+b'\xe9' == '\udce9'  // => true
 ```
 
 ### As text content
 
-Next to the text types, a `byte` is a *symbol*, and only ASCII octets have one. A scalar on the left takes
-the sequence's type:
+Next to the text types, a `byte` is an **octet of text** — exactly what the one-element `bytes([b])` is. An
+ASCII octet is its symbol; a higher one, alone never a symbol, is the octet itself in a `string` and its
+[escape](string.md#undecodable-octets) in `runes`. A scalar on the left takes the sequence's type:
 
 ```go
 "abc" + b'a'         // => "abca"
 b'a' + "bc"          // => "abc" — scalar on the left, result is still a string
 u"ab" + b'c'         // => u"abc"
-"abc" + byte(200)    // Error: invalid_value: an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got 200
-u"ab" + byte(200)    // Error: invalid_value — same rule on runes
+"abc" + byte(200)    // => "abc\xc8" — the octet, as + bytes([200]) adds it
+u"ab" + byte(200)    // => u"ab\udcc8" — its escape on runes
 ```
 
 Into `bytes` a byte is always exactly one octet — no symbol question arises:
@@ -118,7 +133,8 @@ The same acceptance applies to search arguments:
 ```go
 "abc".contains(b'a')       // => true
 "abc".index(b'c')          // => 2
-"abc".contains(byte(200))  // Error: invalid_value — no symbol exists
+"abc".contains(byte(200))  // => false — the octet's escape, absent here
+"ab\xc8".contains(byte(200))  // => true — found as bytes([200]) is
 bytes("abc").contains(b'b') // => true — always fine on bytes
 ```
 
@@ -146,11 +162,12 @@ Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the 
 | --- | --- | --- |
 | `int()` | the octet's value, 0–255 | total |
 | `byte()` | identity | total |
-| `rune()` | the same symbol | ASCII only — raises above `0x7F` |
+| `rune()` | the symbol its one-octet text reads as | **total** — ASCII as itself, above `0x7F` the octet's escape |
 | `string()` / `runes()` | the one-octet text holding it | **total** — above `0x7F` the text holds the octet |
 
-The `rune` conversion is encoding-based: it succeeds iff the octet is the complete UTF-8 representation of a
-symbol on its own — exactly ASCII. `string`/`runes` are total. There is deliberately no `bool()`, `float()`,
+Every conversion is total. `rune()` answers the symbol the one-octet text holding the byte reads as — the
+ASCII symbol itself, or above `0x7F` the octet's [escape](string.md#undecodable-octets) `U+DC80`–`U+DCFF` — so
+it is the exact inverse of `rune.byte()`; the Latin-1 reading is `.int().rune()`. There is deliberately no `bool()`, `float()`,
 `decimal()`, or `bytes()` member: `int` is the sole gateway to the numeric and boolean domains
 (`b.int().float()`, `b'0'.int().bool()`), and `string` is the gateway to octets (`b.string().bytes()`).
 Text never parses directly into `byte` either — `"65".byte()` raises; write `"65".int().byte()`.
@@ -190,16 +207,20 @@ b'A'.freeze()   // => byte(65)
 
 Render the value per the [format mini-language](../../format_mini_language.md).
 
-`format()` is the render, total on every octet; it shows the *number*, and the symbol spelling is the `c`
-verb:
+`format()` is the render, total on every octet; it shows the *number*. The `c` verb renders the octet itself —
+the byte's text, the same as `.string()` — and `q` a byte literal that reads back as this byte (printable ASCII
+as itself, the short escapes `\n` `\t` `\'` `\\` …, every other octet `\xNN`):
 
 ```go
 b'A'.format()       // => "65" — default verb is d, always works
 byte(200).format()  // => "200"
 f"{b'A'}"           // => "65" — an f-string is a render, not a conversion
 format(b'A')        // => "65"
-b'A'.format("c")    // => "A" — ASCII character rendering
-b'A'.format("q")    // => "'A'" — quoted literal
+b'A'.format("c")    // => "A" — the octet itself
+b'\xff'.format("c") == b'\xff'.string()   // => true — a high octet too: its text, never U+00FF
+b'A'.format("q")    // => "b'A'" — a byte literal
+b'\n'.format("q")   // => "b'\\n'"
+b'\xff'.format("q") // => "b'\\xff'"
 b'A'.format("x")    // => "0x41"
 b'A'.format("b")    // => "0b1000001"
 ```
@@ -241,12 +262,17 @@ b'A'.is_true()      // => true
 <a id="rune"></a>
 ### `rune([default]) -> rune`
 
-Convert to the same symbol as a `rune`; above `0x7F` it raises unless a default is given.
+Convert to the symbol the one-octet text holding the byte reads as.
+
+An ASCII octet is that symbol, a higher one its [escape](string.md#undecodable-octets) (`U+DC80`–`U+DCFF`).
+Total — the inverse of `rune.byte()`, so the default is never used; the Latin-1 reading is `.int().rune()`.
 
 ```go
 b'A'.rune()            // => 'A'
-byte(200).rune()       // Error: conversion: cannot convert byte to rune
-byte(200).rune('?')    // => '?' — the default covers the partial edge
+byte(200).rune()       // => '\udcc8' — the octet's escape, as byte(200).string()[0] reads it
+byte(200).rune('?')    // => '\udcc8' — total, so the default is never used
+byte(200).rune().byte() // => byte(200)
+byte(200).int().rune() // => 'È' — the Latin-1 reading, asked for explicitly
 ```
 
 <a id="runes"></a>

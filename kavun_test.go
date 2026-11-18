@@ -37,6 +37,7 @@ import (
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/kavungen"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
@@ -532,6 +533,39 @@ func TestByte(t *testing.T) {
 	expectError(t, `out = byte(300, byte(7))`, nil, "wrong_num_arguments: (byte) expected ([x]), got 2 arguments") // no free default form
 	expectRun(t, `out = (300).byte(byte(7))`, nil, byte(7))                                                        // the member default is the fallible-conversion spelling
 
+	// a byte literal spells exactly one octet, read as b"…" reads it: b'x' is b"x"[0]
+	expectRun(t, `out = b'\u0041' == b"\u0041"[0]`, nil, true)
+	expectRun(t, `out = b'\xff' == b"\xff"[0]`, nil, true)
+	expectRun(t, `out = b"ÿ".len()`, nil, int64(2)) // so b'ÿ' has no one octet to be
+	for _, src := range []string{`out = b'ÿ'`, `out = b'é'`, `out = b'\u00ff'`, `out = b'\U000000e9'`} {
+		_, err := kavun.NewScript([]byte(src)).Compile()
+		require.Error(t, err, src)
+		require.True(t, strings.Contains(err.Error(), `a byte literal is one octet; write \xNN`), "%s: %s", src, err.Error())
+	}
+
+	// byte verbs: c is the octet itself, q a byte literal that reads back
+	expectRun(t, `out = f"{b'A':c}"`, nil, "A")
+	expectRun(t, `out = f"{b'\xff':c}".bytes()`, nil, []byte{0xFF})
+	expectRun(t, `out = f"{b'\xff':c}" == b'\xff'.string()`, nil, true)
+	expectRun(t, `out = f"{b'A':>3c}|"`, nil, "  A|")
+	expectRun(t, `out = f"{b'A':q}"`, nil, "b'A'")
+	expectRun(t, `out = f"{b'\n':q}"`, nil, `b'\n'`)
+	expectRun(t, `out = f"{b'\'':q}"`, nil, `b'\''`)
+	expectRun(t, `out = f"{b'\\':q}"`, nil, `b'\\'`)
+	expectRun(t, `out = f"{b'\x00':q}"`, nil, `b'\x00'`)
+	expectRun(t, `out = f"{b'\x7f':q}"`, nil, `b'\x7f'`)
+	expectRun(t, `out = f"{b'\xff':q}"`, nil, `b'\xff'`)
+	expectRun(t, `out = f"{b'\xff':<9q}|"`, nil, `b'\xff'  |`)
+	expectError(t, `out = f"{b'A':+c}"`, nil, "unsupported_format_spec")
+	expectError(t, `out = f"{b'A':+q}"`, nil, "unsupported_format_spec")
+	// every byte's q render reads back as the same byte
+	for o := 0; o < 256; o++ {
+		got := core.ByteValue(byte(o))
+		render, err := got.Format(fspec.FormatSpec{Verb: 'q'})
+		require.NoError(t, err)
+		expectRun(t, fmt.Sprintf(`out = %s`, render), nil, byte(o))
+	}
+
 	// a byte's canonical TEXT is the one-octet text holding it, matching .string(): every
 	// convert-to-string surface agrees, and it is TOTAL — a high octet has a text form too
 	expectRun(t, `out = ["x", b'A'].join("-")`, nil, "x-A")
@@ -568,15 +602,82 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = byte(200) < 300`, nil, true) // widens the int side; never truncates byte
 	expectRun(t, `out = 300 > byte(200)`, nil, true)
 
-	// byte vs. rune: rune safely accepts byte (rule 2, Latin-1 bijection); + inherits rune+rune's
-	// rejection, - becomes a genuine code-point distance, ordering/equality widen the same way.
+	// byte vs. rune: rune accepts byte (rule 2) READ AS TEXT — rune(b): ASCII as itself, a high octet as its
+	// escape U+DC80-U+DCFF, never its Latin-1 code point; + inherits rune+rune's rejection, - is a code-point
+	// distance, ordering/equality compare the converted byte.
 	expectError(t, `out = byte(65) + 'A'`, nil, "invalid_binary_operator: byte + rune")
 	expectError(t, `out = 'A' + byte(65)`, nil, "invalid_binary_operator: rune + byte")
+	expectError(t, `out = b'\xe9' + '\udce9'`, nil, "invalid_binary_operator: byte + rune")
+	expectError(t, `out = '\udce9' | b'\xe9'`, nil, "invalid_binary_operator")
 	expectRun(t, `out = byte(65) - 'B'`, nil, -1)
 	expectRun(t, `out = 'B' - byte(65)`, nil, 1)
 	expectRun(t, `out = byte(65) < 'B'`, nil, true)
 	expectRun(t, `out = byte(65) == 'A'`, nil, true)
 	expectRun(t, `out = 'A' == byte(65)`, nil, true)
+	expectRun(t, `out = b'\xe9' == 'é'`, nil, false)
+	expectRun(t, `out = 'é' == b'\xe9'`, nil, false)
+	expectRun(t, `out = b'\xe9' != 'é'`, nil, true)
+	expectRun(t, `out = b'\xe9' == '\udce9'`, nil, true)
+	expectRun(t, `out = '\udce9' == b'\xe9'`, nil, true)
+	expectRun(t, `out = '\udce9' != b'\xe9'`, nil, false)
+	expectRun(t, `out = b'\xe9' == 233 && 'é' == 233`, nil, true) // the numeric readings are unmoved
+	expectRun(t, `out = b'\x80' < 'Ā'`, nil, false)               // U+DC80 > U+0100
+	expectRun(t, `out = 'Ā' < b'\x80'`, nil, true)
+	expectRun(t, `out = b'\xff' > 'ÿ'`, nil, true)
+	expectRun(t, `out = b'\xff' <= '\udcff' && b'\xff' >= '\udcff'`, nil, true)
+	expectRun(t, `out = 'é' - b'\xe9'`, nil, 0xE9-0xDCE9)
+	expectRun(t, `out = b'\xe9' - 'é'`, nil, 0xDCE9-0xE9)
+	expectRun(t, `out = [b'\xe9'].contains('é')`, nil, false)
+	expectRun(t, `out = [b'\xe9'].contains('\udce9')`, nil, true)
+	expectRun(t, `out = [b'\xe9'].index('\udce9')`, nil, 0)
+	expectRun(t, `out = [b'\xe9', '\udce9', 'é'].unique().len()`, nil, 2)
+	expectRun(t, `out = ['\udcff', b'\x80', 'é'].sort()`, nil, ARR{rune(0xE9), byte(0x80), rune(0xDCFF)})
+
+	// rune(b) / b.rune() are total and the inverse of r.byte(), for every byte
+	for o := 0; o < 256; o++ {
+		expectRun(t, fmt.Sprintf(`b := byte(%d); out = rune(b).byte() == b && b.rune() == rune(b) && rune(b) == b.string().runes()[0] && rune(b) == b`, o), nil, true)
+	}
+	expectRun(t, `out = rune(b'\xe9')`, nil, rune(0xDCE9))
+	expectRun(t, `out = b'\xe9'.rune('?')`, nil, rune(0xDCE9))  // total: the default is never used
+	expectRun(t, `out = b'\xe9'.int().rune()`, nil, rune(0xE9)) // the Latin-1 reading, asked for explicitly
+	expectError(t, `out = 'é'.byte()`, nil, "conversion")       // unchanged: U+00E9 is two octets
+	// every path through the byte's rune conversion follows it: index assignment, the array conversions, a map
+	// callback answering a byte, min/equality across containers, and indexing text against a byte
+	expectRun(t, `u := runes(u"ab"); u[0] = b'\xe9'; out = u`, nil, []rune{0xDCE9, 'b'})
+	expectRun(t, `out = [b'\xe9'].runes()`, nil, []rune{0xDCE9})
+	expectRun(t, `out = runes([b'\xe9'])`, nil, []rune{0xDCE9})
+	expectRun(t, `out = [b'\xe9'].string()`, nil, "\xe9")
+	expectRun(t, `out = string([b'\xe9'])`, nil, "\xe9")
+	expectRun(t, `out = "ab".map(func(c) { return b'\xe9' })`, nil, "\xe9\xe9")
+	expectRun(t, `out = u"ab".map(func(c) { return b'\xe9' })`, nil, []rune{0xDCE9, 0xDCE9})
+	expectRun(t, `out = [b'\xe9', 'é'].min()`, nil, rune(0xE9))
+	expectRun(t, `out = dict({a: b'\xe9'}) == dict({a: '\udce9'})`, nil, true)
+	expectRun(t, `out = {a: b'\xe9'} == {a: '\udce9'}`, nil, true)
+	expectRun(t, `out = [b'\xe9'] == ['\udce9']`, nil, true)
+	expectRun(t, `out = "\xe9"[0] == b'\xe9'`, nil, true)
+	expectRun(t, `out = u"\udce9"[0] == b'\xe9'`, nil, true)
+	expectRun(t, `out = b"\xe9"[0] == '\udce9'`, nil, true)
+
+	// the free text conversions answer exactly what the members answer: bytes -> string is total
+	expectRun(t, `out = string(bytes([0x80]))`, nil, "\x80")
+	expectRun(t, `out = string(bytes([0x61, 0xff, 0xc3])) == bytes([0x61, 0xff, 0xc3]).string()`, nil, true)
+	expectRun(t, `out = string(bytes([0x61, 0xff, 0xc3])).bytes()`, nil, []byte{0x61, 0xFF, 0xC3})
+	expectRun(t, `out = runes(bytes([0x80])) == bytes([0x80]).runes()`, nil, true)
+
+	// a high byte meeting text is exactly the one-element bytes([b]), on every member and operator
+	for _, o := range []int{0x80, 0xC3, 0xE9, 0xFF} {
+		for _, x := range []string{fmt.Sprintf(`"a\x%02xb\x%02x"`, o, o), fmt.Sprintf(`u"a\udc%02xb\udc%02x"`, o, o)} {
+			for _, op := range []string{"x.contains(%s)", "x.index(%s)", "x.index_last(%s)", "x.count(%s)", "x.remove(%s)",
+				"x.split(%s)", "x.has_prefix(%s)", "x.has_suffix(%s)", "x.remove_suffix(%s)", "x.append(%s)",
+				"x.prepend(%s)", "x.replace(%s, \"-\")", "x.partition(%s)", "x + %s", "x - %s", "%s in x"} {
+				src := fmt.Sprintf("x := %s; out = (%s) == (%s)", x, fmt.Sprintf(op, fmt.Sprintf("byte(%d)", o)), fmt.Sprintf(op, fmt.Sprintf("bytes([%d])", o)))
+				expectRun(t, src, nil, true)
+			}
+			// the element-set members take the byte as one symbol, as its rune
+			expectRun(t, fmt.Sprintf("x := %s; out = x.trim(byte(%d)) == x.trim(rune(byte(%d)))", x, o, o), nil, true)
+			expectRun(t, fmt.Sprintf("x := %s; out = x.push(byte(%d)) == x.push(rune(byte(%d)))", x, o, o), nil, true)
+		}
+	}
 
 	v = core.ByteValue(0)
 	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String()), nil, true)
@@ -1029,6 +1130,36 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = 'あ'`, nil, rune(12354))
 	expectRun(t, `out = 'Æ'`, nil, rune(198))
 
+	// an octet escape rune is spelled \udcNN (or \U0000DCNN), and renders back to that spelling
+	expectRun(t, `out = '\udcff'`, nil, rune(0xDCFF))
+	expectRun(t, `out = '\U0000DC80'`, nil, rune(0xDC80))
+	expectRun(t, `out = '\udcff' == "\xff"[0]`, nil, true) // the escape a string reads for the octet
+	expectRun(t, `out = '\udcff'.byte()`, nil, byte(0xFF))
+	expectRun(t, `out = '\udcff'.is_valid()`, nil, false)
+	expectRun(t, `out = '\udcab'.format("v")`, nil, `'\udcab'`)
+	expectRun(t, `out = '\udcab'.format("q")`, nil, `'\udcab'`)
+	expectRun(t, `out = ['\udc80'].format("v")`, nil, `['\udc80']`)
+	expectRun(t, `out = '\xff'.format("q")`, nil, `'ÿ'`) // U+00FF is a symbol: rendered as one
+	// the escape-rune spelling is for rune and runes literals only; every other surrogate is refused everywhere
+	for src, want := range map[string]string{
+		`out = "\udcff"`:  `\udcff is an octet escape: write \xff in a string literal`,
+		`out = b"\udcff"`: "escape sequence is invalid Unicode code point",
+		`out = '\ud800'`:  "escape sequence is invalid Unicode code point",
+		`out = '\ude00'`:  "escape sequence is invalid Unicode code point",
+		`out = '\udc7f'`:  "escape sequence is invalid Unicode code point",
+	} {
+		_, err := kavun.NewScript([]byte(src)).Compile()
+		require.Error(t, err, src)
+		require.True(t, strings.Contains(err.Error(), want), "%s: %s", src, err.Error())
+	}
+	// every escape's render reads back as the same escape
+	for r := rune(0xDC80); r <= 0xDCFF; r++ {
+		render := fmt.Sprintf(`'\u%04x'`, r)
+		expectRun(t, fmt.Sprintf(`out = rune(%d).format("v")`, r), nil, render)
+		expectRun(t, fmt.Sprintf(`out = rune(%d).format("q")`, r), nil, render)
+		expectRun(t, fmt.Sprintf(`out = %s.int()`, render), nil, int64(r))
+	}
+
 	// rune + rune is deliberately undefined — "the sum of two code points" corresponds to nothing
 	// real (unlike byte + byte's wraparound-counter reading, since rune isn't a ring).
 	expectError(t, `out = '0' + '9'`, nil, "invalid_binary_operator: rune + rune")
@@ -1262,7 +1393,8 @@ func TestString(t *testing.T) {
 	// `-`'s acceptance equals `+`'s: octets are symbols in ASCII, bytes decode as UTF-8
 	expectRun(t, `out = "foo" - b'o'`, nil, "f")
 	expectRun(t, `out = "foo" - bytes("f")`, nil, "oo")
-	expectError(t, `"foo" - byte(200)`, nil, "invalid_value") // a non-ASCII octet is no symbol
+	expectRun(t, `out = "a\xc8b" - byte(200)`, nil, "ab") // a high octet is its escape, as bytes([200]) reads
+	expectRun(t, `out = ("a\xc8b" - byte(200)) == ("a\xc8b" - bytes([200]))`, nil, true)
 	// '-' is lhs-only, no reflected direction — rune - string was never defined (mirrors '+',
 	// which also doesn't define rune "owning" a pairing with string for removal).
 	expectError(t, `out = 'f' - "foo"`, nil, "invalid_binary_operator: rune - string")
@@ -1391,6 +1523,26 @@ ignored := "abc".for_each(func(i, r) {
 
 func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"Hello World!"`, nil, []rune("Hello World!"))
+
+	// u"…": every escape but \udcNN writes octets, and each run of octets decodes as one text; \udcNN inserts
+	// that escape rune between the runs, never fused with its neighbours
+	expectRun(t, `out = u"\xc3\xa9".len()`, nil, int64(1))
+	expectRun(t, `out = u"\udcc3\udca9".len()`, nil, int64(2))
+	expectRun(t, `out = u"\xc3\udca9".len()`, nil, int64(2))
+	expectRun(t, `out = u"\xff" == u"\udcff"`, nil, true)
+	expectRun(t, `out = u"a\udcffb".bytes()`, nil, []byte{'a', 0xFF, 'b'})
+	expectRun(t, `out = u"\udcc3\udca9".format("v")`, nil, `u"\udcc3\udca9"`)
+	expectRun(t, `out = u"\xc3\xa9".format("v")`, nil, `u"é"`)
+	expectRun(t, `out = bytes([0xE2, 0x82]).runes().format("v")`, nil, `u"\udce2\udc82"`)
+	expectRun(t, `out = u"é\n\udcff".format("q")`, nil, `"é\n\xff"`) // q is the string-literal render of the text
+	// a value holding adjacent escapes whose octets would spell a symbol re-reads, from its render, as itself
+	expectRun(t, `out = u"\udcc3\udca9" == bytes([0xC3]).runes() + bytes([0xA9]).runes()`, nil, true)
+	expectRun(t, `out = u"\udcc3\udca9" == u"é"`, nil, false)
+	for _, src := range []string{`out = u"\udc7f"`, `out = u"\ud800"`, `out = u"a\ude00"`} { // not an escape rune
+		_, err := kavun.NewScript([]byte(src)).Compile()
+		require.Error(t, err, src)
+		require.True(t, strings.Contains(err.Error(), "escape sequence is invalid Unicode code point"), "%s: %s", src, err.Error())
+	}
 	expectRun(t, `out = u"Hello" + u" " + "World!"`, nil, []rune("Hello World!"))
 
 	// the RECEIVER — the left operand — decides the result type; content order still
@@ -1430,7 +1582,9 @@ func TestRunes(t *testing.T) {
 	// an octet is a symbol in ASCII; beyond it, no symbol exists to add
 	expectRun(t, `out = b'A' + runes("bc")`, nil, []rune("Abc"))
 	expectRun(t, `out = runes("bc") + b'A'`, nil, []rune("bcA"))
-	expectError(t, `runes("bc") + byte(200)`, nil, "invalid_value")
+	expectRun(t, `out = runes("bc") + byte(200)`, nil, []rune{'b', 'c', 0xDCC8}) // a high octet: its escape
+	expectRun(t, `out = (runes("bc") + byte(200)) == (runes("bc") + bytes([200]))`, nil, true)
+	expectRun(t, `out = byte(200) + runes("bc")`, nil, []rune{0xDCC8, 'b', 'c'})
 	// `-`'s acceptance equals `+`'s
 	expectRun(t, `out = u"banana" - "an"`, nil, []rune("ba"))
 	expectRun(t, `out = u"foo" - b'o'`, nil, []rune("f"))
@@ -4156,6 +4310,18 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `out = 'A'.format("d")`, nil, "65")
 	expectRun(t, `out = 'A'.format("U")`, nil, "U+0041")
 	expectRun(t, `out = 'A'.format("q")`, nil, "'A'")
+	expectRun(t, `out = '\udcff'.format("q")`, nil, `'\udcff'`) // an escape: its own spelling, never U+FFFD
+	expectRun(t, `out = f"{'\udcff':>10q}|"`, nil, `  '\udcff'|`)
+
+	// f-string expressions are written as outside, except that " is written \"
+	expectRun(t, `out = f"{'\n':q}"`, nil, `'\n'`)
+	expectRun(t, `out = f"{'\'':q}"`, nil, `'\''`)
+	expectRun(t, `out = f"{\"a\" + \"b\"}"`, nil, "ab")
+	expectRun(t, `out = f"{\"a\\nb\"}"`, nil, `a\nb`) // as "a\\nb" reads outside: backslash, n
+	expectRun(t, `out = f"{\"a\nb\"}"`, nil, "a\nb")
+	expectRun(t, `out = f"{\"\\\"}|"`, nil, `\|`) // a \\ before the closing \" stays one backslash
+	expectRun(t, `out = f"{u\"\udcc3\udca9\".len()}"`, nil, "2")
+	expectRun(t, `out = f"{1:>{\"\\t\".len()}}"`, nil, " 1") // dynamic spec: the same rule
 
 	// string verbs
 	expectRun(t, `out = "abc".format("v")`, nil, `"abc"`)
@@ -4995,6 +5161,13 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = f"{e:c}"`, nil, "\xff") // the c rendering of an escape is its octet
 	expectRun(t, `out = f"{0xDCFF:c}"`, nil, "\xff")
 	expectError(t, `out = f"{0xD800:c}"`, nil, "unsupported_format_spec") // a surrogate has no character: raise, never U+FFFD
+	expectError(t, `out = f"{0xD800:q}"`, nil, "unsupported_format_spec") // q refuses what c refuses
+	// an escape's q render is its literal spelling, never U+FFFD
+	expectRun(t, `out = f"{0xDCFF:q}"`, nil, `'\udcff'`)
+	expectRun(t, `s := b"a\xffb".string(); e := s[1]; out = f"{e:q}"`, nil, `'\udcff'`)
+	expectRun(t, `out = f"{0xFF:q}"`, nil, `'ÿ'`)
+	expectError(t, `out = f"{-1:q}"`, nil, "unsupported_format_spec")
+	expectError(t, `out = f"{0x110000:q}"`, nil, "unsupported_format_spec")
 	expectRun(t, `out = format({a: 1})`, nil, `{"a": 1}`)
 	expectRun(t, `out = format(undefined)`, nil, "undefined")
 	expectRun(t, `out = [1, 2].map(format)`, nil, ARR{"1", "2"}) // the render's callable form
@@ -8321,7 +8494,7 @@ out = try(func(){ return json.encode(bytes([97, 255]).runes()) })
 	expectRun(t, `out = b'\xFF'.format("v")`, nil, "byte(255)")
 	expectRun(t, `out = [b'\xFF'].format("v")`, nil, "[byte(255)]")
 	expectRun(t, `out = bytes([97, 255]).string().format("v")`, nil, `"a\xff"`)
-	expectRun(t, `out = bytes([97, 255]).runes().format("v")`, nil, `u"a\xff"`)
+	expectRun(t, `out = bytes([97, 255]).runes().format("v")`, nil, `u"a\udcff"`) // an escape rune renders as its own spelling
 
 	// the octets survive a slice/concat round trip through every text type
 	expectRun(t, `s := bytes([97, 255, 98]).string(); out = (s.slice(0, 2) + s.slice(2, 3)).bytes()`, nil, []byte{97, 255, 98})
@@ -11639,7 +11812,8 @@ func TestInOperatorReadings(t *testing.T) {
 	// unacceptable operands raise — the silent false is gone
 	expectError(t, `1.5 in "abc"`, nil, "invalid_argument_type")         // no fractional symbol
 	expectError(t, `300 in bytes("ab")`, nil, "invalid_value")           // out of the octet range
-	expectError(t, `byte(200) in "abc"`, nil, "invalid_value")           // no symbol beyond ASCII
+	expectRun(t, `out = byte(200) in "abc"`, nil, false)                 // a high octet is its escape: absent here
+	expectRun(t, `out = byte(200) in "ab\xc8"`, nil, true)               // and present here, as bytes([200]) is
 	expectError(t, `[1, 2] in range(0, 9)`, nil, "not_implemented")      // the run reading on a range is deferred
 	expectError(t, `dict({}) in dict({a: 1})`, nil, "not_implemented")   // the submap reading is deferred
 	expectRun(t, `d := dict(); d[1.5] = "x"; out = 1.5 in d`, nil, true) // a float converts to its key
@@ -11742,7 +11916,7 @@ func TestLocatorNeedleAcceptance(t *testing.T) {
 	expectError(t, `"abc".index(55296)`, nil, "must be a valid code point") // a surrogate is no symbol
 	expectError(t, `"abc".index(1.5)`, nil, "invalid_argument_type")        // no fractional symbol
 	expectError(t, `bytes("ab").index(300)`, nil, "must be in [0, 255]")    // out of the octet range
-	expectError(t, `u"ab".index_last(byte(200))`, nil, "invalid_value")     // no symbol beyond ASCII
+	expectRun(t, `out = u"ab\udcc8".index_last(byte(200))`, nil, 2)         // a high octet is its escape
 	expectError(t, `range(0, 5).index("x")`, nil, "invalid_argument_type")
 	expectRun(t, `out = "abc".index(98)`, nil, 1)       // a valid code point is the element
 	expectRun(t, `out = "abc".index('z', -1)`, nil, -1) // a genuine miss still answers the default

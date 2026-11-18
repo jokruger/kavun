@@ -184,7 +184,7 @@ func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, 
 	return locatorAnswer(idx, dflt)
 }
 
-// textMatchArg is runesEncodeMatchArg's reading — text content, an element class (rune / ASCII byte / in-range
+// textMatchArg is runesEncodeMatchArg's reading — text content, an element class (rune / byte / in-range
 // int) or a run class (string / runes / bytes) — answered as TEXT instead of symbols, for the members that read
 // the receiver in place. Same acceptance, same errors, byte for byte. A string argument costs nothing; a rune,
 // runes or bytes argument is encoded (an allocation the size of the ARGUMENT — never of the receiver).
@@ -199,10 +199,8 @@ func textMatchArg(name string, a Value) (txt string, isElement bool, matchable b
 	case value.Rune:
 		return text.EncodeRuneText(rune(a.Data)), true, true, nil
 	case value.Byte:
-		if a.Data > 0x7F {
-			return "", false, false, text.ErrOctetNotSymbol(name, a.Data)
-		}
-		return text.EncodeRuneText(rune(a.Data)), true, true, nil // ASCII: one octet
+		// TOTAL: the octet itself, as bytes([b]); alone it reads as one symbol (its escape above ASCII)
+		return string([]byte{byte(a.Data)}), true, true, nil
 	case value.Int:
 		r, ok := a.AsRune()
 		if !ok {

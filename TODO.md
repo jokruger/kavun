@@ -2,20 +2,6 @@
 
 ## potential problems
 
-3. **Callable arity — RESOLVED 2026-10-26.** Every callable kind answers one pair: arity = the count of fixed
-   parameters, variadic = accepts more (render `/N`, `/N+`; a script function's `...rest` is not counted). Every
-   native function declares a signature template (`(width[, fill])`, `() | (components) | (start, stop[, step])`)
-   in a `//kavun:` directive beside its body; `cmd/kavun-gen` generates the tables (`kavun_gen.go`) and the
-   reference pages (`docs/reference/`) from them. The dispatcher checks the floor before the body runs; a body
-   keeps only its bound or gap (`core.ErrArgCount`), and every wrong-count error quotes the template or states the
-   pair. Callbacks take the fewest form the pair accepts (`core.CallbackForm`), so `xs.map(min)`, `xs.map(int)`,
-   `xs.keep(s.contains)` work and a lambda is the one way to adapt a callable. Pinned by `TestMemberArity`,
-   `TestArgCountSingleSource`, `TestMemberTemplateParity`, `TestGeneratedInSync` and `TestCallbackForm`.
-5. **The `q` format of an escape rune renders U+FFFD.** Found 2026-10-13. `f"{e:q}"` and `f"{0xDCFF:q}"` answer
-   `'�'` (`strconv.QuoteRune`), while `f"{s:q}"` on a string renders the same octet as `\xff` — and `c` renders it
-   as the octet. No rune literal spells an escape (`'\xff'` is U+00FF, `'\udcff'` is a parse error), so a quoted
-   form has no round-trip spelling: needs a ruling — raise `unsupported_format_spec`, or add a literal form for
-   escape runes. Sites: `core/rune.go` (`q`), `core/int.go` (`q`).
 7.  **`TestBuiltinFunctionBytes` says `bytes('8')` agrees with `'8'.bytes()`, but `rune` has no `bytes()`
     member.** Either the comment is stale or the member is missing (`'8'.bytes()` raises `invalid_method`).
 8.  **`kavun_test.go` cannot see a wrong cached symbol count in an all-literal script.** The harness compiles at O3,
@@ -89,6 +75,13 @@
     a `string` is parsed — a duration passed by mistake (`clock.since(elapsed)`) is silently a time near 1970.
     Decide: accept `time` only (the caller converts explicitly with `x.time()`), or keep "time-compatible" and
     say so on the `clock` page; whichever wins should hold for every other `time`-taking module function.
+21. **The `runes` value codec joins adjacent escapes.** Found 2026-11-18 (escape-rune review). `runesTypeEncodeBinary`
+    / `runesTypeDecodeBinary` (`core/runes.go`) store the text's octets (`text.EncodeText`) and decode them again
+    (`text.DecodeText`), so escapes whose octets spell a symbol come back as that symbol: the runes
+    `u"\udcc3\udca9"` (two escapes, U+DCC3 U+DCA9) round-trips through `EncodeBinary`/`DecodeBinary` as `u"é"` (one
+    rune). Every other runes value round-trips. A fix (store the runes, or mark the escapes) changes the value
+    encoding, so it needs a ruling and probably a core version bump. Bytecode literals are unaffected: the static
+    pool stores a `u"…"` literal's runes as they are.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a

@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // Encoded bytecode is an envelope around the gob stream of a Bytecode:
@@ -260,11 +262,11 @@ func (b *Bytecode) FormatStatics() (output []string, err error) {
 	}
 
 	for i, v := range b.Static.Strings {
-		output = append(output, fmt.Sprintf("[% 3d] %s (string)", i, v))
+		output = append(output, fmt.Sprintf("[% 3d] %s (string)", i, strconv.Quote(v)))
 	}
 
 	for i, v := range b.Static.Runes {
-		output = append(output, fmt.Sprintf("[% 3d] %s (runes)", i, string(v.Elements)))
+		output = append(output, fmt.Sprintf("[% 3d] %s (runes)", i, text.QuoteRunes(v.Elements)))
 	}
 
 	for i, v := range b.Static.Bytes {

@@ -45,7 +45,7 @@ Literal examples:
 i = 42
 f = 3.14
 d = 1.23d
-c = 'A'              // rune (Unicode code point, or an octet escape — see docs/reference/types/string.md)
+c = 'A'              // rune (Unicode code point, or an octet escape '\udcNN' — see docs/reference/types/string.md)
 bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
@@ -58,6 +58,15 @@ fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax
 b = true
 u = undefined
 ```
+
+The quoted literals share one escape set (`\n`, `\t`, `\r`, `\\`, `\xNN`, octal `\NNN`, `\uNNNN`, `\UNNNNNNNN`; a quote
+is escaped by its own delimiter). A [surrogate](reference/types/string.md#undecodable-octets) code point is refused
+in every literal, with one exception: an octet escape rune U+DC80–U+DCFF is spelled `\udcNN` (or `\U0000DCNN`) in a
+rune `'…'` or runes `u"…"` literal. A string `"…"` holds octets, so it writes the octet itself as `\xNN` —
+`"\udcff"` is a parse error naming `\xff`. In `u"…"` every other escape writes octets, each run of octets is read as
+one text (`u"\xc3\xa9"` is the one symbol `é`, `u"\xff"` is the escape U+DCFF), and a `\udcNN` escape is inserted
+between the runs as that rune (`u"\udcc3\udca9"` is two escapes). Raw strings (`r"…"`, backticks) process no
+escapes.
 
 See [F-Strings](f_strings.md) and [Format Mini-Language](format_mini_language.md) for the full f-string syntax
 (expression interpolation, format specs, escape rules, semantics, and differences from Python's f-strings).
@@ -99,7 +108,9 @@ array() == 5  // false, not an error -- unrelated types simply aren't equal
 
 Ordering (`< > <= >=`) crosses the same numeric boundaries — `bool`/`byte`/`rune`/`int`/`decimal`/`float`
 all order against each other — but stops there: it doesn't cross into text the way equality does
-(`byte(1) < "1"` is a runtime error). Comparisons against `float` are exact, not a lossy
+(`byte(1) < "1"` is a runtime error). A `byte` meeting a `rune` is read as text first — `rune(b)`: ASCII as
+itself, `0x80`–`0xFF` as the octet's escape `U+DC80`–`U+DCFF` — so `b'\xe9' == 'é'` is false while
+`b'\xe9' == 233` and `'é' == 233` are true. Comparisons against `float` are exact, not a lossy
 round-trip through `float64`, which matters once numbers get large or have a fractional part with no
 exact binary form:
 
@@ -158,8 +169,11 @@ b'\x00'     // byte(0)
 b'\n'       // newline byte
 ```
 
-The content must resolve to exactly one byte (`0..255`). Empty literals, multi-character contents, and Unicode code
-points above 255 are syntax errors. Hex literals such as `0x41` remain `int` literals.
+The content is read the way `b"..."` reads its content — a character contributes its UTF-8 octets, `\xNN` and octal
+one octet, `\uNNNN` / `\UNNNNNNNN` the UTF-8 of the code point — and must come to exactly one octet: `b'x'` is
+`b"x"[0]` whenever `b"x"` is one octet long. So an ASCII character or escape spells itself, and every other octet is
+written `\xNN`: `b'ÿ'` and `b'\u00ff'` are parse errors (each is two octets — write `b'\xff'`), as are empty and
+multi-character contents. Hex literals such as `0x41` remain `int` literals.
 
 ### Constant literals and constructed literals
 

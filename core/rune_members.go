@@ -18,7 +18,8 @@ import (
 // 'є'.format("d")    // => "1108" — the code point in decimal
 // 'є'.format("x")    // => "454" — hex, no 0x prefix on runes
 // 'є'.format("U")    // => "U+0454" — the U+ notation
-// 'є'.format("q")    // => "'є'" — quoted literal
+// 'є'.format("q")    // => "'є'" — a rune literal that reads back
+// '\udcff'.format("q")  // => "'\\udcff'" — an octet escape in its own spelling
 // ```
 //
 //kavun:member format pure ([spec]) -> string

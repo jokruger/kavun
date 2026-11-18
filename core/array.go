@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"unicode"
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
@@ -1255,17 +1254,10 @@ func arrayTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	return NewArrayValue(t, false), nil
 }
 
+// arrayTypeAsRunes reads every element through its own rune conversion (ElementsToRunes): an int in the rune
+// domain, a rune, a byte as text (ASCII as itself, a high octet as its escape) — all-or-nothing.
 func arrayTypeAsRunes(v Value) ([]rune, bool) {
-	o := (*Array)(v.Ptr)
-	rs := make([]rune, len(o.Elements))
-	for i, e := range o.Elements {
-		r, ok := e.AsInt()
-		if !ok || r < 0 || r > unicode.MaxRune {
-			return nil, false
-		}
-		rs[i] = rune(r)
-	}
-	return rs, true
+	return ElementsToRunes((*Array)(v.Ptr).Elements)
 }
 
 func arrayTypeAsBytes(v Value) ([]byte, bool) {

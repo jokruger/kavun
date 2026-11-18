@@ -794,6 +794,35 @@ func TestParseByteLiteral(t *testing.T) {
 	expectParseError(t, `b''`)
 	expectParseError(t, `b'AB'`)
 	expectParseError(t, `b'😀'`)
+
+	// the content is read as b"…" reads it and must come to exactly one octet
+	byteOf := func(src string) byte {
+		t.Helper()
+		x, err := parseFirstExpr(t, src)
+		require.NoError(t, err)
+		return x.(*scalar.Byte).Value
+	}
+	for src, want := range map[string]byte{
+		`b'A'`: 'A', `b'\n'`: '\n', `b'\x41'`: 'A', `b'\u0041'`: 'A', `b'\U00000041'`: 'A', `b'\101'`: 'A',
+		`b'\''`: '\'', `b'\\'`: '\\', `b'"'`: '"', `b'\x00'`: 0, `b'\x7f'`: 0x7F, `b'\x80'`: 0x80, `b'\xff'`: 0xFF, `b'\377'`: 0xFF,
+	} {
+		require.Equal(t, want, byteOf(src), src)
+	}
+	oneOctet := func(src, octets string) {
+		t.Helper()
+		_, err := parseFirstExpr(t, src)
+		require.Error(t, err)
+		want := `a byte literal is one octet; write \xNN (this one is `
+		require.True(t, strings.Contains(err.Error(), want) && strings.Contains(err.Error(), octets), "%s: got %s", src, err.Error())
+	}
+	oneOctet(`b'ÿ'`, `2 octets: \xc3\xbf`) // never the Latin-1 reading U+00FF = 255
+	oneOctet(`b'é'`, `2 octets: \xc3\xa9`)
+	oneOctet(`b'\u00ff'`, `2 octets: \xc3\xbf`)
+	oneOctet(`b'\U000000e9'`, `2 octets: \xc3\xa9`)
+	oneOctet(`b'ā'`, `2 octets: \xc4\x81`)
+	oneOctet(`b'😀'`, `4 octets: \xf0\x9f\x98\x80`)
+	expectParseError(t, `b'\u0100'`)
+	expectParseError(t, `b'\udcff'`)
 }
 
 func TestParseTimeLiteral(t *testing.T) {
@@ -2758,4 +2787,178 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 
 	tok, _, _ = s.Scan()
 	require.Equal(t, token.Token(tokens.Ident), tok)
+}
+
+// parseFirstExpr parses src and answers its first statement's expression, or the parse error.
+func parseFirstExpr(t *testing.T, src string) (ast.Expression, error) {
+	t.Helper()
+	fs := ast.NewFileSet()
+	f := fs.AddFile("test", -1, len(src))
+	file, err := parser.NewParser(f, []byte(src), nil).ParseFile()
+	if err != nil {
+		return nil, err
+	}
+	require.Equal(t, 1, len(file.Stmts))
+	return file.Stmts[0].(*statement.Expression).Expr, nil
+}
+
+// The rune and runes literals spell an octet escape rune (U+DC80–U+DCFF) as \udcNN / \U0000DCNN; every other
+// literal refuses it, and every literal refuses every other surrogate.
+func TestParseEscapeRuneLiterals(t *testing.T) {
+	runeOf := func(src string) rune {
+		t.Helper()
+		x, err := parseFirstExpr(t, src)
+		require.NoError(t, err)
+		return x.(*scalar.Rune).Value
+	}
+	runesOf := func(src string) []rune {
+		t.Helper()
+		x, err := parseFirstExpr(t, src)
+		require.NoError(t, err)
+		return x.(*scalar.Runes).Value
+	}
+	parseErr := func(src, want string) {
+		t.Helper()
+		_, err := parseFirstExpr(t, src)
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), want), "%s: expected error to contain %q, got: %s", src, want, err.Error())
+	}
+
+	// every escape rune, both spellings, both hex cases
+	for r := rune(0xDC80); r <= 0xDCFF; r++ {
+		require.Equal(t, r, runeOf(fmt.Sprintf(`'\u%04x'`, r)))
+		require.Equal(t, r, runeOf(fmt.Sprintf(`'\U%08X'`, r)))
+		require.True(t, reflect.DeepEqual([]rune{r}, runesOf(fmt.Sprintf(`u"\u%04X"`, r))))
+	}
+	require.Equal(t, 'A', runeOf(`'A'`))
+	require.Equal(t, rune(0xFF), runeOf(`'\xff'`)) // U+00FF, not an escape
+	require.Equal(t, '\'', runeOf(`'\''`))
+	require.Equal(t, rune(0xE9), runeOf(`'\u00e9'`))
+
+	// u"…": octet runs decode as one text; an escape-rune spelling stands apart from them
+	cases := []struct {
+		src  string
+		want []rune
+	}{
+		{`u""`, []rune{}},
+		{`u"abc"`, []rune("abc")},
+		{`u"кавун"`, []rune("кавун")},
+		{`u"\xc3\xa9"`, []rune{0xE9}},               // the octets of é: one symbol
+		{`u"\xff"`, []rune{0xDCFF}},                 // an undecodable octet: its escape
+		{`u"\udcc3\udca9"`, []rune{0xDCC3, 0xDCA9}}, // two escapes, never fused into é
+		{`u"\xc3\udca9"`, []rune{0xDCC3, 0xDCA9}},   // the run before is decoded alone
+		{`u"\udcc3\xa9"`, []rune{0xDCC3, 0xDCA9}},   // and the run after
+		{`u"a\u00e9\n\t\"\\\101\x41"`, []rune("aé\n\t\"\\AA")},
+		{`u"\U0001F600\udcff!"`, []rune{0x1F600, 0xDCFF, '!'}},
+	}
+	for _, c := range cases {
+		got := runesOf(c.src)
+		require.True(t, reflect.DeepEqual(c.want, got), "%s: want %U, got %U", c.src, c.want, got)
+	}
+
+	// a string holds octets: the escape rune is refused with the octet's spelling as the hint
+	parseErr(`"\udcff"`, `\udcff is an octet escape: write \xff in a string literal`)
+	parseErr(`"a\U0000DC80"`, `\U0000DC80 is an octet escape: write \x80 in a string literal`)
+	parseErr(`f"\udcab"`, `\udcab is an octet escape: write \xab in a string literal`)
+	// bytes, byte, time and date literals refuse it as any surrogate
+	for _, src := range []string{`b"\udcff"`, `b'\udcff'`, `t"\udcff"`, `d"\udcff"`} {
+		parseErr(src, "escape sequence is invalid Unicode code point")
+	}
+	// every other surrogate is refused everywhere
+	for _, src := range []string{`'\ud800'`, `'\udc7f'`, `'\ude00'`, `'\udfff'`, `u"\udc7f"`, `u"\ud800"`, `u"a\ude00"`, `"\ud800"`, `'\U0000D800'`} {
+		parseErr(src, "escape sequence is invalid Unicode code point")
+	}
+	// a raw string does no escape processing
+	x, err := parseFirstExpr(t, `r"\udcff"`)
+	require.NoError(t, err)
+	require.Equal(t, `\udcff`, x.(*scalar.String).Value)
+}
+
+// Inside an f-string's {…} the expression is written exactly as outside it, except that `"` is written `\"`:
+// every other backslash sequence reaches the expression's own literal untouched.
+func TestParseFStringExpressionEscapes(t *testing.T) {
+	exprOf := func(src string) ast.Expression {
+		t.Helper()
+		x, err := parseFirstExpr(t, src)
+		require.NoError(t, err)
+		fs := x.(*expression.FString)
+		for _, part := range fs.Parts {
+			if part.Expr != nil {
+				return part.Expr
+			}
+		}
+		t.Fatalf("%s: no expression part", src)
+		return nil
+	}
+	require.Equal(t, '\n', exprOf(`f"{'\n':q}"`).(*scalar.Rune).Value)
+	require.Equal(t, '\'', exprOf(`f"{'\''}"`).(*scalar.Rune).Value)
+	require.Equal(t, '\\', exprOf(`f"{'\\'}"`).(*scalar.Rune).Value)
+	require.Equal(t, '"', exprOf(`f"{'\"'}"`).(*scalar.Rune).Value)
+	require.Equal(t, rune(0xDCFF), exprOf(`f"{'\udcff'}"`).(*scalar.Rune).Value)
+	require.Equal(t, byte(0xFF), exprOf(`f"{b'\xff':q}"`).(*scalar.Byte).Value)
+	require.Equal(t, "a\\nb", exprOf(`f"{\"a\\nb\"}"`).(*scalar.String).Value) // as "a\\nb" reads outside
+	require.Equal(t, "a\nb", exprOf(`f"{\"a\nb\"}"`).(*scalar.String).Value)
+	require.Equal(t, `\`, exprOf(`f"{\"\\\"}"`).(*scalar.String).Value) // a \\ before the closing \" is kept
+	require.Equal(t, "\xff", exprOf(`f"{\"\xff\"}"`).(*scalar.String).Value)
+	require.True(t, reflect.DeepEqual([]rune{0xDCC3, 0xDCA9}, exprOf(`f"{u\"\udcc3\udca9\"}"`).(*scalar.Runes).Value))
+
+	// the dynamic-spec placeholder follows the same rule
+	x, err := parseFirstExpr(t, `f"{1:{\"\\x\".len()}}"`)
+	require.NoError(t, err)
+	spec := x.(*expression.FString).Parts[0].SpecExprs[0].(*expression.MethodCall)
+	require.Equal(t, `\x`, spec.Object.(*scalar.String).Value)
+
+	// a string literal inside the expression refuses the escape rune as any string does
+	_, err = parseFirstExpr(t, `f"{\"\udcff\"}"`)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), `\udcff is an octet escape: write \xff in a string literal`), err.Error())
+	// the literal text of an f-string still refuses an escaped single quote, as a string literal does
+	_, err = parseFirstExpr(t, `f"\'"`)
+	require.Error(t, err)
+}
+
+// An f-string's literal text is checked by the string-literal rule and an error is reported at the escape itself,
+// with the scanner's wording; the expression inside {…} is the sub-parser's, so its own raw literals pass through.
+func TestParseFStringLiteralEscapeErrors(t *testing.T) {
+	parseErrAt := func(src, msg, at string) {
+		t.Helper()
+		_, err := parseFirstExpr(t, src)
+		require.Error(t, err)
+		want := "Parse Error: " + msg + "\n\tat " + at
+		require.True(t, strings.HasPrefix(err.Error(), want), "%s:\nwant prefix %q\ngot        %q", src, want, err.Error())
+	}
+	parseErrAt(`x := f"\udcff"`, `\udcff is an octet escape: write \xff in a string literal`, "test:1:9")
+	parseErrAt(`x := f"{1}\udc80"`, `\udc80 is an octet escape: write \x80 in a string literal`, "test:1:12")
+	parseErrAt(`x := f"\'"`, "unknown escape sequence", "test:1:9")
+	parseErrAt(`x := f"\q"`, "unknown escape sequence", "test:1:9")
+	parseErrAt(`x := f"ab\xZZ"`, "illegal character U+005A 'Z' in escape sequence", "test:1:12")
+	parseErrAt(`x := f"\ud800"`, "escape sequence is invalid Unicode code point", "test:1:9")
+	parseErrAt(`x := f"\U00110000"`, "escape sequence is invalid Unicode code point", "test:1:9")
+	parseErrAt(`x := f"\101\08"`, "illegal character U+0038 '8' in escape sequence", "test:1:14")
+	// the same escapes in a plain string literal report at the same column, one later (no f)
+	parseErrAt(`x :=  "ab\xZZ"`, "illegal character U+005A 'Z' in escape sequence", "test:1:12")
+
+	// raw literals inside an expression are written as outside, backslashes and all
+	exprOf := func(src string) ast.Expression {
+		t.Helper()
+		x, err := parseFirstExpr(t, src)
+		require.NoError(t, err)
+		return x.(*expression.FString).Parts[0].Expr
+	}
+	require.Equal(t, `\d`, exprOf("f\"{`\\d`}\"").(*scalar.String).Value)
+	require.Equal(t, `\d+\w`, exprOf(`f"{r\"\d+\w\"}"`).(*scalar.String).Value)
+	// \" and \\ still never end the f-string token early
+	x, err := parseFirstExpr(t, `f"a\"b\\c{1}\n"`)
+	require.NoError(t, err)
+	parts := x.(*expression.FString).Parts
+	require.Equal(t, "a\"b\\c", parts[0].Literal)
+	require.Equal(t, "\n", parts[2].Literal)
+
+	// the node spans the whole literal: the leading f, both quotes and the body
+	x, err = parseFirstExpr(t, `f"ab{1}"`)
+	require.NoError(t, err)
+	require.Equal(t, 8, int(x.End()-x.Pos()))
+	s, err := parseFirstExpr(t, `"ab{1}"`)
+	require.NoError(t, err)
+	require.Equal(t, int(s.End()-s.Pos())+1, int(x.End()-x.Pos())) // one longer than the plain string: the f
 }

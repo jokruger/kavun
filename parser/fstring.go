@@ -2,15 +2,19 @@ package parser
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // parseFStringLit parses a tokens.FString token (already in p.tokenLit / p.pos). The literal is the original source
@@ -25,24 +29,29 @@ func (p *Parser) parseFStringLit() ast.Expression {
 	lit := p.tokenLit
 	if len(lit) < 2 || lit[0] != '"' || lit[len(lit)-1] != '"' {
 		p.error(startPos, "malformed f-string literal")
-		return &expression.Invalid{From: startPos, To: startPos + core.Pos(len(lit))}
+		return &expression.Invalid{From: startPos, To: startPos + 1 + core.Pos(len(lit))}
 	}
 	body := lit[1 : len(lit)-1]
-	// position of the first character of the body (just after the opening '"')
-	bodyStart := startPos + 1
+	// position of the first character of the body: the token's position is its leading 'f', then the opening '"'
+	bodyStart := startPos + 2
 
 	parts, err := splitFString(body, bodyStart, p)
 	if err != nil {
-		p.error(startPos, err.Error())
-		return &expression.Invalid{From: startPos, To: startPos + core.Pos(len(lit))}
+		var pe *fstringPosError
+		if errors.As(err, &pe) {
+			p.error(pe.pos, pe.msg)
+		} else {
+			p.error(startPos, err.Error())
+		}
+		return &expression.Invalid{From: startPos, To: startPos + 1 + core.Pos(len(lit))}
 	}
 
 	return &expression.FString{
 		Parts:    parts,
 		ValuePos: startPos,
-		// EndPos is one past the trailing '"'; the leading 'f' is *before* startPos, so the literal occupies
-		// [startPos-1, startPos+len(lit)).
-		EndPos:  startPos + core.Pos(len(lit)),
+		// EndPos is one past the trailing '"': the token starts at its leading 'f' and lit is the quoted body, so
+		// the literal occupies [startPos, startPos+1+len(lit)).
+		EndPos:  startPos + 1 + core.Pos(len(lit)),
 		Literal: lit,
 	}
 }
@@ -62,7 +71,7 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FSt
 			return nil
 		}
 		// Process backslash escapes via strconv.Unquote on a synthetic quoted string. This matches the semantics of
-		// regular `"..."` literals.
+		// regular `"..."` literals; each escape was already checked, with its position, by checkStringEscape.
 		quoted := "\"" + litBuf.String() + "\""
 		s, err := strconv.Unquote(quoted)
 		if err != nil {
@@ -79,6 +88,11 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FSt
 		ch := body[i]
 		switch ch {
 		case '\\':
+			// the scanner steps over every escape of an f-string; the literal text's are checked here, by the
+			// string rule, and reported at the escape
+			if off, msg := checkStringEscape(body[i:]); msg != "" {
+				return nil, &fstringPosError{pos: bodyOffset + core.Pos(i+off), msg: msg}
+			}
 			// preserve escape sequences as-is in the buffer; strconv.Unquote handles them when we flush.
 			litBuf.WriteByte(ch)
 			i++
@@ -106,17 +120,15 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FSt
 			if strings.TrimSpace(exprText) == "" {
 				return nil, fmt.Errorf("f-string: empty expression in '{}'")
 			}
-			// Apply f-string body escape rules to the expression text so that escapes such as `\"` (used to
-			// embed a string literal containing the f-string's own delimiter) are converted back to their
-			// literal form before the sub-parser sees them.
-			if unescaped, uerr := strconv.Unquote("\"" + exprText + "\""); uerr == nil {
-				exprText = unescaped
-			}
+			// The expression is written exactly as outside the f-string, except that its `"` is written `\"`
+			// (the f-string body is a "..." token): undo only that before the sub-parser sees it.
+			specOffset := i + 1 + len(exprText) + 1
+			exprText = unescapeFStringExpr(exprText)
 			expr, perr := p.parseFStringExpr(exprText, bodyOffset+core.Pos(i+1))
 			if perr != nil {
 				return nil, perr
 			}
-			specLiterals, specExprs, specErr := splitDynamicSpec(specText, bodyOffset, i+1+len(exprText)+1, p)
+			specLiterals, specExprs, specErr := splitDynamicSpec(specText, bodyOffset, specOffset, p)
 			if specErr != nil {
 				return nil, specErr
 			}
@@ -155,6 +167,90 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FSt
 		return nil, err
 	}
 	return parts, nil
+}
+
+// unescapeFStringExpr turns the text of an f-string interpolation back into the expression it spells. Inside
+// `{...}` an expression is written exactly as outside the f-string, except that `"` is written `\"` — so `\"`
+// is the one sequence undone; every other backslash sequence (`\n`, `\xff`, `\\`) reaches the sub-parser
+// untouched and means there what it means anywhere else. Read pairwise, so the `\"` of `\\\"` is found and
+// the `\\` before it is kept.
+func unescapeFStringExpr(s string) string {
+	if !strings.Contains(s, `\"`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			if s[i+1] == '"' {
+				b.WriteByte('"')
+			} else {
+				b.WriteByte('\\')
+				b.WriteByte(s[i+1])
+			}
+			i++
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+// fstringPosError is an f-string error reported at its own position rather than at the f-string's start.
+type fstringPosError struct {
+	pos core.Pos
+	msg string
+}
+
+func (e *fstringPosError) Error() string { return e.msg }
+
+// checkStringEscape checks the escape at the start of s (s[0] is the backslash) by the rule of a string literal,
+// as the scanner checks one: it answers "" when the escape is well-formed, else the scanner's message and the
+// offset in s it reports at (the character after the backslash, or the offending digit).
+func checkStringEscape(s string) (off int, msg string) {
+	if len(s) < 2 {
+		return 1, "escape sequence not terminated"
+	}
+	var n int
+	var base, max uint32
+	i := 2
+	switch s[1] {
+	case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '"':
+		return 0, ""
+	case '0', '1', '2', '3', '4', '5', '6', '7':
+		n, base, max, i = 3, 8, 255, 1
+	case 'x':
+		n, base, max = 2, 16, 255
+	case 'u':
+		n, base, max = 4, 16, unicode.MaxRune
+	case 'U':
+		n, base, max = 8, 16, unicode.MaxRune
+	default:
+		return 1, "unknown escape sequence"
+	}
+	var x uint32
+	for ; n > 0; n-- {
+		if i >= len(s) {
+			return i, "escape sequence not terminated"
+		}
+		ch, _ := utf8.DecodeRuneInString(s[i:])
+		d := uint32(digitVal(ch))
+		if d >= base {
+			return i, fmt.Sprintf("illegal character %#U in escape sequence", ch)
+		}
+		x = x*base + d
+		i++
+	}
+	if x > max {
+		return 1, "escape sequence is invalid Unicode code point"
+	}
+	if 0xD800 <= x && x < 0xE000 {
+		if text.IsEscapeRune(rune(x)) {
+			return 1, octetEscapeHint(s[:i], rune(x))
+		}
+		return 1, "escape sequence is invalid Unicode code point"
+	}
+	return 0, ""
 }
 
 // skipFStringStringLit advances past a string literal embedded in an f-string interpolation expression.
@@ -361,10 +457,8 @@ func splitDynamicSpec(specText string, bodyOffset core.Pos, specOffset int, p *P
 			if strings.TrimSpace(inner) == "" {
 				return nil, nil, fmt.Errorf("f-string: empty expression in format spec '{}'")
 			}
-			// f-string body escapes (e.g. `\"`) may appear inside the inner text — undo them before sub-parsing.
-			if unescaped, uerr := strconv.Unquote("\"" + inner + "\""); uerr == nil {
-				inner = unescaped
-			}
+			// the same rule as the expression: only `\"` is undone before sub-parsing.
+			inner = unescapeFStringExpr(inner)
 			expr, perr := p.parseFStringExpr(inner, bodyOffset+core.Pos(specOffset+i+1))
 			if perr != nil {
 				return nil, nil, perr

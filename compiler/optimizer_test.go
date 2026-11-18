@@ -121,6 +121,10 @@ func wrapPrimitive(t *testing.T, v any) core.Value {
 		return core.NewStringValue(x)
 	case dec128.Dec128:
 		return core.NewDecimalValue(x)
+	case rune:
+		return core.RuneValue(x)
+	case byte:
+		return core.ByteValue(x)
 	default:
 		t.Fatalf("wrapPrimitive: unsupported %T", v)
 		return core.Undefined
@@ -146,6 +150,31 @@ func TestOptimizer_FoldConstantSubexpressions(t *testing.T) {
 		return oc
 	}
 	cases := []optCase{
+		{
+			// a folded rune / byte becomes a literal that reads back: an escape as '\udcNN', a byte as b'…'
+			name:        "rune escape literal",
+			src:         `out = "\xff"[0]`,
+			wantAST:     `out = '\udcff'`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			wantOut:     rune(0xDCFF),
+			oc:          only,
+		},
+		{
+			name:        "byte literal",
+			src:         `out = b'\xfe' + 1`,
+			wantAST:     `out = b'\xff'`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			wantOut:     byte(0xFF),
+			oc:          only,
+		},
+		{
+			name:        "byte literal ascii",
+			src:         `out = b'@' + 1`,
+			wantAST:     `out = b'A'`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			wantOut:     byte('A'),
+			oc:          only,
+		},
 		{
 			name:        "arithmetic",
 			src:         `out = 1 + 2 * 3`,

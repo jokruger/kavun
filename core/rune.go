@@ -54,6 +54,18 @@ func RuneValue(c rune) Value {
 // x := '\x41'          // => 'A'
 // u := '\u0454'        // => 'є'
 // top := '\U0010FFFF'
+// e := '\udcff'        // => '\udcff' — the octet escape for 0xFF
+// ```
+//
+// An [octet escape](string.md#undecodable-octets) is spelled `'\udcNN'` (or `'\U0000DCNN'`), NN = `80`–`ff`;
+// every other surrogate is a parse error. `'\xff'` is `U+00FF` (`ÿ`), a symbol — not the escape. The `v` and `q`
+// renders write an escape in the same spelling, so a render always reads back as the rune it came from:
+//
+// ```go
+// '\udcff' == "\xff"[0]       // => true — the escape a string reads for the octet
+// '\udcff'.byte()              // => byte(255)
+// '\udcff'.format("q")         // => "'\\udcff'"
+// '\xff'.format("q")           // => "'ÿ'"
 // ```
 //
 // ```go
@@ -87,12 +99,14 @@ func RuneValue(c rune) Value {
 // 'a' - 98             // Error: invalid_value: rune overflow: -1 is outside a rune's domain
 // ```
 //
-// `rune - rune` is the distance between two code points — a plain `int`, not a rune (`rune - byte` reads the
-// same way):
+// `rune - rune` is the distance between two code points — a plain `int`, not a rune. `rune - byte` reads the
+// same way once the byte is read as text (`byte.rune()`: ASCII as itself, a high octet as its
+// [escape](string.md#undecodable-octets)):
 //
 // ```go
 // 'd' - 'a'            // => 3
 // 'a' - b'a'           // => 0
+// '\udce9' - b'\xe9'   // => 0 — a high octet is its escape
 // ```
 //
 // | operator | with `int` | with `rune` | with `byte` | with `float` / `decimal` |
@@ -106,7 +120,8 @@ func RuneValue(c rune) Value {
 // ### Comparison
 //
 // Comparisons order by code point and accept the numeric-valued scalars — `rune`, `byte`, `int`, `bool`
-// (as 0/1), `float`:
+// (as 0/1), `float`. A `byte` is read as text first, as `byte.rune()` reads it: an ASCII octet is that symbol, a
+// higher one its [escape](string.md#undecodable-octets) — never its Latin-1 code point:
 //
 // ```go
 // 'a' < 'b'            // => true
@@ -114,6 +129,9 @@ func RuneValue(c rune) Value {
 // 97 == 'a'            // => true
 // 'a' == b'a'          // => true
 // 'a' < 97.5           // => true
+// 'é' == b'\xe9'       // => false — the octet 0xE9 is not the symbol é
+// '\udce9' == b'\xe9'  // => true — it is its escape
+// 'ÿ' < b'\xff'        // => true — U+00FF < U+DCFF
 // ```
 //
 // ### As text content
@@ -144,6 +162,9 @@ func RuneValue(c rune) Value {
 // ASCII. `U+0080`–`U+00FF` do *not* convert (their UTF-8 form is two octets); the Latin-1 numeric reading is
 // `.int()` explicitly.
 //
+// The other way, `rune(b)` / `b.rune()` is total and the exact inverse: an ASCII octet is that symbol, a higher
+// one its escape — so `rune(b).byte() == b` for every byte, and `rune(b'\xff')` is `'\udcff'`, not `'ÿ'`.
+//
 // There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway)
 // and no `bytes()` (write `.string().bytes()`). Text never parses into `rune` — `"65".rune()` raises; write
 // `"65".int().rune()`.
@@ -152,7 +173,7 @@ func RuneValue(c rune) Value {
 
 var TypeRune = ValueTypeDescr{
 	Name:         ConstHook(runeTypeName),                                                         // PURE by contract
-	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },                 // PURE by contract
+	String:       func(v Value) string { return text.QuoteRune(rune(v.Data)) },                    // PURE by contract
 	Format:       runeTypeFormat,                                                                  // PURE by contract
 	Interface:    func(v Value) any { return rune(v.Data) },                                       // PURE by contract
 	EncodeJSON:   runeTypeEncodeJSON,                                                              // PURE by contract
@@ -193,7 +214,7 @@ func runeTypeDecodeBinary(v *Value, data []byte) error {
 
 func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return fmt.Sprintf("%q", rune(v.Data)), nil
+		return text.QuoteRune(rune(v.Data)), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(runeTypeName, sp, fspec.AlignLeft), nil
@@ -224,7 +245,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(strconv.QuoteRune(r), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(text.QuoteRune(r), sp, fspec.AlignLeft), nil
 
 	case 'd':
 		if sp.Grouping == ',' || sp.Grouping == '_' || sp.Grouping == 0 {
@@ -297,8 +318,11 @@ func runeTypeAsByte(v Value) (byte, bool) {
 
 func runeTypeEqual(v Value, other Value, final bool) bool {
 	switch other.Type {
-	case value.Rune, value.Byte, value.Bool:
+	case value.Rune, value.Bool:
 		return v.Data == other.Data
+	case value.Byte:
+		// a byte meeting a rune is an octet of text: ASCII as itself, a high octet as its escape
+		return rune(v.Data) == text.OctetRune(byte(other.Data))
 	}
 
 	// default to false if final
@@ -340,7 +364,7 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			}
 
 		case value.Byte:
-			l := int64(other.Data)
+			l := int64(text.OctetRune(byte(other.Data))) // the byte read as text, never its Latin-1 code point
 			r := int64(v.Data)
 			switch op {
 			case tokens.Sub:
@@ -377,6 +401,9 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	case value.Rune, value.Byte:
 		l := int64(v.Data)
 		r := int64(other.Data)
+		if other.Type == value.Byte {
+			r = int64(text.OctetRune(byte(other.Data))) // the byte read as text, never its Latin-1 code point
+		}
 		switch op {
 		case tokens.Sub:
 			return IntValue(l - r), nil

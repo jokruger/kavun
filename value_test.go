@@ -947,7 +947,7 @@ func TestBool_BinaryOp(t *testing.T) {
 // byte is a genuine mod-256 ring (Z/256, matching Go/Rust uint8 bit-for-bit) — same-type and int
 // both wrap for any magnitude on either side of +/-; bitwise is same-type only (except shift's
 // count, which also accepts int); ordering widens rather than truncates; rune is excluded
-// entirely except via rule 2 (rune safely accepts byte, the Latin-1 bijection), which byte itself
+// entirely except via rule 2 (rune accepts byte read as text: ASCII as itself, a high octet as its escape), which byte itself
 // never claims — it always declines and lets rune's hook own the result.
 func TestByte_BinaryOp(t *testing.T) {
 	// ring arithmetic, same-type
@@ -1692,9 +1692,11 @@ func TestFormatByteValue(t *testing.T) {
 		{"b _ 255", bv(255), "_b", "0b1111_1111", false},
 		{"x _ 255", bv(255), "_x", "0xff", false}, // only 2 hex digits, no grouping triggered
 
-		// 'c' verb (ASCII char)
+		// 'c' verb (the octet itself)
 		{"c A", bv('A'), "c", "A", false},
 		{"c width", bv('A'), "3c", "A  ", false},
+		{"c high octet", bv(0xFF), "c", "\xff", false},
+		{"c high octet width", bv(0xFF), ">3c", "  \xff", false},
 
 		// errors
 		{"precision", bv(1), ".2d", "", true},
@@ -1704,8 +1706,14 @@ func TestFormatByteValue(t *testing.T) {
 		{"comma on hex", bv(255), ",x", "", true},
 		{"sign on c", bv('A'), "+c", "", true},
 		{"grouping on c", bv('A'), "_c", "", true},
-		{"q byte", bv('A'), "q", "'A'", false},
-		{"q byte newline", bv('\n'), "q", "'\\n'", false},
+		{"q byte", bv('A'), "q", "b'A'", false},
+		{"q byte newline", bv('\n'), "q", "b'\\n'", false},
+		{"q byte quote", bv('\''), "q", `b'\''`, false},
+		{"q byte backslash", bv('\\'), "q", `b'\\'`, false},
+		{"q byte nul", bv(0), "q", `b'\x00'`, false},
+		{"q byte del", bv(0x7F), "q", `b'\x7f'`, false},
+		{"q byte high", bv(0xFF), "q", `b'\xff'`, false},
+		{"q byte width", bv(0xFF), ">9q", `  b'\xff'`, false},
 		{"unknown verb", bv(1), "z", "", true},
 
 		// tail form unsupported (verb == '#')
@@ -1780,6 +1788,11 @@ func TestFormatRuneValue(t *testing.T) {
 		// 'q' / 'v'
 		{"q A", rv('A'), "q", `'A'`, false},
 		{"q tab", rv('\t'), "q", `'\t'`, false},
+		{"q escape rune", rv(0xDCFF), "q", `'\udcff'`, false}, // its own literal spelling, never U+FFFD
+		{"q escape rune lo", rv(0xDC80), "q", `'\udc80'`, false},
+		{"v escape rune", rv(0xDCAB), "v", `'\udcab'`, false},
+		{"q escape rune width", rv(0xDCFF), ">10q", `  '\udcff'`, false},
+		{"q U+00FF", rv(0xFF), "q", `'ÿ'`, false},
 		{"v A", rv('A'), "v", `'A'`, false},
 		{"q width", rv('A'), "5q", `'A'  `, false},
 		{"T", rv('A'), "T", "rune", false},
@@ -1913,6 +1926,8 @@ func TestFormatIntValue(t *testing.T) {
 		{"c too large", iv(0x110000), "c", "", true},
 		{"q rune", iv('A'), "q", "'A'", false},
 		{"q tab", iv('\t'), "q", "'\\t'", false},
+		{"q escape rune", iv(0xDCFF), "q", `'\udcff'`, false},
+		{"q surrogate", iv(0xD800), "q", "", true},
 		{"q negative", iv(-1), "q", "", true},
 		{"q too large", iv(0x110000), "q", "", true},
 		{"unknown verb", iv(1), "z", "", true},
@@ -2381,6 +2396,11 @@ func TestFormatRunesValue(t *testing.T) {
 		{"s", rv, "s", "hello", false},
 		{"v source form", rv, "v", `u"hello"`, false},
 		{"q", rv, "q", `"hello"`, false},
+		// an escape rune renders as its own spelling, so adjacent escapes stay apart when re-read
+		{"v escapes", core.NewRunesValue([]rune{'a', 0xDCC3, 0xDCA9, 'b'}, false), "v", `u"a\udcc3\udca9b"`, false},
+		{"v escape beside text", core.NewRunesValue([]rune{0xE9, 0xDCFF, '\n'}, false), "v", `u"é\udcff\n"`, false},
+		// q is the string-literal render of the text: its octets, as a string literal reads them
+		{"q escapes", core.NewRunesValue([]rune{'a', 0xDCFF}, false), "q", `"a\xff"`, false},
 		{"T", rv, "T", "runes", false},
 		{"b", rv, "b", "aGVsbG8=", false},
 		{"B", rv, "B", "aGVsbG8", false},

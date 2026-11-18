@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
@@ -886,6 +885,7 @@ func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
 //
 // ```go
 // string(99)            // => "99"
+// string(bytes([0x61, 0x80])) // => "a\x80" — total: the octets as they are, exactly .string()
 // string(undefined)     // Error: conversion — absence has no textual form
 // ```
 //
@@ -916,11 +916,8 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 			s, ok := text.ByteSymbolString(byte(src.Data))
 			return core.NewStringValue(s), ok
 		case value.Bytes:
-			// the UTF-8 decode is partial: invalid input declines
+			// TOTAL: a string holds octets, so the bytes become its octets as they are — exactly .string()
 			b, _ := src.AsBytes()
-			if !utf8.Valid(b) {
-				return core.Undefined, false
-			}
 			return core.NewStringValue(string(b)), true
 		case value.Array, value.IntRange:
 			// a range past MaxSequenceLen declines
@@ -1436,6 +1433,17 @@ func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 // Convert `x` to a `rune`; with no argument, NUL.
+//
+// An `int` converts iff it is in the rune domain. A `byte` always converts, read as text: an ASCII octet is that
+// symbol, a higher one its octet escape — the inverse of `rune.byte()`.
+//
+// ```go
+// rune(65)             // => 'A'
+// rune(b'A')           // => 'A'
+// rune(b'\xe9')        // => '\udce9' — the octet's escape, never U+00E9
+// rune(b'\xe9').byte() // => byte(233)
+// rune(55296)          // Error: conversion
+// ```
 //
 //kavun:builtin rune slot=9 pure ([x]) -> rune
 func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {

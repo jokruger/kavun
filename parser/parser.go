@@ -16,7 +16,6 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
-	"github.com/jokruger/kavun/internal/text"
 )
 
 type bailout struct{}
@@ -572,12 +571,13 @@ func (p *Parser) parseOperand() ast.Expression {
 		return x
 
 	case tokens.RunesString:
-		v, _ := strconv.Unquote(p.tokenLit)
+		v, _ := unquoteRunesLit(p.tokenLit)
 		x := &scalar.Runes{
 			// the same total decode the runtime uses: an octet the literal wrote that is not a
 			// symbol (u"\xff") becomes its escape, never U+FFFD, so u"..." and "..." hold the
-			// same text and round-trip to the same octets
-			Value:    text.DecodeText(v),
+			// same text and round-trip to the same octets; a \udcNN escape is that escape rune,
+			// standing apart from the octets around it
+			Value:    v,
 			ValuePos: p.pos,
 			Literal:  p.tokenLit,
 		}
@@ -711,7 +711,7 @@ func (p *Parser) parseImportExpr() ast.Expression {
 
 func (p *Parser) parseCharLit() ast.Expression {
 	if n := len(p.tokenLit); n >= 3 {
-		code, _, _, err := strconv.UnquoteChar(p.tokenLit[1:n-1], '\'')
+		code, err := unquoteRuneLit(p.tokenLit[1 : n-1])
 		if err == nil {
 			x := &scalar.Rune{
 				Value:    code,
@@ -733,21 +733,25 @@ func (p *Parser) parseCharLit() ast.Expression {
 }
 
 func (p *Parser) parseByteLit() ast.Expression {
+	msg := "illegal byte literal"
 	if n := len(p.tokenLit); n >= 3 {
-		code, _, _, err := strconv.UnquoteChar(p.tokenLit[1:n-1], '\'')
-		if err == nil && code <= 255 {
+		code, err := unquoteByteLit(p.tokenLit[1 : n-1])
+		if err == nil {
 			x := &scalar.Byte{
-				Value:    byte(code),
+				Value:    code,
 				ValuePos: p.pos,
 				Literal:  p.tokenLit,
 			}
 			p.next()
 			return x
 		}
+		if oe, ok := err.(errByteLitOctets); ok && len(oe.octets) > 1 {
+			msg = "illegal byte literal: " + oe.Error()
+		}
 	}
 
 	pos := p.pos
-	p.error(pos, "illegal byte literal")
+	p.error(pos, msg)
 	p.next()
 	return &expression.Invalid{
 		From: pos,

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
@@ -331,10 +330,10 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		if i < 0 || i > utf8.MaxRune {
+		if !text.IntInRuneDomain(i) {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(strconv.QuoteRune(rune(i)), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(text.QuoteRune(rune(i)), sp, fspec.AlignLeft), nil
 	}
 
 	var (

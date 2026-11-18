@@ -40,6 +40,17 @@ func EscapeRuneOctet(r rune) byte { return byte(r - escapeLo + 0x80) }
 // PURE by contract.
 func OctetEscapeRune(b byte) rune { return escapeLo + rune(b) - 0x80 }
 
+// OctetRune reads one octet as text — the one symbol the one-octet text holding it reads as: an ASCII octet is
+// that symbol, a higher one (alone, never a symbol) its escape. TOTAL, and the inverse of the rune → byte
+// conversion (ASCII → itself, escape → its octet). This is the one reading of a byte meeting a rune or text.
+// PURE by contract.
+func OctetRune(b byte) rune {
+	if b < 0x80 {
+		return rune(b)
+	}
+	return OctetEscapeRune(b)
+}
+
 // RuneIsValid reports whether r is a real symbol — a Unicode scalar value. An escape is deliberately NOT
 // valid: it stands for an octet that is not a symbol, which is exactly what a script needs to test for.
 // PURE by contract.

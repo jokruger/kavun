@@ -889,7 +889,7 @@ func runesPrependInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error
 // u"ab".push("c")                         // Error: invalid_argument_type — a sequence never reads as one element here
 // u"ab".push(98)                          // => u"abb" — an int is a code point on the member side
 // u"ab".push(55296)                       // Error: invalid_value — a surrogate is not a valid code point
-// u"ab".push(b'\xff')                     // Error: invalid_value — an octet is a symbol only in ASCII
+// u"ab".push(b'\xff')                     // => u"ab\udcff" — a high octet is its escape
 // ```
 //
 //kavun:member push pure (...items) -> runes
@@ -1061,8 +1061,9 @@ func runesSpliceInPlace(_ VM, v Value, _ member.ID, args []Value) (Value, error)
 //
 // The callback gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)).
 //
-// `map` is strictly 1:1 and answers `runes`: the callback must produce exactly **one element** (a rune, or an int
-// that is a valid code point); a sequence or `undefined` result raises.
+// `map` is strictly 1:1 and answers `runes`: the callback must produce exactly **one element** (a rune, an int
+// that is a valid code point, or a byte — its octet's symbol: ASCII as itself, above it its escape); a sequence or
+// `undefined` result raises.
 //
 // ```go
 // u"abc".map(func(r) { return r + 1 })                     // => u"bcd"

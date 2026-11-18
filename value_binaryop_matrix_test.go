@@ -270,8 +270,41 @@ func TestMatrix_Ordinal(t *testing.T) {
 	matrixOK(t, "byte - rune -> int (byte widens to rune via rule 2)", core.ByteValue('B'), tokens.Sub, core.RuneValue('A'), core.IntValue(1))
 	matrixOK(t, "rune - byte -> int (reversed order)", core.RuneValue('B'), tokens.Sub, core.ByteValue('A'), core.IntValue(1))
 
+	// a high byte widens to rune as text: its escape U+DC80-U+DCFF, never its Latin-1 code point
+	matrixOK(t, "rune - high byte -> int (distance to the escape)", core.RuneValue(0xE9), tokens.Sub, core.ByteValue(0xE9), core.IntValue(0xE9-0xDCE9))
+	matrixOK(t, "high byte - rune -> int (reversed order)", core.ByteValue(0xE9), tokens.Sub, core.RuneValue(0xE9), core.IntValue(0xDCE9-0xE9))
+	matrixOK(t, "high byte - its escape rune -> 0", core.ByteValue(0xE9), tokens.Sub, core.RuneValue(0xDCE9), core.IntValue(0))
+	matrixOK(t, "escape rune - its high byte -> 0", core.RuneValue(0xDCE9), tokens.Sub, core.ByteValue(0xE9), core.IntValue(0))
+
 	matrixErr(t, "byte + rune -> vm error (widens to rune, inherits rune+rune's rejection)", core.ByteValue('A'), tokens.Add, core.RuneValue('B'))
 	matrixErr(t, "rune + byte -> vm error (reversed order)", core.RuneValue('B'), tokens.Add, core.ByteValue('A'))
+	matrixErr(t, "high byte + rune -> vm error", core.ByteValue(0xE9), tokens.Add, core.RuneValue(0xDCE9))
+	matrixErr(t, "rune + high byte -> vm error", core.RuneValue(0xDCE9), tokens.Add, core.ByteValue(0xE9))
+
+	// == / != are the Equal hook (never BinaryOp): a high byte equals its escape rune, not the Latin-1 symbol
+	for _, c := range []struct {
+		name string
+		r    rune
+		want bool
+	}{
+		{"high byte == its escape rune", 0xDCE9, true},
+		{"high byte == the Latin-1 symbol", 0xE9, false},
+		{"high byte == another escape", 0xDCEA, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b, r := core.ByteValue(0xE9), core.RuneValue(c.r)
+			require.Equal(t, c.want, b.Equal(r))
+			require.Equal(t, c.want, r.Equal(b))
+		})
+	}
+	t.Run("ASCII byte == the same rune", func(t *testing.T) {
+		require.True(t, core.ByteValue('A').Equal(core.RuneValue('A')))
+		require.True(t, core.RuneValue('A').Equal(core.ByteValue('A')))
+	})
+	t.Run("high byte == int stays numeric", func(t *testing.T) {
+		require.True(t, core.ByteValue(0xE9).Equal(core.IntValue(0xE9)))
+		require.True(t, core.IntValue(0xE9).Equal(core.ByteValue(0xE9)))
+	})
 }
 
 // ## Sequence/text — concatenation, fixed rank bytes > runes > string
@@ -305,9 +338,18 @@ func TestMatrix_SequenceConcat(t *testing.T) {
 	matrixOK(t, "string + byte -> string (reversed, ASCII)", str("a"), tokens.Add, core.ByteValue('b'), str("ab"))
 	matrixOK(t, "byte + runes -> runes (ASCII)", core.ByteValue('a'), tokens.Add, run("b"), run("ab"))
 	matrixOK(t, "runes + byte -> runes (reversed, ASCII)", run("a"), tokens.Add, core.ByteValue('b'), run("ab"))
-	matrixErr(t, "string + non-ASCII byte -> vm error (no symbol exists)", str("a"), tokens.Add, core.ByteValue(200))
-	matrixErr(t, "runes + non-ASCII byte -> vm error", run("a"), tokens.Add, core.ByteValue(200))
-	matrixErr(t, "non-ASCII byte + string -> vm error", core.ByteValue(200), tokens.Add, str("a"))
+	// a high byte is an octet of text, exactly as bytes([b]): a string takes the octet, runes its escape
+	matrixOK(t, "string + high byte -> string (the octet)", str("a"), tokens.Add, core.ByteValue(200), str("a\xc8"))
+	matrixOK(t, "runes + high byte -> runes (the escape)", run("a"), tokens.Add, core.ByteValue(200), core.NewRunesValue([]rune{'a', 0xDCC8}, false))
+	matrixOK(t, "high byte + string -> string", core.ByteValue(200), tokens.Add, str("a"), str("\xc8a"))
+	matrixOK(t, "high byte + runes -> runes", core.ByteValue(200), tokens.Add, run("a"), core.NewRunesValue([]rune{0xDCC8, 'a'}, false))
+	for _, recv := range []core.Value{str("a"), run("a")} {
+		viaByte, err := recv.BinaryOp(tokens.Add, core.ByteValue(200))
+		require.NoError(t, err)
+		viaBytes, err := recv.BinaryOp(tokens.Add, core.NewBytesValue([]byte{200}, false))
+		require.NoError(t, err)
+		require.True(t, viaByte.Equal(viaBytes), "%s + byte(200) = %s, + bytes([200]) = %s", recv.TypeName(), viaByte.String(), viaBytes.String())
+	}
 
 	// content order still respects which operand was written first, independent of the result type
 	matrixOK(t, "runes + bytes content order preserved", run("cd"), tokens.Add, byt("ab"), run("cdab"))
@@ -519,6 +561,10 @@ func TestMatrix_Comparisons(t *testing.T) {
 	matrixOrder(t, "byte", core.ByteValue(1), "int", core.IntValue(2))
 	matrixOrder(t, "rune", core.RuneValue('a'), "int", core.IntValue(int64('b')))
 	matrixOrder(t, "byte", core.ByteValue('a'), "rune", core.RuneValue('b'))
+	// a high byte orders as its escape rune U+DC80-U+DCFF, never as its Latin-1 code point
+	matrixOrder(t, "rune", core.RuneValue(0x100), "high byte", core.ByteValue(0x80))  // 'Ā' < b'\x80' (U+DC80)
+	matrixOrder(t, "rune", core.RuneValue(0xFF), "high byte", core.ByteValue(0xFF))   // 'ÿ' < b'\xff' (U+DCFF)
+	matrixOrder(t, "high byte", core.ByteValue(0xFF), "rune", core.RuneValue(0xE000)) // U+DCFF < U+E000
 	matrixOrder(t, "byte", core.ByteValue(1), "float", core.FloatValue(1.5))
 	matrixOrder(t, "rune", core.RuneValue('a'), "float", core.FloatValue(float64('a')+0.5))
 	matrixOrder(t, "byte", core.ByteValue(1), "decimal", dec(2))
@@ -571,6 +617,7 @@ func TestMatrix_DeliberateNonDefinitions(t *testing.T) {
 	matrixErr(t, "int << byte -> vm error (count exception one-directional)", core.IntValue(1), tokens.Shl, core.ByteValue(1))
 	matrixErr(t, "rune & rune -> vm error (rune has no bitwise)", core.RuneValue('a'), tokens.And, core.RuneValue('a'))
 	matrixBothErr(t, "byte", core.ByteValue(1), tokens.And, "rune", core.RuneValue('a')) // rule 2 widening doesn't extend to bitwise
+	matrixBothErr(t, "high byte", core.ByteValue(0xE9), tokens.Or, "rune", core.RuneValue(0xDCE9))
 	matrixUnaryErr(t, "unary - rune -> vm error", tokens.Sub, core.RuneValue('a'))
 	matrixUnaryErr(t, "unary - bool -> vm error", tokens.Sub, core.True)
 }
@@ -615,7 +662,10 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	parity("string + bytes ≡ append", str("ab"), "append", tokens.Add, byt("cd"))
 	parity("string + rune ≡ append", str("ab"), "append", tokens.Add, core.RuneValue('x'))
 	parity("string + byte ≡ append (ASCII)", str("ab"), "append", tokens.Add, core.ByteValue('x'))
-	parity("string + non-ASCII byte ≡ append (both raise)", str("ab"), "append", tokens.Add, core.ByteValue(200))
+	parity("string + high byte ≡ append (the octet)", str("ab"), "append", tokens.Add, core.ByteValue(200))
+	parity("runes + high byte ≡ append (the escape)", run("ab"), "append", tokens.Add, core.ByteValue(200))
+	parity("string - high byte ≡ remove", str("a\xc8b"), "remove", tokens.Sub, core.ByteValue(200))
+	parity("runes - high byte ≡ remove", core.NewRunesValue([]rune{'a', 0xDCC8, 'b'}, false), "remove", tokens.Sub, core.ByteValue(200))
 	parity("runes + bytes ≡ append", run("ab"), "append", tokens.Add, byt("cd"))
 	parity("bytes + runes ≡ append", byt("ab"), "append", tokens.Add, run("cd"))
 	parity("bytes + rune ≡ append (UTF-8 run)", byt("ab"), "append", tokens.Add, core.RuneValue('є'))
@@ -635,9 +685,23 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	escRun := core.NewRunesValue([]rune{0xDCFF}, false)
 	part := str("\xe2\x82") // the first two octets of "€", as two escapes
 	for _, recv := range []core.Value{str("a\xffb"), core.NewRunesValue([]rune{'a', 0xDCFF, 'b'}, false), byt("a\xffb")} {
-		for _, operand := range []core.Value{esc, escRun, str("\xff"), byt("\xff")} {
+		for _, operand := range []core.Value{esc, escRun, str("\xff"), byt("\xff"), core.ByteValue(0xFF)} {
 			parity(recv.TypeName()+" + escape "+operand.TypeName()+" ≡ append", recv, "append", tokens.Add, operand)
 			parity(recv.TypeName()+" - escape "+operand.TypeName()+" ≡ remove", recv, "remove", tokens.Sub, operand)
+		}
+		// in ≡ contains: a high byte is found as bytes([b]) is, on every text receiver
+		for _, operand := range []core.Value{core.ByteValue(0xFF), core.ByteValue(0xFE)} {
+			t.Run(recv.TypeName()+" in/contains high byte "+operand.String(), func(t *testing.T) {
+				viaOp, err := recv.Contains(operand)
+				require.NoError(t, err)
+				viaMember, err := core.ValueTypes[recv.Type].CallNamedMethod(nil, recv, "contains", []core.Value{operand})
+				require.NoError(t, err)
+				viaBytes, err := recv.Contains(core.NewBytesValue([]byte{byte(operand.Data)}, false))
+				require.NoError(t, err)
+				require.Equal(t, viaOp, viaMember.Data != 0)
+				require.Equal(t, viaOp, viaBytes)
+				require.Equal(t, operand.Data == 0xFF, viaOp)
+			})
 		}
 	}
 	for _, recv := range []core.Value{str("x€"), run("x€"), byt("x€")} {

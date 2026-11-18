@@ -82,8 +82,8 @@ per-script only.
 | `float`   | `3.14`, `1f`, `1e3`     | value        | IEEE-754 double                    |
 | `decimal` | `1.23d`, `1d`           | value        | exact, for money/finance           |
 | `bool`    | `true`, `false`         | value        |                                     |
-| `rune`    | `'A'`                   | value        | Unicode code point                 |
-| `byte`    | `b'A'`, `b'\x00'`       | value        | 0-255                               |
+| `rune`    | `'A'`, `'\udcff'`       | value        | Unicode code point, or octet escape |
+| `byte`    | `b'A'`, `b'\xff'`       | value        | one octet; non-ASCII only as `\xNN` |
 | `string`  | `"hi"`, `` `raw` ``, `r"\d+"` | immutable | UTF-8 storage, symbol-indexed    |
 | `runes`   | `u"привіт"`             | reference    | mutable symbol array               |
 | `bytes`   | `b"hi"`                 | reference    | binary data                        |
@@ -124,6 +124,7 @@ true == 1     // true
 // -- exact, via math/big.Rat where needed, never a lossy float64 round-trip:
 9007199254740993 == float(9007199254740992)   // false -- no silent large-int precision collapse
 decimal("0.1") == 0.1                         // false -- float 0.1 isn't exactly a tenth; decimal("0.5") == 0.5 is true
+// byte vs rune reads the byte as text: b'A' == 'A', b'\xe9' == '\udce9' (its escape), b'\xe9' != 'é'
 ```
 
 ## Operators
@@ -348,6 +349,8 @@ fin.year_fraction_between(start, end, "ACT/365F"), 2, "half_even")`. Product tab
 name = "world"; n = 42
 f"hello, {name}! n={n:5d}"       // f-string: compiled once, evaluated at each run
 f"{{literal braces}}"            // '{{' / '}}' escape to a literal brace
+f"{\"a\" + 'b'}"                 // "ab" -- inside {…} write the expression as outside, only " as \"
+f"{b'\xff':q}"                   // "b'\xff'" -- byte q: a byte literal; byte c: the octet itself
 
 format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"})   // runtime template, same {…} syntax
 format("pi = {x:.3f}", {x: 3.14159})                         // "pi = 3.142"
@@ -528,6 +531,7 @@ for k in dict({a: 1}) { }      // k is the KEY -- a map's element is its key; us
 "ім'я".len()                    // 4 -- symbols, not bytes; but symbols are code points, not grapheme clusters
 bytes([97,255]).string().bytes() // bytes([97,255]) -- byte<->text conversion is TOTAL and lossless: an octet
                                 //   that is not a symbol becomes its escape (U+DC80..DCFF); is_valid() finds it
+'\udcff'; u"\udcff"             // the escape for 0xFF, spelled in a rune/runes literal; a string writes "\xff"
 undefined.a.b.c                 // undefined -- chained access never panics, only the FIRST missing step matters
 (-2.5d).round_down(0)           // -2d -- "down" is toward ZERO (Python's ROUND_DOWN); toward -inf is round_floor
 ```

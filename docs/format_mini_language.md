@@ -193,21 +193,26 @@ normally with left-alignment as the default; other modifiers (sign, grouping, pr
 
 ### Numbers: `int`, `byte`
 
-| Verb | Meaning                                               |
-| ---- | ----------------------------------------------------- |
-| `d`  | Decimal (default).                                    |
-| `b`  | Binary, prefix `0b`.                                  |
-| `o`  | Octal, prefix `0o`.                                   |
-| `x`  | Hex lowercase digits, prefix `0x`.                    |
-| `X`  | Hex uppercase digits, prefix `0x` (always lowercase). |
-| `c`  | Code point (int) or ASCII byte (byte) as a character. |
-| `q`  | Quoted character literal (e.g. `'A'`, `'\n'`).        |
+| Verb | Meaning                                                                                      |
+| ---- | -------------------------------------------------------------------------------------------- |
+| `d`  | Decimal (default).                                                                           |
+| `b`  | Binary, prefix `0b`.                                                                         |
+| `o`  | Octal, prefix `0o`.                                                                          |
+| `x`  | Hex lowercase digits, prefix `0x`.                                                           |
+| `X`  | Hex uppercase digits, prefix `0x` (always lowercase).                                        |
+| `c`  | Code point (int) as a character; the octet itself (byte).                                    |
+| `q`  | Literal that reads back: `'A'`, `'\n'`, `'\udcff'` (int); `b'A'`, `b'\n'`, `b'\xff'` (byte). |
 
 Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error. The `!` flag (suppress prefix) applies to
 `b`, `o`, `x`, `X` and is a parse error on `d` / `c` / `q`.
 
 `c` on an int renders an escape code point (U+DC80–U+DCFF) as its octet, as the rune does; a code point with no
-character — a surrogate, or beyond U+10FFFF — raises.
+character — a surrogate, or beyond U+10FFFF — raises. `q` on an int renders a rune literal, an escape as `'\udcNN'`,
+and raises where `c` raises.
+
+`c` on a byte renders the octet itself — the byte's text, the same as `b.string()`, so `f"{b'\xff':c}"` is the
+one-octet text `"\xff"`. `q` on a byte renders a byte literal: printable ASCII as itself, the short escapes (`\n`,
+`\t`, `\'`, `\\`, …), every other octet as `\xNN` in lowercase hex.
 
 Grouping `,` is decimal-only; use `_` with `b` / `o` / `x` / `X`.
 
@@ -268,13 +273,14 @@ f"{1.500d:.2f}"  // "1.50"  — precision governs; '!' here is a parse error
 | `q`  | Quoted: `'A'`.             |
 
 `c` renders an escape (an [undecodable octet](reference/types/string.md#undecodable-octets)) as its octet, as `string(r)` does.
+`q` and `v` render it as the rune literal `'\udcNN'` (lowercase hex), so every quoted rune reads back as itself.
 
 ### Strings: `string`, `runes`, `bytes`
 
 | Verb | Meaning                                                                   |
 | ---- | ------------------------------------------------------------------------- |
 | `s`  | Raw text (default).                                                       |
-| `v`  | Source form (`"hello"` / `u"hello"` / `bytes("hello")`).                  |
+| `v`  | Source form (`"hello"` / `u"hello"` / `bytes("hello")`); see below.       |
 | `q`  | Double-quoted with Kavun escapes.                                         |
 | `b`  | Base64 standard.                                                          |
 | `B`  | Base64 URL-safe, no padding.                                              |
@@ -283,6 +289,10 @@ f"{1.500d:.2f}"  // "1.50"  — precision governs; '!' here is a parse error
 | `u`  | Percent-encoded URL component (RFC 3986 unreserved set: `A-Za-z0-9-_.~`). |
 
 `precision` truncates the _source_ before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
+
+The `v` form of a `runes` writes each octet escape rune as `\udcNN`, so two escapes whose octets would spell a symbol
+stay two runes when the render is read back (`u"\udcc3\udca9"`, never `u"é"`). A `string`'s `v` and the `q` of
+`string` / `runes` render the text's octets, an undecodable one as `\xNN`.
 
 Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `~` / `!` flags are parse errors
 unless the verb is `v` (in which case the runtime drops them along with the other generic fields).

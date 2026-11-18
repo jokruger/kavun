@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -871,4 +872,16 @@ bound = "ab".has_prefix
 		require.Error(t, err)
 		require.Equal(t, "aborted", err.Error())
 	})
+}
+
+func TestBytecode_FormatStaticsQuotesText(t *testing.T) {
+	// the listing spells text constants as literals: an octet escape stays visible, never U+FFFD, and two
+	// escapes that would spell a symbol are not joined
+	b := bytecode(concatInsts(), core.Static{
+		Strings: []string{"a\xffb"},
+		Runes:   []core.Runes{{Elements: []rune{'a', 0xDCC3, 0xDCA9}}},
+	})
+	out := b.MustFormatStatics()
+	require.True(t, slices.Contains(out, `[  0] "a\xffb" (string)`), "%q", out)
+	require.True(t, slices.Contains(out, `[  0] u"a\udcc3\udca9" (runes)`), "%q", out)
 }

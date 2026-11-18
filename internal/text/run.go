@@ -7,14 +7,9 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-// The three refusals of the TEXT-CONTENT reading — a member argument that is text content as symbols
+// The two refusals of the TEXT-CONTENT reading — a member argument that is text content as symbols
 // (core's runesEncodeMatchArg) or as text (core's textMatchArg) — built in one place so every reader raises
 // byte-identical messages. name is the member called; typeName the offending argument's type name.
-
-// ErrOctetNotSymbol: a byte argument above ASCII, which is not one symbol.
-func ErrOctetNotSymbol(name string, b uint64) error {
-	return errs.NewInvalidValueError(fmt.Sprintf("(%s) an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", name, b))
-}
 
 // ErrIntNotSymbol: an int argument that is not a code point in the rune domain.
 func ErrIntNotSymbol(name string, i int64) error {

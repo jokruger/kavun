@@ -47,8 +47,9 @@ three dispatch rules live inside the hooks themselves, not in `Value.BinaryOp`:
 2. **Narrow safe-conversion (rule 2).** A small, closed mechanism reserved for pairings where "safe
    conversion" has one unambiguous meaning — pure magnitude/representation widening, no judgment
    call. A richer type declares "I safely accept this narrower type" and converts it on the way in
-   (e.g. `float` accepts `int`; `rune` accepts `byte`, a lossless Latin-1 bijection; `bytes`/`runes`/
-   `string` each accept their scalar). By default the narrower type must **not** also claim the same
+   (e.g. `float` accepts `int`; `rune` accepts `byte` in `-`, ordering and `==`, reading the byte as text
+   first — the total `rune(b)` conversion: ASCII as itself, `0x80`–`0xFF` as the octet's escape
+   `U+DC80`–`U+DCFF`, never its Latin-1 code point; `bytes`/`runes`/`string` each accept their scalar). By default the narrower type must **not** also claim the same
    pairing via rule 1/2 in the other direction — it declines via rule 3, the richer type's reflected
    branch answers, and the semantics live in exactly one place. The one sanctioned exception is a
    deliberate performance mirror — see "Mirrored ownership" below.

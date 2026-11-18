@@ -22,6 +22,7 @@ import (
 	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
+	"github.com/jokruger/kavun/internal/text"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
@@ -1824,7 +1825,7 @@ func (c *Compiler) addStaticRunes(v core.Runes) int {
 	}
 	n := c.sb.AddRunes(v)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d u%s", n, strconv.Quote(string(v.Elements))))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, text.QuoteRunes(v.Elements)))
 	}
 	return n
 }

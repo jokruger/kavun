@@ -975,7 +975,8 @@ func stringSplice(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 //
 // The callback gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)).
 //
-// The callback must return exactly one symbol per element; a sequence or `undefined` result raises.
+// The callback must return exactly one symbol per element — a rune, an int that is a valid code point, or a byte
+// (its octet: ASCII as its symbol, above it the octet itself); a sequence or `undefined` result raises.
 //
 // ```go
 // "abc".map(func(c) { return (c.int() + 1).rune() })       // => "bcd"

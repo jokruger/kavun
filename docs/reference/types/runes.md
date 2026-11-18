@@ -61,6 +61,19 @@ u"привіт"           // Cyrillic
 u"🚀"               // any code point
 ```
 
+Those escapes write octets, exactly as in a `string` literal, and each run of octets is read as one text: the
+octets of a symbol read as that symbol, an octet that is not one as its [escape](string.md#undecodable-octets).
+One more escape is accepted here and in a `rune` literal only: `\udcNN` (or `\U0000DCNN`), NN = `80`–`ff`, the
+octet escape rune itself — inserted between the runs, never joined with the octets around it. The `v` render
+writes every escape rune in that spelling, so a `runes` value always reads back from its render:
+
+```go
+u"\xc3\xa9".len()           // => 1 — the octets of "é" read as the one symbol
+u"\xff"                     // => u"\udcff" — an octet that is not a symbol: its escape
+u"\udcc3\udca9".len()       // => 2 — two escapes, never joined into "é"
+u"\xc3\udca9".len()         // => 2 — the run before an escape is read alone
+```
+
 **`runes` is a mutable sequence — but a literal is an immutable constant.** The *type* is writable; `u"..."`
 is a compile-time constant of that type. Its content is fixed in the source, so the compiler stores it once
 in the bytecode's static pool and every evaluation loads that one shared value — a value that could be
@@ -92,7 +105,7 @@ runes('x', 3)                   // => u"xxx"
 (42).runes()                    // => u"42"
 true.runes()                    // => u"true"
 bytes([104, 105]).runes()       // => u"hi" — UTF-8 decode
-bytes([255]).runes()            // => u"\xff" — the octet's escape — never raises, never loses it
+bytes([255]).runes()            // => u"\udcff" — the octet's escape — never raises, never loses it
 ```
 
 Decoding is total: `bytes` → `runes` never raises — an octet that is not part of valid UTF-8 rides through as its
@@ -129,7 +142,7 @@ Operand acceptance — every accepted operand is text content, decoded into symb
 | `runes` / `string` | its text, verbatim |
 | `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](string.md#undecodable-octets) |
 | `rune` | one symbol |
-| `byte` | one symbol **only in ASCII** (`0x00`–`0x7F`); above that raises |
+| `byte` | one symbol: ASCII as itself, a higher octet as its [escape](string.md#undecodable-octets) — as `bytes([b])` decodes |
 | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
 | `bool` / `float` / `decimal` | raises — ambiguous as text |
 | `int` (`*` only) | a repeat **count** — `u * n` is exactly `u.repeat(n)`; there is no reflected `n * u` |
@@ -138,12 +151,12 @@ Operand acceptance — every accepted operand is text content, decoded into symb
 ```go
 u"ab" + "cd"            // => u"abcd" — runes receiver → runes
 u"ab" + bytes("cd")     // => u"abcd" — decodes
-u"ab" + bytes([255])    // => u"ab\xff" — the octet is carried through as its escape
+u"ab" + bytes([255])    // => u"ab\udcff" — the octet is carried through as its escape
 "ab" + u"cd"            // => "abcd" — string receiver → string
 'a' + u"bc"             // => u"abc" — a scalar on the left takes the sequence's type
 u"ab" + 'é'             // => u"abé"
 u"ab" + b'A'            // => u"abA" — ASCII byte
-u"ab" + b'\xff'         // Error: invalid_value — an octet reads as a symbol only in ASCII
+u"ab" + b'\xff'         // => u"ab\udcff" — a high octet: its escape, as + bytes([255]) adds it
 u"ab" + 99              // Error: invalid_binary_operator: immutable-runes + int
 u"ab" + [1, 2]          // => [u"ab", 1, 2] — runes declines; the array prepends it as one element
 u"ab" - [1, 2]          // Error: invalid_binary_operator: immutable-runes - array
@@ -180,7 +193,7 @@ Every member that matches or adds content reads its arguments from one menu:
 | absent | the **blank set** (below) |
 | function | predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
 | `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](string.md#undecodable-octets)) |
-| `rune` / `byte` / `int` | one **element** (byte in ASCII only; int must be a valid code point — members only, operators refuse int) |
+| `rune` / `byte` / `int` | one **element** (a byte is its octet's symbol: ASCII as itself, above it its escape; int must be a valid code point — members only, operators refuse int) |
 | several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
 | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
 
@@ -749,8 +762,9 @@ Answer `runes` of the callback's results, strictly 1:1: each result must be exac
 
 The callback gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)).
 
-`map` is strictly 1:1 and answers `runes`: the callback must produce exactly **one element** (a rune, or an int
-that is a valid code point); a sequence or `undefined` result raises.
+`map` is strictly 1:1 and answers `runes`: the callback must produce exactly **one element** (a rune, an int
+that is a valid code point, or a byte — its octet's symbol: ASCII as itself, above it its escape); a sequence or
+`undefined` result raises.
 
 ```go
 u"abc".map(func(r) { return r + 1 })                     // => u"bcd"
@@ -861,7 +875,7 @@ u"ab".push('c')                         // => u"abc"
 u"ab".push("c")                         // Error: invalid_argument_type — a sequence never reads as one element here
 u"ab".push(98)                          // => u"abb" — an int is a code point on the member side
 u"ab".push(55296)                       // Error: invalid_value — a surrogate is not a valid code point
-u"ab".push(b'\xff')                     // Error: invalid_value — an octet is a symbol only in ASCII
+u"ab".push(b'\xff')                     // => u"ab\udcff" — a high octet is its escape
 ```
 
 <a id="push_first"></a>

@@ -31,6 +31,18 @@ nl := '\n'           // escapes accepted
 x := '\x41'          // => 'A'
 u := '\u0454'        // => 'є'
 top := '\U0010FFFF'
+e := '\udcff'        // => '\udcff' — the octet escape for 0xFF
+```
+
+An [octet escape](string.md#undecodable-octets) is spelled `'\udcNN'` (or `'\U0000DCNN'`), NN = `80`–`ff`;
+every other surrogate is a parse error. `'\xff'` is `U+00FF` (`ÿ`), a symbol — not the escape. The `v` and `q`
+renders write an escape in the same spelling, so a render always reads back as the rune it came from:
+
+```go
+'\udcff' == "\xff"[0]       // => true — the escape a string reads for the octet
+'\udcff'.byte()              // => byte(255)
+'\udcff'.format("q")         // => "'\\udcff'"
+'\xff'.format("q")           // => "'ÿ'"
 ```
 
 ```go
@@ -64,12 +76,14 @@ u"".pad_end(3, 'a')      // => u"aaa"
 'a' - 98             // Error: invalid_value: rune overflow: -1 is outside a rune's domain
 ```
 
-`rune - rune` is the distance between two code points — a plain `int`, not a rune (`rune - byte` reads the
-same way):
+`rune - rune` is the distance between two code points — a plain `int`, not a rune. `rune - byte` reads the
+same way once the byte is read as text (`byte.rune()`: ASCII as itself, a high octet as its
+[escape](string.md#undecodable-octets)):
 
 ```go
 'd' - 'a'            // => 3
 'a' - b'a'           // => 0
+'\udce9' - b'\xe9'   // => 0 — a high octet is its escape
 ```
 
 | operator | with `int` | with `rune` | with `byte` | with `float` / `decimal` |
@@ -83,7 +97,8 @@ There is no `rune + rune`: adding two code points has no meaning.
 ### Comparison
 
 Comparisons order by code point and accept the numeric-valued scalars — `rune`, `byte`, `int`, `bool`
-(as 0/1), `float`:
+(as 0/1), `float`. A `byte` is read as text first, as `byte.rune()` reads it: an ASCII octet is that symbol, a
+higher one its [escape](string.md#undecodable-octets) — never its Latin-1 code point:
 
 ```go
 'a' < 'b'            // => true
@@ -91,6 +106,9 @@ Comparisons order by code point and accept the numeric-valued scalars — `rune`
 97 == 'a'            // => true
 'a' == b'a'          // => true
 'a' < 97.5           // => true
+'é' == b'\xe9'       // => false — the octet 0xE9 is not the symbol é
+'\udce9' == b'\xe9'  // => true — it is its escape
+'ÿ' < b'\xff'        // => true — U+00FF < U+DCFF
 ```
 
 ### As text content
@@ -120,6 +138,9 @@ Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the 
 `byte()` is encoding-based: it succeeds iff the symbol's UTF-8 representation is a single octet — exactly
 ASCII. `U+0080`–`U+00FF` do *not* convert (their UTF-8 form is two octets); the Latin-1 numeric reading is
 `.int()` explicitly.
+
+The other way, `rune(b)` / `b.rune()` is total and the exact inverse: an ASCII octet is that symbol, a higher
+one its escape — so `rune(b).byte() == b` for every byte, and `rune(b'\xff')` is `'\udcff'`, not `'ÿ'`.
 
 There is deliberately no `bool()`, `float()`, or `decimal()` (through `.int()` — `int` is the sole gateway)
 and no `bytes()` (write `.string().bytes()`). Text never parses into `rune` — `"65".rune()` raises; write
@@ -174,7 +195,8 @@ Total on every rune; the default verb is the symbol itself:
 'є'.format("d")    // => "1108" — the code point in decimal
 'є'.format("x")    // => "454" — hex, no 0x prefix on runes
 'є'.format("U")    // => "U+0454" — the U+ notation
-'є'.format("q")    // => "'є'" — quoted literal
+'є'.format("q")    // => "'є'" — a rune literal that reads back
+'\udcff'.format("q")  // => "'\\udcff'" — an octet escape in its own spelling
 ```
 
 <a id="freeze"></a>

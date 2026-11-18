@@ -773,8 +773,8 @@ func defaultAsRunes(v Value) ([]rune, bool) {
 // result type; acceptance mirrors the member layer with one deliberate cut:
 // an int is never text in operator position, so the arithmetic readings stay
 // unambiguous. ok=false means the operand is not text content at all (the
-// caller answers with its invalid-operator error); a data-range failure (a
-// non-ASCII octet into symbols, invalid UTF-8) raises directly.
+// caller answers with its invalid-operator error). Every text operand is total:
+// a byte is an octet of text, exactly as the one-element bytes([b]) is.
 // ---------------------------------------------------------------------------
 
 // textOperandString reads an operand as SYMBOL content (string/runes receivers).
@@ -790,10 +790,8 @@ func textOperandString(a Value) (string, bool, error) {
 	case value.Rune:
 		return text.EncodeRuneText(rune(a.Data)), true, nil
 	case value.Byte:
-		if a.Data > 0x7F {
-			return "", false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
-		}
-		return text.EncodeRuneText(rune(a.Data)), true, nil
+		// TOTAL: the octet itself — the one-octet text holding it, as bytes([b]) contributes it
+		return string([]byte{byte(a.Data)}), true, nil
 	}
 	return "", false, nil
 }
@@ -812,10 +810,8 @@ func textOperandRunes(a Value) ([]rune, bool, error) {
 	case value.Rune:
 		return []rune{rune(a.Data)}, true, nil
 	case value.Byte:
-		if a.Data > 0x7F {
-			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
-		}
-		return []rune{rune(a.Data)}, true, nil
+		// TOTAL: the octet read as text — its symbol in ASCII, its escape above — as bytes([b]) decodes
+		return []rune{text.OctetRune(byte(a.Data))}, true, nil
 	}
 	return nil, false, nil
 }

@@ -592,6 +592,17 @@ require(cond, payload)                       // input check: undefined if cond i
 
 Convert `x` to a `rune`; with no argument, NUL.
 
+An `int` converts iff it is in the rune domain. A `byte` always converts, read as text: an ASCII octet is that
+symbol, a higher one its octet escape — the inverse of `rune.byte()`.
+
+```go
+rune(65)             // => 'A'
+rune(b'A')           // => 'A'
+rune(b'\xe9')        // => '\udce9' — the octet's escape, never U+00E9
+rune(b'\xe9').byte() // => byte(233)
+rune(55296)          // Error: conversion
+```
+
 <a id="runes"></a>
 ### `runes([x[, count]]) -> runes`
 
@@ -608,6 +619,7 @@ Convert `x` to a `string`, or build `count` copies of it; with no argument, `""`
 
 ```go
 string(99)            // => "99"
+string(bytes([0x61, 0x80])) // => "a\x80" — total: the octets as they are, exactly .string()
 string(undefined)     // Error: conversion — absence has no textual form
 ```
 

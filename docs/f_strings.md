@@ -33,7 +33,7 @@ fstring   := 'f' '"' { fpart } '"'
 fpart     := text_char
            | '{{' | '}}'                       ; literal '{' / '}'
            | '{' expr [ ':' fspec ] '}'
-expr      := <any Kavun expression>
+expr      := <any Kavun expression, with each '"' written '\\"'>
 fspec     := { fspec_char | '{' expr '}' }     ; Format Mini-Language with optional one-level expr interpolation
 text_char := <any rune except '"', '\\', '{', '}'>
            | '\\' <escape>                    ; standard string escape
@@ -70,8 +70,14 @@ A pure-literal f-string compiles to a single string constant — no formatting o
 
 Inside an f-string body:
 
-- The standard string escape sequences are honored: `\n`, `\t`, `\r`, `\\`, `\"`, `\xHH`, `\uHHHH`, `\UHHHHHHHH`,
-  octal `\NNN`. They have the same semantics as in regular `"..."` strings.
+- In the literal text, the standard string escape sequences are honored: `\n`, `\t`, `\r`, `\\`, `\"`, `\xHH`,
+  `\uHHHH`, `\UHHHHHHHH`, octal `\NNN`. They have the same semantics as in regular `"..."` strings (so an octet
+  escape rune `\udcNN` is refused there too: write the octet, `\xNN`).
+- Inside `{...}` the expression is written **exactly as outside the f-string, except that `"` is written `\"`** (the
+  f-string itself is a `"..."` token). `\"` is the only sequence undone before the expression is parsed; every
+  other backslash sequence reaches the expression's own literals untouched and means there what it means anywhere
+  else. A `"` inside an embedded string literal therefore cannot be written; spell it `\x22`, or move the
+  expression to a variable.
 - A literal `{` is written `{{`; a literal `}` is written `}}`.
 - A bare `}` is a compile error.
 - An f-string cannot span multiple physical lines (matches the rule for regular `"..."` strings; multi-line f-strings
@@ -83,6 +89,10 @@ Examples:
 f"path = \"{p}\""        // path = "..."
 f"set = {{1, 2, 3}}"     // set = {1, 2, 3}
 f"newline -> {x}\n"      // ends with a real newline
+f"{'\n':q}"              // '\n' — the rune literal '\n', as written outside
+f"{b'\xff':q}"           // b'\xff'
+f"{\"a\" + \"b\"}"        // ab — "a" + "b"
+f"{\"a\\nb\"}"           // a\nb — "a\\nb": a backslash and an n, as outside
 ```
 
 ### Format specs

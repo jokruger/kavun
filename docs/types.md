@@ -184,7 +184,9 @@ Symbols are code points, **not** grapheme clusters — a decomposed character is
 **Text that is not valid UTF-8 is data too**, so every conversion among `byte`/`bytes`/`string`/`runes` is
 total and lossless: an octet no decoder can read as a symbol becomes its own reserved rune (`U+DC80`–`U+DCFF`)
 and encodes straight back to that octet. Nothing raises, nothing becomes `U+FFFD`, and `is_valid()` is how a
-script asks. See [string: Undecodable octets](reference/types/string.md#undecodable-octets).
+script asks. In source, a `string` literal writes the octet (`"\xff"`) and a rune or runes literal writes the
+escape rune (`'\udcff'`, `u"\udcff"`) — the spelling the `v` render uses too, so a render reads back as its value.
+See [string: Undecodable octets](reference/types/string.md#undecodable-octets).
 
 ```go
 b = bytes([0x61, 0xFF, 0x62])
@@ -244,8 +246,8 @@ value-dependent — then the error names the range, not the type:
 
 ```go
 bytes("ab").push(98)     // bytes([97, 98, 98]) — int reads as the element type
-"abc" + b'a'             // "abca" — a byte is a symbol in ASCII range
-"abc" + b'\xff'          // raises: an octet reads as one symbol only in [0x00, 0x7F]
+"abc" + b'a'             // "abca" — a byte is an octet of text: its symbol in ASCII range
+"abc" + b'\xff'          // "abc\xff" — above it the octet itself, exactly as + bytes([255])
 "ab".repeat(2.0)         // "abab" — lossless numeric accepted
 "ab".repeat(1.5)         // raises: must be a whole number — never silent truncation
 ```

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jokruger/kavun/ast"
@@ -14,6 +15,7 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token/tokens"
 	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/internal/text"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -368,10 +370,11 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 
 	case value.Rune:
 		r := rune(v.Data)
-		return &scalar.Rune{Value: r, ValuePos: pos, Literal: strconv.QuoteRune(r)}, true
+		return &scalar.Rune{Value: r, ValuePos: pos, Literal: text.QuoteRune(r)}, true // an escape as '\udcNN', never U+FFFD
 
 	case value.Byte:
-		return &scalar.Byte{Value: byte(v.Data), ValuePos: pos, Literal: fmt.Sprintf("'\\x%02x'", byte(v.Data))}, true
+		// the AST literal of a byte omits its 'b' prefix (scalar.Byte.String adds it)
+		return &scalar.Byte{Value: byte(v.Data), ValuePos: pos, Literal: strings.TrimPrefix(text.QuoteByte(byte(v.Data)), "b")}, true
 
 	case value.Time:
 		// a time in a NAMED zone is not a literal: the literal text and the static pool both carry only the

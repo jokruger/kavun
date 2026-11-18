@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/token/tokens"
+	"github.com/jokruger/kavun/internal/text"
 )
 
 // byte order mark
@@ -118,7 +119,7 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			s.next() // consume '\''
 			insertSemi = true
 			tok = tokens.ByteChar
-			literal = s.scanRune()
+			literal = s.scanRune(escapeStrict)
 			break
 		}
 		if s.ch == '"' && (literal == "u" || literal == "b" || literal == "t" || literal == "d" || literal == "r" || literal == "f") {
@@ -127,16 +128,16 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			switch literal {
 			case "u":
 				tok = tokens.RunesString
-				literal = s.scanString()
+				literal = s.scanString(escapeRunes)
 			case "b":
 				tok = tokens.BytesString
-				literal = s.scanString()
+				literal = s.scanString(escapeStrict)
 			case "t":
 				tok = tokens.TimeString
-				literal = s.scanString()
+				literal = s.scanString(escapeStrict)
 			case "d":
 				tok = tokens.DateString
-				literal = s.scanString()
+				literal = s.scanString(escapeStrict)
 			case "r":
 				tok = tokens.RawString
 				literal = s.scanRawDoubleQuoteString()
@@ -177,11 +178,11 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 		case '"':
 			insertSemi = true
 			tok = tokens.String
-			literal = s.scanString()
+			literal = s.scanString(escapeOctets)
 		case '\'':
 			insertSemi = true
 			tok = tokens.Char
-			literal = s.scanRune()
+			literal = s.scanRune(escapeRunes)
 		case '`':
 			insertSemi = true
 			tok = tokens.String
@@ -530,8 +531,38 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	return tok, string(s.src[offs:s.offset])
 }
 
-func (s *Scanner) scanEscape(quote rune) bool {
+// escapeMode says which surrogate escapes a literal accepts. Every literal refuses a surrogate code point,
+// except the octet escape runes U+DC80–U+DCFF (internal/text/escape.go), spelled `\udcNN` / `\U0000DCNN`.
+type escapeMode int
+
+const (
+	// escapeStrict refuses every surrogate: bytes, byte, time and date literals.
+	escapeStrict escapeMode = iota
+	// escapeOctets refuses every surrogate, and an escape rune with a hint to write its octet: string literals.
+	escapeOctets
+	// escapeRunes accepts an escape rune: rune and runes literals.
+	escapeRunes
+	// escapeFString validates nothing: an f-string body holds literal text and expressions (whose own literals
+	// may be raw), and the scanner cannot tell them apart. It only steps over `\X`, so `\"` and `\\` do not end the
+	// token; the parser checks the literal text with the string rule, the sub-parser each expression.
+	escapeFString
+)
+
+// octetEscapeHint is the message refusing an escape rune spelled in a string literal: a string holds octets, and
+// the octet's own spelling is \xNN.
+func octetEscapeHint(spelled string, r rune) string {
+	return fmt.Sprintf("%s is an octet escape: write \\x%02x in a string literal", spelled, text.EscapeRuneOctet(r))
+}
+
+func (s *Scanner) scanEscape(quote rune, mode escapeMode) bool {
 	offs := s.offset
+
+	if mode == escapeFString {
+		if s.ch != '\n' && s.ch >= 0 { // a newline or EOF is left for the caller to report
+			s.next()
+		}
+		return true
+	}
 
 	var n int
 	var base, max uint32
@@ -576,14 +607,27 @@ func (s *Scanner) scanEscape(quote rune) bool {
 		n--
 	}
 
-	if x > max || 0xD800 <= x && x < 0xE000 {
+	if x > max {
+		s.error(offs, "escape sequence is invalid Unicode code point")
+		return false
+	}
+	if 0xD800 <= x && x < 0xE000 {
+		if text.IsEscapeRune(rune(x)) {
+			switch mode {
+			case escapeRunes:
+				return true
+			case escapeOctets:
+				s.error(offs, octetEscapeHint(string(s.src[offs-1:s.offset]), rune(x)))
+				return false
+			}
+		}
 		s.error(offs, "escape sequence is invalid Unicode code point")
 		return false
 	}
 	return true
 }
 
-func (s *Scanner) scanRune() string {
+func (s *Scanner) scanRune(mode escapeMode) string {
 	offs := s.offset - 1 // '\'' opening already consumed
 
 	valid := true
@@ -604,7 +648,7 @@ func (s *Scanner) scanRune() string {
 		}
 		n++
 		if ch == '\\' {
-			if !s.scanEscape('\'') {
+			if !s.scanEscape('\'', mode) {
 				valid = false
 			}
 			// continue to read to closing quote
@@ -617,7 +661,7 @@ func (s *Scanner) scanRune() string {
 	return string(s.src[offs:s.offset])
 }
 
-func (s *Scanner) scanString() string {
+func (s *Scanner) scanString(mode escapeMode) string {
 	offs := s.offset - 1 // '"' opening already consumed
 
 	for {
@@ -631,7 +675,7 @@ func (s *Scanner) scanString() string {
 			break
 		}
 		if ch == '\\' {
-			s.scanEscape('"')
+			s.scanEscape('"', mode)
 		}
 	}
 	return string(s.src[offs:s.offset])
@@ -653,7 +697,7 @@ func (s *Scanner) scanFString() string {
 			break
 		}
 		if ch == '\\' {
-			s.scanEscape('"')
+			s.scanEscape('"', escapeFString)
 		}
 	}
 	return string(s.src[offs:s.offset])

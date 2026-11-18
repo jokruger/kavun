@@ -122,7 +122,7 @@ u"ab" + "cd"         // => u"abcd" — runes on the left
 "ab" + bytes("cd")   // => "abcd" — the bytes decode; the decode never fails
 b'a' + "bc"          // => "abc" — scalar left takes the sequence's type
 'é' + "bc"           // => "ébc"
-"abc" + b'\xff'      // Error: invalid_value: a byte is a symbol only in ASCII (0x00–0x7F)
+"abc" + b'\xff'      // => "abc\xff" — the octet, as + bytes([255]) adds it
 "ab" + 1             // Error: invalid_binary_operator: operators never take int — arithmetic keeps its reading
 "ab" + 1.5           // Error: invalid_binary_operator
 "ab" + true          // Error: invalid_binary_operator
@@ -170,7 +170,7 @@ Every member and operator on `string` reads its arguments the same way. An argum
 | `string` / `runes` | text, verbatim — a contiguous **run** |
 | `bytes` | decoded as UTF-8; **total** — an octet that is not a symbol becomes its [escape](#undecodable-octets) |
 | `rune` | itself — one symbol |
-| `byte` | one symbol iff ASCII (`0x00`–`0x7F`); beyond raises |
+| `byte` | its octet, as `bytes([b])` — one symbol in ASCII, its [escape](#undecodable-octets) above |
 | `int` (members only) | one symbol iff a valid code point; **operators never take `int`** |
 | `bool` / `float` / `decimal` | raise — a number as text is ambiguous (`65` could be `"65"` or `'A'`) |
 | `int` (`*` only) | a repeat **count** — `s * n` is exactly `s.repeat(n)`; there is no reflected `n * s` |
@@ -183,7 +183,8 @@ share one argument menu:
 - **a function** — a predicate: it gets the element, or `(index, element)` when it does not accept one argument
 ([callbacks](#callbacks));
 - **`string`/`runes`/`bytes`** — a contiguous run;
-- **`rune`/`byte`/valid `int`** — one element;
+- **`rune`/`byte`/valid `int`** — one element (a byte is its octet: ASCII as its symbol, above it its
+[escape](#undecodable-octets));
 - **variadic** — a homogeneous set: all elements or all runs. Mixing the two classes raises, and a function
 among several arguments raises.
 
@@ -228,6 +229,18 @@ s[1].is_valid()                 // => false — this one
 s[1].byte()                     // => byte(255) — the escape converts back to its octet
 s.replace(s[1], '?')            // => "a?b"
 s.keep(c => c.is_valid())     // => "ab"
+```
+
+**Spelling one in source.** A `string` literal holds octets, so it writes the octet: `"\xff"`. A rune literal
+and a runes literal hold symbols, so they write the escape rune: `'\udcff'`, `u"\udcff"` (or `\U0000DCFF`).
+`"\udcff"` is a parse error that names `\xff` as the spelling to use; every other surrogate (`\ud800`,
+`\udc7f`, ...) is a parse error in every literal, and `bytes`/`byte` literals take only `\xNN`. The `v` render of
+each type writes these same spellings, so it always reads back as the value it came from.
+
+```go
+"\xff"[0] == '\udcff'          // => true
+"\xff".runes() == u"\udcff"     // => true
+"\xff".runes().format("v")      // => "u\"\\udcff\""
 ```
 
 **Why this range, and why it cannot go wrong.** Only an octet ≥ 0x80 can ever be undecodable — an ASCII octet
@@ -733,7 +746,8 @@ Answer a `string` of the callback's results, strictly 1:1: each result must be e
 
 The callback gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)).
 
-The callback must return exactly one symbol per element; a sequence or `undefined` result raises.
+The callback must return exactly one symbol per element — a rune, an int that is a valid code point, or a byte
+(its octet: ASCII as its symbol, above it the octet itself); a sequence or `undefined` result raises.
 
 ```go
 "abc".map(func(c) { return (c.int() + 1).rune() })       // => "bcd"

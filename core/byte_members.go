@@ -11,16 +11,20 @@ import (
 
 // Render the value per the [format mini-language](../../format_mini_language.md).
 //
-// `format()` is the render, total on every octet; it shows the *number*, and the symbol spelling is the `c`
-// verb:
+// `format()` is the render, total on every octet; it shows the *number*. The `c` verb renders the octet itself —
+// the byte's text, the same as `.string()` — and `q` a byte literal that reads back as this byte (printable ASCII
+// as itself, the short escapes `\n` `\t` `\'` `\\` …, every other octet `\xNN`):
 //
 // ```go
 // b'A'.format()       // => "65" — default verb is d, always works
 // byte(200).format()  // => "200"
 // f"{b'A'}"           // => "65" — an f-string is a render, not a conversion
 // format(b'A')        // => "65"
-// b'A'.format("c")    // => "A" — ASCII character rendering
-// b'A'.format("q")    // => "'A'" — quoted literal
+// b'A'.format("c")    // => "A" — the octet itself
+// b'\xff'.format("c") == b'\xff'.string()   // => true — a high octet too: its text, never U+00FF
+// b'A'.format("q")    // => "b'A'" — a byte literal
+// b'\n'.format("q")   // => "b'\\n'"
+// b'\xff'.format("q") // => "b'\\xff'"
 // b'A'.format("x")    // => "0x41"
 // b'A'.format("b")    // => "0b1000001"
 // ```
@@ -91,12 +95,17 @@ func byteInt(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return ConvMember(id.String(), byteTypeName, args, ok, IntValue(i))
 }
 
-// Convert to the same symbol as a `rune`; above `0x7F` it raises unless a default is given.
+// Convert to the symbol the one-octet text holding the byte reads as.
+//
+// An ASCII octet is that symbol, a higher one its [escape](string.md#undecodable-octets) (`U+DC80`–`U+DCFF`).
+// Total — the inverse of `rune.byte()`, so the default is never used; the Latin-1 reading is `.int().rune()`.
 //
 // ```go
 // b'A'.rune()            // => 'A'
-// byte(200).rune()       // Error: conversion: cannot convert byte to rune
-// byte(200).rune('?')    // => '?' — the default covers the partial edge
+// byte(200).rune()       // => '\udcc8' — the octet's escape, as byte(200).string()[0] reads it
+// byte(200).rune('?')    // => '\udcc8' — total, so the default is never used
+// byte(200).rune().byte() // => byte(200)
+// byte(200).int().rune() // => 'È' — the Latin-1 reading, asked for explicitly
 // ```
 //
 //kavun:member rune pure ([default]) -> rune

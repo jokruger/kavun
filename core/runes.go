@@ -110,6 +110,19 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // u"🚀"               // any code point
 // ```
 //
+// Those escapes write octets, exactly as in a `string` literal, and each run of octets is read as one text: the
+// octets of a symbol read as that symbol, an octet that is not one as its [escape](string.md#undecodable-octets).
+// One more escape is accepted here and in a `rune` literal only: `\udcNN` (or `\U0000DCNN`), NN = `80`–`ff`, the
+// octet escape rune itself — inserted between the runs, never joined with the octets around it. The `v` render
+// writes every escape rune in that spelling, so a `runes` value always reads back from its render:
+//
+// ```go
+// u"\xc3\xa9".len()           // => 1 — the octets of "é" read as the one symbol
+// u"\xff"                     // => u"\udcff" — an octet that is not a symbol: its escape
+// u"\udcc3\udca9".len()       // => 2 — two escapes, never joined into "é"
+// u"\xc3\udca9".len()         // => 2 — the run before an escape is read alone
+// ```
+//
 // **`runes` is a mutable sequence — but a literal is an immutable constant.** The *type* is writable; `u"..."`
 // is a compile-time constant of that type. Its content is fixed in the source, so the compiler stores it once
 // in the bytecode's static pool and every evaluation loads that one shared value — a value that could be
@@ -141,7 +154,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // (42).runes()                    // => u"42"
 // true.runes()                    // => u"true"
 // bytes([104, 105]).runes()       // => u"hi" — UTF-8 decode
-// bytes([255]).runes()            // => u"\xff" — the octet's escape — never raises, never loses it
+// bytes([255]).runes()            // => u"\udcff" — the octet's escape — never raises, never loses it
 // ```
 //
 // Decoding is total: `bytes` → `runes` never raises — an octet that is not part of valid UTF-8 rides through as its
@@ -178,7 +191,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // | `runes` / `string` | its text, verbatim |
 // | `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](string.md#undecodable-octets) |
 // | `rune` | one symbol |
-// | `byte` | one symbol **only in ASCII** (`0x00`–`0x7F`); above that raises |
+// | `byte` | one symbol: ASCII as itself, a higher octet as its [escape](string.md#undecodable-octets) — as `bytes([b])` decodes |
 // | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
 // | `bool` / `float` / `decimal` | raises — ambiguous as text |
 // | `int` (`*` only) | a repeat **count** — `u * n` is exactly `u.repeat(n)`; there is no reflected `n * u` |
@@ -187,12 +200,12 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // ```go
 // u"ab" + "cd"            // => u"abcd" — runes receiver → runes
 // u"ab" + bytes("cd")     // => u"abcd" — decodes
-// u"ab" + bytes([255])    // => u"ab\xff" — the octet is carried through as its escape
+// u"ab" + bytes([255])    // => u"ab\udcff" — the octet is carried through as its escape
 // "ab" + u"cd"            // => "abcd" — string receiver → string
 // 'a' + u"bc"             // => u"abc" — a scalar on the left takes the sequence's type
 // u"ab" + 'é'             // => u"abé"
 // u"ab" + b'A'            // => u"abA" — ASCII byte
-// u"ab" + b'\xff'         // Error: invalid_value — an octet reads as a symbol only in ASCII
+// u"ab" + b'\xff'         // => u"ab\udcff" — a high octet: its escape, as + bytes([255]) adds it
 // u"ab" + 99              // Error: invalid_binary_operator: immutable-runes + int
 // u"ab" + [1, 2]          // => [u"ab", 1, 2] — runes declines; the array prepends it as one element
 // u"ab" - [1, 2]          // Error: invalid_binary_operator: immutable-runes - array
@@ -229,7 +242,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // | absent | the **blank set** (below) |
 // | function | predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
 // | `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](string.md#undecodable-octets)) |
-// | `rune` / `byte` / `int` | one **element** (byte in ASCII only; int must be a valid code point — members only, operators refuse int) |
+// | `rune` / `byte` / `int` | one **element** (a byte is its octet's symbol: ASCII as itself, above it its escape; int must be a valid code point — members only, operators refuse int) |
 // | several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
 // | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
 //
@@ -328,32 +341,32 @@ func NewRunesValue(r []rune, immutable bool) Value {
 //kavun:type runes
 
 var TypeRunes = ValueTypeDescr{
-	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                      // PURE by contract
-	String:              func(v Value) string { return "u" + strconv.Quote(text.EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
-	Format:              runesTypeFormat,                                                                                // PURE by contract
-	Interface:           func(v Value) any { return (*Runes)(v.Ptr).Elements },                                          // PURE by contract
-	EncodeJSON:          runesTypeEncodeJSON,                                                                            // PURE by contract
-	EncodeBinary:        runesTypeEncodeBinary,                                                                          // PURE by contract
-	DecodeBinary:        runesTypeDecodeBinary,                                                                          // IMPURE by contract (mutates target)
-	IsTrue:              func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil },                  // PURE by contract
-	IsIterable:          ConstHook(true),                                                                                // PURE by contract
-	Iterator:            runesTypeIterator,                                                                              // PURE by contract (constructs fresh iterator)
-	Copy:                runesTypeCopy,                                                                                  // PURE by contract
-	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                            // PURE by contract
-	Equal:               runesTypeEqual,                                                                                 // PURE by contract
-	BinaryOp:            runesTypeBinaryOp,                                                                              // PURE by contract
-	AccessIndex:         runesTypeAccessIndex,                                                                           // PURE by contract
-	AccessNamedProperty: noNamedProperty,                                                                                // PURE by contract
-	AssignIndex:         runesTypeAssignIndex,                                                                           // IMPURE by contract
-	Append:              runesTypeAppend,                                                                                // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
-	Contains:            runesTypeContains,                                                                              // PURE by contract
-	Slice:               runesTypeSlice,                                                                                 // PURE by contract
-	SliceStep:           runesTypeSliceStep,                                                                             // PURE by contract
-	AsBool:              runesTypeAsBool,                                                                                // PURE by contract
-	AsInt:               runesTypeAsInt,                                                                                 // PURE by contract
-	AsFloat:             runesTypeAsFloat,                                                                               // PURE by contract
-	AsDecimal:           runesTypeAsDecimal,                                                                             // PURE by contract
-	AsTime:              runesTypeAsTime,                                                                                // PURE by contract
+	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                     // PURE by contract
+	String:              func(v Value) string { return text.QuoteRunes((*Runes)(v.Ptr).Elements) },     // PURE by contract
+	Format:              runesTypeFormat,                                                               // PURE by contract
+	Interface:           func(v Value) any { return (*Runes)(v.Ptr).Elements },                         // PURE by contract
+	EncodeJSON:          runesTypeEncodeJSON,                                                           // PURE by contract
+	EncodeBinary:        runesTypeEncodeBinary,                                                         // PURE by contract
+	DecodeBinary:        runesTypeDecodeBinary,                                                         // IMPURE by contract (mutates target)
+	IsTrue:              func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil }, // PURE by contract
+	IsIterable:          ConstHook(true),                                                               // PURE by contract
+	Iterator:            runesTypeIterator,                                                             // PURE by contract (constructs fresh iterator)
+	Copy:                runesTypeCopy,                                                                 // PURE by contract
+	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },           // PURE by contract
+	Equal:               runesTypeEqual,                                                                // PURE by contract
+	BinaryOp:            runesTypeBinaryOp,                                                             // PURE by contract
+	AccessIndex:         runesTypeAccessIndex,                                                          // PURE by contract
+	AccessNamedProperty: noNamedProperty,                                                               // PURE by contract
+	AssignIndex:         runesTypeAssignIndex,                                                          // IMPURE by contract
+	Append:              runesTypeAppend,                                                               // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
+	Contains:            runesTypeContains,                                                             // PURE by contract
+	Slice:               runesTypeSlice,                                                                // PURE by contract
+	SliceStep:           runesTypeSliceStep,                                                            // PURE by contract
+	AsBool:              runesTypeAsBool,                                                               // PURE by contract
+	AsInt:               runesTypeAsInt,                                                                // PURE by contract
+	AsFloat:             runesTypeAsFloat,                                                              // PURE by contract
+	AsDecimal:           runesTypeAsDecimal,                                                            // PURE by contract
+	AsTime:              runesTypeAsTime,                                                               // PURE by contract
 	AsDate: func(v Value) (civil.Date, bool) {
 		d, err := ParseDateText(text.EncodeText((*Runes)(v.Ptr).Elements))
 		return d, err == nil
@@ -370,17 +383,16 @@ var TypeRunes = ValueTypeDescr{
 }
 
 // runesEncodeMatchArg: acceptance on a symbol receiver — text content as
-// SYMBOLS. rune/ASCII byte/in-range int are the element class; string/runes/
-// valid-UTF-8 bytes are the run class.
+// SYMBOLS. rune/byte/in-range int are the element class (a byte is an octet of
+// text: ASCII as itself, a high octet as its escape); string/runes/bytes are
+// the run class.
 func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
 	switch a.Type {
 	case value.Rune:
 		return []rune{rune(a.Data)}, true, nil
 	case value.Byte:
-		if a.Data > 0x7F {
-			return nil, false, text.ErrOctetNotSymbol(name, a.Data)
-		}
-		return []rune{rune(a.Data)}, true, nil
+		// TOTAL: an octet of text — its symbol in ASCII, its escape above, as bytes([b]) decodes
+		return []rune{text.OctetRune(byte(a.Data))}, true, nil
 	case value.Int:
 		r, ok := a.AsRune()
 		if !ok {
@@ -436,7 +448,7 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 // PURE by contract
 func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return "u" + strconv.Quote(text.EncodeText((*Runes)(v.Ptr).Elements)), nil
+		return text.QuoteRunes((*Runes)(v.Ptr).Elements), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
@@ -542,13 +554,11 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			}
 
 		case value.Byte:
-			// a scalar on the left takes the sequence's type; an octet is a symbol only in ASCII
+			// a scalar on the left takes the sequence's type; the byte is an octet of text — its symbol in
+			// ASCII, its escape above — exactly as bytes([b]) would be
 			switch op {
 			case tokens.Add:
-				if other.Data > 0x7F {
-					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
-				}
-				return NewRunesValue(append([]rune{rune(other.Data)}, (*Runes)(v.Ptr).Elements...), false), nil
+				return NewRunesValue(append([]rune{text.OctetRune(byte(other.Data))}, (*Runes)(v.Ptr).Elements...), false), nil
 			}
 		}
 
