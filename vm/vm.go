@@ -432,6 +432,14 @@ func (v *VM) Run() (err error) {
 
 	v.runUntilSuspend(1)
 
+	// An error or an abort stops the body mid-expression, with its operands still pushed. Drop them as a returning
+	// frame does — and release the values, which would otherwise stay referenced until the next run — before a root
+	// defer pushes its frames from sp. Undefined is the zero Value, so clear leaves the slots undefined.
+	if v.err != nil || atomic.LoadInt64(&v.abort) != 0 {
+		clear(v.stack[:v.sp])
+		v.sp = 0
+	}
+
 	// The main function lives in frames[0], which runUntilSuspend never walks, so its defers are run here.
 	// An abort or a critical error skips them, exactly as it skips a function frame's defers.
 	if atomic.LoadInt64(&v.abort) != 0 || (v.err != nil && errs.IsCritical(v.err)) {

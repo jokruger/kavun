@@ -188,7 +188,12 @@ func traceCompileRun(
 		}
 		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s", strings.Join(formatGlobals(globals), "\n")))
 	}
-	if err == nil && !machine.IsStackEmpty() {
+	// a run leaves the operand stack empty whether it succeeds or fails; the failure replaces the run's own error, so
+	// no expectation on that error can pass over it
+	if !machine.IsStackEmpty() {
+		if err != nil {
+			trace = append(trace, fmt.Sprintf("\n[Run Error]\n\n%s", err))
+		}
 		err = errors.New("non empty stack after execution")
 	}
 
@@ -7752,6 +7757,7 @@ func TestSpread(t *testing.T) {
 	expectError(t, big+`func(a) {}(xs...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument, got 5000 arguments")
 	expectError(t, big+`format(xs...)`, nil, "Runtime Error: wrong_num_arguments: (format) expected (x) | (template, args), got 5000 arguments")
 	expectRun(t, big+`out = func() r { defer func() { r = recover().kind() }(); func(a) {}(xs...) }()`, nil, "wrong_num_arguments")
+	expectRun(t, big+`defer func() { out = recover().kind() }(); func(a) {}(xs...)`, Opts().Skip2ndPass(), "wrong_num_arguments")
 	expectError(t, `func(a) {}(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
 	expectError(t, `[].append(1...)`, nil, "Runtime Error: invalid_argument_type: (...) argument spread expects type array, got int")
 }
@@ -9426,6 +9432,11 @@ func TestDefer_RootScope_RecoverEndsScriptNormally(t *testing.T) {
 		x := 1/0
 		out = "unreachable"
 	`, Opts().Skip2ndPass(), "division_by_zero")
+
+	// raised mid-expression, with operands still pushed: the run still ends with an empty operand stack (the
+	// harness checks it)
+	expectRun(t, `defer func() { out = recover().kind() }(); func(a) {}(1, 2)`, Opts().Skip2ndPass(), "wrong_num_arguments")
+	expectRun(t, `defer func() { out = recover().kind() }(); x := 1 + (2 * (1/0))`, Opts().Skip2ndPass(), "division_by_zero")
 }
 
 func TestDefer_RootScope_RunsWhenErrorEscapes(t *testing.T) {

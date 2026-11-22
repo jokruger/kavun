@@ -2,13 +2,6 @@
 
 ## potential problems
 
-10. **A top-level `recover()` leaves values on the operand stack.** Found 2026-10-13. `defer func() { out =
-    recover().kind() }(); func(a) {}(1, 2)` answers the right `out`, but `VM.IsStackEmpty()` is false afterwards,
-    so `kavun_test.go`'s harness fails it with "non empty stack after execution" (with or without a spread
-    argument). The same recovery inside a function (`func() r { defer …; … }()`) leaves the stack clean, which is
-    how `TestSpread` pins it today. Likely the unwind to the main frame does not reset `sp` to the main frame's
-    base the way a returning frame does; check what a host reusing the VM (`kavun_reuse_test.go`) sees, then fix
-    the unwind and add a top-level recover case to the harness-checked tests.
 11. **Different templates under one member name (naming session).** The rule "same name, same meaning, same
     template on every type" (`docs/conventions.md` § One Name, One Template) holds everywhere except these, listed
     in `TestMemberTemplateParity`'s exception table. Different meaning under one name (naming smells): `rand.generator`'s `int`/`float`/`bytes`
