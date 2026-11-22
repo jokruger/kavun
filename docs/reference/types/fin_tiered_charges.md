@@ -19,7 +19,7 @@ rate). A tiered charge has no `rate` member: a fixed charge is money, not a rate
 ## Members
 
 - [`array([default]) -> array`](#array)
-- [`at(amount) -> record`](#at)
+- [`band(amount) -> record`](#band)
 - [`bands() -> array`](#bands)
 - [`bounds() -> record`](#bounds)
 - [`charge(amount, rule, scale, mode) -> decimal`](#charge)
@@ -42,8 +42,8 @@ Total, so the default is never used.
 import("fin").tiered_charges().array()   // => [fin.tiered_charges("0:0")]
 ```
 
-<a id="at"></a>
-### `at(amount) -> record`
+<a id="band"></a>
+### `band(amount) -> record`
 
 Answer the band `amount` falls in, as `{from, rate, fixed}`.
 

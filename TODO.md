@@ -2,18 +2,6 @@
 
 ## potential problems
 
-11. **Different templates under one member name (naming session).** The rule "same name, same meaning, same
-    template on every type" (`docs/conventions.md` § One Name, One Template) holds everywhere except these, listed
-    in `TestMemberTemplateParity`'s exception table. Different meaning under one name (naming smells): `rand.generator`'s `int`/`float`/`bytes`
-    (they draw, `() | (hi) | (lo, hi)` / `(n)`, where every other type converts with `([default])`);
-    `decimal.split(k, n)` (an allocation) vs text `split(...seps)` vs `re.pattern.split(s[, count])` (the receiver
-    is the separator); `re.pattern.replace(s, repl)` (receiver role mirrored against the sequences'
-    `replace(old, new)`); `fin.year_fraction.value(scale, mode)` vs `error.value()`. Also a unit-keyed parse for
-    numbers folding `time_ms`/`time_micro`/`time_nano`. Same meaning, different key: the fin tables' `at`
-    (`(amount)` on the tiered tables, `(on)` / `(on[, fallback])` on the dated ones) and `accrue`
-    (`(principal, f, rule, scale, mode)` on `fin.tiered_rates` vs `(principal, start, end, convention, scale, mode)`
-    on `fin.dated_rates`) — the operation is the same, the lookup key differs by table kind; decide whether that is
-    an accepted exception or wants distinct names. One session for all of them.
 12. **Multi-arity functions.** Found 2026-10-15 (callable arity design, deferred). A member or builtin with an
     optional tail or a gap (`range` 0/1/2/3, `fin.tiered_charges` 0/1/3, `date` 0/1/2) is one body that switches
     on its count; the dispatcher checks only the floor, so a forgotten bound or gap is caught by

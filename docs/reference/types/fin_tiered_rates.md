@@ -20,7 +20,7 @@ rate).
 
 - [`accrue(principal, f, rule, scale, mode) -> decimal`](#accrue)
 - [`array([default]) -> array`](#array)
-- [`at(amount) -> record`](#at)
+- [`band(amount) -> record`](#band)
 - [`bands() -> array`](#bands)
 - [`charge(amount, rule, scale, mode) -> decimal`](#charge)
 - [`charge_parts(amount, rule, scale, mode) -> array`](#charge_parts)
@@ -48,8 +48,8 @@ Total, so the default is never used.
 import("fin").tiered_rates().array()   // => [fin.tiered_rates("0:0")]
 ```
 
-<a id="at"></a>
-### `at(amount) -> record`
+<a id="band"></a>
+### `band(amount) -> record`
 
 Answer the band `amount` falls in, as `{from, rate}`.
 

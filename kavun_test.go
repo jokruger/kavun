@@ -1076,29 +1076,32 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = (1d).can_fit(2, 3)`, nil, "scale must be between 0 and the precision 2")
 	expectError(t, `out = (1d).can_fit(0, 0)`, nil, "precision must be between 1 and 255")
 
-	// --- splitting: the shares always sum to EXACTLY the amount --------------------------------------------
+	// --- allocating: the shares always sum to EXACTLY the amount ------------------------------------------
 	d := func(s string) dec128.Dec128 { return dec128.FromString(s) }
-	expectRun(t, `out = (1000.00d).split(7, 2)`, nil,
+	expectRun(t, `out = (1000.00d).allocate_equal(7, 2)`, nil,
 		ARR{d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.85"), d("142.85")})
-	expectRun(t, `out = (0.05d).split(3, 2)`, nil, ARR{d("0.02"), d("0.02"), d("0.01")})
-	expectRun(t, `out = (1000.00d).split_residual(7, 2, -1, "half_up")`, nil,
+	expectRun(t, `out = (0.05d).allocate_equal(3, 2)`, nil, ARR{d("0.02"), d("0.02"), d("0.01")})
+	expectRun(t, `out = (1000.00d).allocate_equal_residual(7, 2, -1, "half_up")`, nil,
 		ARR{d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.84")})
-	expectRun(t, `out = (1000.00d).split_residual(7, 2, 0, "half_up")`, nil,
+	expectRun(t, `out = (1000.00d).allocate_equal_residual(7, 2, 0, "half_up")`, nil,
 		ARR{d("142.84"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86")})
 	expectRun(t, `out = (100.00d).allocate([1, 1, 1], 2)`, nil, ARR{d("33.34"), d("33.33"), d("33.33")})
 	expectRun(t, `out = (100.00d).allocate([50, 30.5d, 19.5d], 2).map(func(x) { return x.format("v") })`, nil,
 		ARR{"50.00d", "30.50d", "19.50d"})
 	expectRun(t, `out = (100.00d).allocate_residual([1, 1, 1], 2, -1, "half_up")`, nil, ARR{d("33.33"), d("33.33"), d("33.34")})
-	expectRun(t, `out = (1000.00d).split(7, 2).sum() == 1000.00d`, nil, true)
+	expectRun(t, `out = (1000.00d).allocate_equal(7, 2).sum() == 1000.00d`, nil, true)
 	// the shares are a fresh, mutable array
-	expectRun(t, `a := (1d).split(2, 1); a[0] = 0d; out = a`, nil, ARR{d("0"), d("0.5")})
+	expectRun(t, `a := (1d).allocate_equal(2, 1); a[0] = 0d; out = a`, nil, ARR{d("0"), d("0.5")})
 
-	expectError(t, `out = (1.005d).split(3, 2)`, nil, "(split) scale 2 is below the amount's own scale 3; round the amount first")
-	expectError(t, `out = (1d).split(0, 2)`, nil, "argument count must be positive, got 0")
-	expectError(t, `out = (1d).split(5000000000, 2)`, nil, "past the 4294967296 limit")
-	expectError(t, `out = (1000.00d).split_residual(7, 2, 7, "half_up")`, nil, "(split_residual) 7 out of range [0, 6]")
-	expectError(t, `out = (1000.00d).split_residual(7, 2, -8, "half_up")`, nil, "(split_residual) -8 out of range [0, 6]")
-	expectError(t, `out = (1000.00d).split_residual(7, 2, 0, "bank")`, nil, "unknown rounding mode")
+	expectError(t, `out = (1.005d).allocate_equal(3, 2)`, nil, "(allocate_equal) scale 2 is below the amount's own scale 3; round the amount first")
+	expectError(t, `out = (1d).allocate_equal(0, 2)`, nil, "argument count must be positive, got 0")
+	expectError(t, `out = (1d).allocate_equal(5000000000, 2)`, nil, "past the 4294967296 limit")
+	expectError(t, `out = (1000.00d).allocate_equal_residual(7, 2, 7, "half_up")`, nil, "(allocate_equal_residual) 7 out of range [0, 6]")
+	expectError(t, `out = (1000.00d).allocate_equal_residual(7, 2, -8, "half_up")`, nil, "(allocate_equal_residual) -8 out of range [0, 6]")
+	expectError(t, `out = (1000.00d).allocate_equal_residual(7, 2, 0, "bank")`, nil, "unknown rounding mode")
+	// the old spellings are gone: decimal has no split and no split_residual
+	expectError(t, `out = (1d).split(2, 2)`, nil, "invalid_method")
+	expectError(t, `out = (1d).split_residual(2, 2, -1, "half_up")`, nil, "invalid_method")
 	expectError(t, `out = (100d).allocate([1, -1], 2)`, nil, "(allocate) ratio at index 1 is negative")
 	expectError(t, `out = (100d).allocate([0, 0], 2)`, nil, "(allocate) ratios must not all be zero")
 	expectError(t, `out = (100d).allocate([], 2)`, nil, "(allocate) ratios must not be empty")
@@ -2862,7 +2865,8 @@ func TestFinDayCount(t *testing.T) {
 		run(`out = [aa.string(), type_name(aa), fin.is_year_fraction(aa), fin.is_year_fraction(1)]`, ARR{"184/365+182/366", "fin.year_fraction", true, false})
 		run(`out = aa.terms()`, ARR{184, 365, 182, 366})
 		run(`out = fin.year_fraction(aa.terms()...) == aa`, true) // the round trip holds for every value
-		run(`out = aa.value(10, h).string()`, "1.0013773486")
+		run(`out = aa.round(10, h).string()`, "1.0013773486")
+		fails(`aa.value(10, h)`, "invalid_method") // leaving the exact type is rounding: round(n, mode)
 		run(`out = [f"{aa}", f"{aa:v}", aa.format()]`, ARR{"184/365+182/366", "fin.year_fraction(184, 365, 182, 366)", "184/365+182/366"})
 		run(`out = import("json").encode(aa).string()`, "[184,365,182,366]")
 		run(`out = fin.year_fraction(31, 365).string()`, "31/365")
@@ -2886,7 +2890,7 @@ func TestFinDayCount(t *testing.T) {
 		run(`out = [(fin.year_fraction(31, 365) * 12).string(), (12 * fin.year_fraction(31, 365)).string()]`, ARR{"372/365", "372/365"})
 		run(`out = fin.year_fraction(31, 365) == fin.year_fraction(62, 730)`, true) // numeric equality
 		run(`out = [fin.year_fraction(31, 365) < aa, aa > fin.year_fraction(1, 1), aa >= aa]`, ARR{true, true, true})
-		run(`out = [fin.year_fraction(1, 1) == 1, aa == aa.value(10, h)]`, ARR{false, false}) // cross-type == is false
+		run(`out = [fin.year_fraction(1, 1) == 1, aa == aa.round(10, h)]`, ARR{false, false}) // cross-type == is false
 		run(`out = [fin.year_fraction(31, 365), fin.year_fraction(3, 360)].sort()[0].string()`, "3/360")
 		fails(`aa + fin.year_fraction(1, 360)`, "result out of range") // three denominators reduce past the bound
 		fails(`fin.year_fraction(31, 365) * 3000000000`, "result out of range")
@@ -2948,7 +2952,8 @@ func TestFinTables(t *testing.T) {
 
 	t.Run("tiered_rates", func(t *testing.T) {
 		run(`out = [type_name(tr), fin.is_tiered_rates(tr), fin.is_tiered_rates(tc), tr.string(), f"{tr:v}"]`, ARR{"fin.tiered_rates", true, false, "0:0.005, 1000:0.007, 10000:0.009", `fin.tiered_rates("0:0.005, 1000:0.007, 10000:0.009")`})
-		run(`out = format(tr.at(5000))`, `{"from": 1000d, "rate": 0.007d}`)
+		run(`out = format(tr.band(5000))`, `{"from": 1000d, "rate": 0.007d}`)
+		fails(`tr.at(5000)`, "invalid_method") // a tiered table is keyed by an amount: band(amount)
 		run(`out = [tr.charge(15000, "whole", 2, h).string(), tr.charge(15000, "marginal", 2, h).string(), tr.rate(15000, "marginal", 6, h).string()]`, ARR{"135.00", "113.00", "0.007533"})
 		run(`out = tr.charge_parts(15000, "marginal", 2, h).map(p => p.amount.string())`, ARR{"5.00", "63.00", "45.00"})
 		run(`out = format(tr.charge_parts(15000, "marginal", 2, h)[1])`, `{"amount": 63.00d, "fixed": 0d, "from": 1000d, "rate": 0.007d, "to": 10000d}`)
@@ -2964,7 +2969,8 @@ func TestFinTables(t *testing.T) {
 	t.Run("tiered_charges", func(t *testing.T) {
 		run(`out = [tc.charge(500, "whole", 2, h).string(), tc.charge(100000, "whole", 2, h).string(), tc.charge(3000, "marginal", 2, h).string()]`, ARR{"25.00", "500.00", "37.00"}) // min and max clamp
 		run(`out = format(tc.bounds())`, `{"max": 500d, "min": 25d}`)
-		run(`out = format(tc.at(2000))`, `{"fixed": 0d, "from": 1000d, "rate": 0.01d}`)
+		run(`out = format(tc.band(2000))`, `{"fixed": 0d, "from": 1000d, "rate": 0.01d}`)
+		fails(`tc.at(2000)`, "invalid_method")
 		run(`out = fin.tiered_charges(tc.bands(), 25, 500) == tc`, true)
 		run(`out = fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0).bounds().max.string()`, "0") // 0 = no cap
 		fails(`tc.rate(1, "whole", 2, h)`, "invalid_method")                                                 // a fixed component is money, not a rate
@@ -2979,12 +2985,15 @@ func TestFinTables(t *testing.T) {
 		run(`out = dr.at(d"2025-12-31", 0.05d).string()`, "0.05") // the fallback answers only a date before the first band
 		run(`out = dr.at(d"2026-08-01", 0.05d).string()`, "0.02")
 		run(`out = [dr.apply(1000, d"2026-02-01", 2, h).string(), dr.apply(1000, d"2025-02-01", 0.05d, 2, h).string()]`, ARR{"40.00", "50.00"})
-		run(`out = dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).string()`, "299.18")
-		run(`out = dr.accrue_parts(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).map(p => [p.start.string(), p.end.string(), p.amount.string()])`, ARR{ARR{"2026-01-01", "2026-07-01", "198.36"}, ARR{"2026-07-01", "2027-01-01", "100.82"}})
+		run(`out = dr.accrue_between(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).string()`, "299.18")
+		run(`out = dr.accrue_parts_between(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).map(p => [p.start.string(), p.end.string(), p.amount.string()])`, ARR{ARR{"2026-01-01", "2026-07-01", "198.36"}, ARR{"2026-07-01", "2027-01-01", "100.82"}})
 		run(`out = fin.dated_rates(dr.bands()) == dr`, true)
 		fails(`dr.at(d"2025-12-31")`, "invalid_value: (at) no band covers the argument")
-		fails(`dr.accrue(10000, d"2025-01-01", d"2027-01-01", "ACT/365F", 2, h)`, "table does not cover the whole period")
-		fails(`dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/999", 2, h)`, "unknown day-count convention")
+		fails(`dr.accrue_between(10000, d"2025-01-01", d"2027-01-01", "ACT/365F", 2, h)`, "table does not cover the whole period")
+		fails(`dr.accrue_between(10000, d"2026-01-01", d"2027-01-01", "ACT/999", 2, h)`, "unknown day-count convention")
+		fails(`dr.at(d"2025-12-31", "x")`, "invalid_argument_type: (at) argument fallback expects type decimal or int, got string")
+		fails(`dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h)`, "invalid_method") // the period as dates: accrue_between
+		fails(`dr.accrue_parts(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h)`, "invalid_method")
 		fails(`dr.at(t"2026-08-01T00:00:00Z")`, "argument on expects type date, got time")
 		fails(`fin.dated_rates([{from: "2026-01-01", rate: 1}])`, "argument bands[0].from expects type date, got string")
 	})
@@ -2994,7 +3003,14 @@ func TestFinTables(t *testing.T) {
 		run(`out = fin.dated_charges(dc.bands()) == dc`, true)
 		run(`out = format(dc.bands()[0])`, `{"amount": 25.00d, "from": date("2024-01-01")}`)
 		fails(`dc.apply(1, d"2025-01-01", 2, h)`, "invalid_method") // an amount times an amount means nothing
-		fails(`dc.at(d"2025-06-01", 1)`, "wrong_num_arguments")     // no fallback form for a charge table
+		// the fallback answers only a date before the first band, as dated_rates' does
+		run(`out = dc.at(d"2023-12-31", 20).format("v")`, "20d")
+		run(`out = dc.at(d"2025-06-01", 20).string()`, "30.00")
+		run(`out = dc.at(d"2024-01-01", 20).string()`, "25.00") // a band's own date is covered
+		fails(`dc.at(d"2023-12-31")`, "invalid_value: (at) no band covers the argument")
+		fails(`dc.at(d"2023-12-31", "x")`, "invalid_argument_type: (at) argument fallback expects type decimal or int, got string")
+		fails(`dc.at(d"2025-06-01", "x")`, "invalid_argument_type") // checked whether or not it would have been used
+		fails(`dc.at(d"2025-06-01", 1, 2)`, "wrong_num_arguments")
 	})
 
 	t.Run("contract", func(t *testing.T) {
@@ -12062,8 +12078,8 @@ func TestNumericMemberParity(t *testing.T) {
 		require.False(t, core.HasMember(value.Decimal, name), "decimal.%s", name)
 	}
 	for _, name := range []string{"rescale", "scale", "scale_by_pow10", "canonical", "can_fit", "integer_digits",
-		"significant_digits", "allocate", "allocate_residual", "split_residual", "error_details", "div_round",
-		"mul_round", "pow_round", "sqrt_round", "exp_round", "ln_round"} {
+		"significant_digits", "allocate", "allocate_residual", "allocate_equal", "allocate_equal_residual", "error_details",
+		"div_round", "mul_round", "pow_round", "sqrt_round", "exp_round", "ln_round"} {
 		require.True(t, core.HasMember(value.Decimal, name), "decimal.%s", name)
 		require.False(t, core.HasMember(value.Float, name), "float.%s", name)
 	}
@@ -12676,7 +12692,7 @@ func TestEveryBuiltinMemberNameIsAnswered(t *testing.T) {
 func TestArgCountErrorNames(t *testing.T) {
 	expectError(t, `"ab".upper(1)`, nil, "wrong_num_arguments: (upper) expected (), got 1 argument")
 	expectError(t, `import("re").pattern("a").find()`, nil, "wrong_num_arguments: (re.pattern.find) expected (s[, count]), got 0 arguments")
-	expectError(t, `import("rand").generator(1).int(1, 2, 3)`, nil, "wrong_num_arguments: (rand.generator.int) expected () | (hi) | (lo, hi), got 3 arguments")
+	expectError(t, `import("rand").generator(1).draw_int(1, 2, 3)`, nil, "wrong_num_arguments: (rand.generator.draw_int) expected () | (hi) | (lo, hi), got 3 arguments")
 	expectError(t, `import("math").cbrt()`, nil, "wrong_num_arguments: (math.cbrt) expected (x), got 0 arguments")
 	expectError(t, `f := import("math").cbrt; f(1, 2)`, nil, "wrong_num_arguments: (math.cbrt) expected (x), got 2 arguments")
 	expectError(t, `f := "ab".upper; f(1)`, nil, "wrong_num_arguments: (upper) expected (), got 1 argument")
@@ -12765,8 +12781,7 @@ func TestArgCountSingleSource(t *testing.T) {
 // diverges fails, so the table cannot go stale.
 func TestMemberTemplateParity(t *testing.T) {
 	const noBlankSet = "a dict has no blank set: the no-argument reading raises instead of being silently accepted"
-	const naming = "a different meaning under one name — a naming item in TODO.md"
-	const key = "same meaning, different key: tiered tables are keyed by an amount, dated ones by a date — TODO.md"
+	const operation = "a pattern is an operation, not a sequence: its members take the subject text as their argument"
 	exceptions := map[string]struct {
 		types  []uint8
 		reason string
@@ -12780,14 +12795,8 @@ func TestMemberTemplateParity(t *testing.T) {
 		"keep_in_place":   {[]uint8{value.Dict}, noBlankSet},
 		"remove_in_place": {[]uint8{value.Dict}, noBlankSet},
 		"index":           {[]uint8{value.Dict}, noBlankSet},
-		"int":             {[]uint8{value.RandGenerator}, naming},
-		"float":           {[]uint8{value.RandGenerator}, naming},
-		"bytes":           {[]uint8{value.RandGenerator}, naming},
-		"split":           {[]uint8{value.Decimal, value.RePattern}, naming},
-		"replace":         {[]uint8{value.RePattern}, naming},
-		"at":              {[]uint8{value.FinTieredRates, value.FinTieredCharges, value.FinDatedRates, value.FinDatedCharges}, key},
-		"value":           {[]uint8{value.FinYearFraction, value.Error}, naming},
-		"accrue":          {[]uint8{value.FinTieredRates, value.FinDatedRates}, key},
+		"split":           {[]uint8{value.RePattern}, operation},
+		"replace":         {[]uint8{value.RePattern}, operation},
 	}
 
 	// templates[name][type] = the template that type declares for name
@@ -12843,7 +12852,7 @@ func TestMemberTemplateParity(t *testing.T) {
 // callable kinds, every module, module-owned) plus record and edge values, and compared with the member called
 // through the dispatcher. Where the type has the conversion member — the pure T entry with the conversion template
 // ([default]) — both must answer equal values (== and the same type_name) or raise the same kind. Where it has none
-// (rand.generator's int(lo, hi) draws: another operation under the name), the free form must refuse with a
+// (rand.generator has no int: its draws are draw_int and friends), the free form must refuse with a
 // conversion error ("no conversion exists"), module-owned types as much as builtin ones. The exception table holds the free-only cells, each with its reason; an exception that no
 // longer diverges fails, so the table cannot go stale.
 func TestFreeConversionParity(t *testing.T) {
@@ -12997,10 +13006,14 @@ func TestFreeConversionFollowsMember(t *testing.T) {
 	expectRun(t, `out = bytes(range(0, 3))`, nil, []byte{0, 1, 2})
 	expectRun(t, `out = bool(error(1))`, nil, true)
 
-	// a member of a conversion's name that is not the conversion is never reached by the free form
+	// a generator has no conversion to a draw's type: the free form refuses (it never reached a draw), and the draws
+	// are draw_*, never a conversion's name
 	expectError(t, `int(import("rand").generator(1))`, nil, "conversion")
 	expectError(t, `float(import("rand").generator(1))`, nil, "conversion")
 	expectError(t, `bytes(import("rand").generator(1))`, nil, "conversion")
+	expectError(t, `import("rand").generator(1).int()`, nil, "invalid_method")
+	expectError(t, `import("rand").generator(1).float()`, nil, "invalid_method")
+	expectError(t, `import("rand").generator(1).bytes(4)`, nil, "invalid_method")
 
 	// a module-owned type converts like a builtin one: through its members, never its hooks
 	expectRun(t, `out = runes(import("re").pattern("a+"))`, nil, []rune("a+"))

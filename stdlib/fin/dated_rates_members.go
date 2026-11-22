@@ -160,11 +160,11 @@ func datedRatesApply(_ core.VM, v core.Value, id member.ID, args []core.Value) (
 // ```go
 // fin := import("fin")
 // dr := fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02")
-// dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, "half_even")   // => 299.18d — 198.36 + 100.82
+// dr.accrue_between(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, "half_even")   // => 299.18d — 198.36 + 100.82
 // ```
 //
-//kavun:member accrue pure (principal, start, end, convention, scale, mode) -> decimal
-func datedRatesAccrue(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member accrue_between pure (principal, start, end, convention, scale, mode) -> decimal
+func datedRatesAccrueBetween(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	t := DatedRatesOf(v)
 	a, err := accrualArgs(name, args)
@@ -175,10 +175,10 @@ func datedRatesAccrue(_ core.VM, v core.Value, id member.ID, args []core.Value) 
 	return decimal(name, d, err)
 }
 
-// Answer each stretch of the accrual, as `[{start, end, rate, amount}]`; see [`accrue`](#accrue).
+// Answer each stretch of the accrual, as `[{start, end, rate, amount}]`; see [`accrue_between`](#accrue_between).
 //
-//kavun:member accrue_parts pure (principal, start, end, convention, scale, mode) -> array
-func datedRatesAccrueParts(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member accrue_parts_between pure (principal, start, end, convention, scale, mode) -> array
+func datedRatesAccruePartsBetween(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	t := DatedRatesOf(v)
 	a, err := accrualArgs(name, args)

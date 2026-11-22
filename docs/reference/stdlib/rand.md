@@ -13,18 +13,18 @@ so it is importable by default; entropy comes from `os.rand_generator()`, which 
 ```go
 rand := import("rand")
 g := rand.generator(1)
-g.int(1, 7)                 // a die roll, [1, 7) — the same on every run with seed 1
-g.float()                   // [0, 1)
+g.draw_int(1, 7)            // a die roll, [1, 7) — the same on every run with seed 1
+g.draw_float()              // [0, 1)
 [1, 2, 3, 4, 5].shuffle(g)  // a new array, shuffled with g's draws
 os := import("os")          // os needs a grant
 d := os.rand_generator()    // the same type, unpredictable
 ```
 
-The generator's members (see [types/rand_generator.md](../types/rand_generator.md)): `int([lo,] hi)`,
-`float([lo,] hi)`, `bytes(n)`, `perm(n)`, `norm_float()`, `exp_float()`, `copy()`. Ranges are half-open, like
-`range(lo, hi)`.
+The generator's members (see [types/rand_generator.md](../types/rand_generator.md)): `draw_int([lo,] hi)`,
+`draw_float([lo,] hi)`, `draw_bytes(n)`, `draw_perm(n)`, `draw_norm()`, `draw_exp()`, `copy()`. Ranges are
+half-open, like `range(lo, hi)`.
 
-**Failures.** A bound that leaves no value (`g.int(5, 5)`) or a bad count (`g.bytes(0)`) raises `invalid_value`.
+**Failures.** A bound that leaves no value (`g.draw_int(5, 5)`) or a bad count (`g.draw_bytes(0)`) raises `invalid_value`.
 
 ## Functions
 
@@ -39,6 +39,6 @@ Answer a generator seeded with `seed`.
 
 The same seed gives the same sequence on every build: the source is PCG-DXSM (a specified algorithm) and every draw
 is derived from its raw output by Kavun's own code. A reproducible run seeds from a literal; a seed from entropy is
-`rand.generator(os.rand_generator().int())`.
+`rand.generator(os.rand_generator().draw_int())`.
 
 The seed is required: a pure module cannot pick one itself.

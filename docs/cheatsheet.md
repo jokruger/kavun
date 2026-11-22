@@ -327,7 +327,7 @@ math = import("math");   math.hypot(3, 4)   // sqrt, pow, ln, round(n, mode) are
 re = import("re");       re.pattern("[0-9]+").match("abc123")
 json = import("json");   json.encode({a: 1})
 clock = import("clock"); clock.now()   // durations are int members: 30.seconds(), d.in_hours(), "1h".nanoseconds()
-rand = import("rand");   g := rand.generator(1); g.int(1, 7); [1, 2, 3].shuffle(g)   // os.rand_generator(): entropy
+rand = import("rand");   g := rand.generator(1); g.draw_int(1, 7); [1, 2, 3].shuffle(g)   // os.rand_generator(): entropy
 fs = import("fs");       fs.read_file("./data.txt")   // fs.open/create answer an fs.file
 exec = import("exec");   exec.exec("echo", "hi").output()
 path = import("path");   path.join("a", "b.txt")
@@ -441,8 +441,7 @@ only their literal form is constant.
 
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict` are all
 callable as top-level conversion functions: `T(x)` calls `x.T([default])`, so the two spellings agree wherever that
-member exists (a type without it raises; a same-named member with another template, such as `rand.generator`'s
-`int(lo, hi)`, is not the conversion; `record` has no members and converts through the free forms only); see
+member exists (a type without it raises; `record` has no members and converts through the free forms only); see
 [the builtins](reference/builtins.md) for the full 0-arg/1-arg/count rules and per-type outliers.
 
 An `int` next to a `time` means two different things, decided by position — **operator: a duration in
@@ -507,8 +506,8 @@ rule = "half_even"
 (1000d).mul_div_round(31, 365, 2, rule)  // 84.93d -- x*b/c, e.g. a day count
 (100.00d).mul_percent_round(7.5d, 2, rule)   // 7.50d
 (2.37d).round_to_multiple(0.05d, "half_up")  // 2.35d -- cash rounding
-(1000.00d).split(7, 2)                   // 5 x 142.86d, 2 x 142.85d -- shares sum to EXACTLY the amount
-(1000.00d).split_residual(7, 2, -1, "half_up")  // 6 x 142.86d, then 142.84d -- the last share absorbs it
+(1000.00d).allocate_equal(7, 2)          // 5 x 142.86d, 2 x 142.85d -- shares sum to EXACTLY the amount
+(1000.00d).allocate_equal_residual(7, 2, -1, "half_up")  // 6 x 142.86d, then 142.84d -- the last share absorbs it
 q, r := (-7.5d).quo_rem(2)               // -3d, -1.5d -- truncated toward zero, like Python's divmod
 ```
 

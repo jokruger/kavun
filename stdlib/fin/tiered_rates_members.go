@@ -93,11 +93,11 @@ func tieredRatesBands(_ core.VM, v core.Value, id member.ID, args []core.Value) 
 
 // Answer the band `amount` falls in, as `{from, rate}`.
 //
-//kavun:member at pure (amount) -> record
-func tieredRatesAt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member band pure (amount) -> record
+func tieredRatesBand(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	t := TieredRatesOf(v)
-	// at(amount) -> {from, rate}: the band the amount falls in, no arithmetic
+	// band(amount) -> {from, rate}: the band the amount falls in, no arithmetic
 	amount, err := core.DecimalOperandArg(name, "amount", args[0])
 	if err != nil {
 		return core.Undefined, err

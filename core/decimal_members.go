@@ -998,11 +998,11 @@ func decimalCanFit(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return BoolValue(o.FitsNumeric(uint8(precision), uint8(scale))), nil
 }
 
-// Split into `k` equal shares at scale `n` that sum to exactly the amount; see [Splitting an
-// amount](#splitting-an-amount).
+// Allocate into `k` equal shares at scale `n` that sum to exactly the amount; see [Allocating an
+// amount](#allocating-an-amount).
 //
-//kavun:member split pure (k, n) -> array
-func decimalSplit(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+//kavun:member allocate_equal pure (k, n) -> array
+func decimalAllocateEqual(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*dec128.Dec128)(v.Ptr)
 	count, err := decimalSharesCountArg(name, args[0])
@@ -1017,11 +1017,11 @@ func decimalSplit(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return decimalShares(name, *o, scale, shares, ok)
 }
 
-// Split into `k` shares rounded with `mode`, the share at `index` taking what is left; see [Splitting an
-// amount](#splitting-an-amount).
+// Allocate into `k` equal shares rounded with `mode`, the share at `index` taking what is left; see [Allocating an
+// amount](#allocating-an-amount).
 //
-//kavun:member split_residual pure (k, n, index, mode) -> array
-func decimalSplitResidual(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+//kavun:member allocate_equal_residual pure (k, n, index, mode) -> array
+func decimalAllocateEqualResidual(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	name := id.String()
 	o := (*dec128.Dec128)(v.Ptr)
 	count, err := decimalSharesCountArg(name, args[0])
@@ -1044,8 +1044,8 @@ func decimalSplitResidual(_ VM, v Value, id member.ID, args []Value) (Value, err
 	return decimalShares(name, *o, scale, shares, ok)
 }
 
-// Split into shares at scale `n`, proportional to `ratios`, that sum to exactly the amount; see [Splitting an
-// amount](#splitting-an-amount).
+// Allocate into shares at scale `n`, proportional to `ratios`, that sum to exactly the amount; see [Allocating an
+// amount](#allocating-an-amount).
 //
 //kavun:member allocate pure (ratios, n) -> array
 func decimalAllocate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -1063,8 +1063,8 @@ func decimalAllocate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return decimalShares(name, *o, scale, shares, ok)
 }
 
-// Split proportionally to `ratios`, each share rounded with `mode` and the one at `index` taking what is left; see
-// [Splitting an amount](#splitting-an-amount).
+// Allocate proportionally to `ratios`, each share rounded with `mode` and the one at `index` taking what is left; see
+// [Allocating an amount](#allocating-an-amount).
 //
 //kavun:member allocate_residual pure (ratios, n, index, mode) -> array
 func decimalAllocateResidual(_ VM, v Value, id member.ID, args []Value) (Value, error) {

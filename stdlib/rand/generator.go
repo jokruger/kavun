@@ -79,12 +79,12 @@ func GeneratorOf(v core.Value) *Generator {
 //
 // ```go
 // g := import("rand").generator(1)
-// g.int(100)                  // => 59 — then 8, then 71: seed 1 always starts this way
-// g.int(1, 7)                 // a die roll in [1, 7)
-// g.float()                   // [0, 1)
-// g.perm(4)                   // a permutation of 0…3
+// g.draw_int(100)             // => 59 — then 8, then 71: seed 1 always starts this way
+// g.draw_int(1, 7)            // a die roll in [1, 7)
+// g.draw_float()              // [0, 1)
+// g.draw_perm(4)              // a permutation of 0…3
 // d := import("os").rand_generator()
-// d.int(1, 7)                 // unpredictable
+// d.draw_int(1, 7)            // unpredictable
 // ```
 //
 // ## Operators

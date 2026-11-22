@@ -18,7 +18,7 @@ var datedChargesMethods = []core.Method{
 	members.Freeze: core.NewPureMethod("()", datedChargesFreeze),
 	members.Runes:  core.NewPureMethod("([default])", datedChargesRunes),
 	members.Array:  core.NewPureMethod("([default])", datedChargesArray),
-	members.At:     core.NewPureMethod("(on)", datedChargesAt),
+	members.At:     core.NewPureMethod("(on[, fallback])", datedChargesAt),
 	members.Bands:  core.NewPureMethod("()", datedChargesBands),
 }
 
@@ -34,17 +34,17 @@ var datedRatesMethods = []core.Method{
 	members.Array:  core.NewPureMethod("([default])", datedRatesArray),
 	members.At:     core.NewPureMethod("(on[, fallback])", datedRatesAt),
 	members.Bands:  core.NewPureMethod("()", datedRatesBands),
-	members.Accrue: core.NewPureMethod(
-		"(principal, start, end, convention, scale, mode)",
-		datedRatesAccrue,
-	),
-	members.AccrueParts: core.NewPureMethod(
-		"(principal, start, end, convention, scale, mode)",
-		datedRatesAccrueParts,
-	),
 	members.Apply: core.NewPureMethod(
 		"(amount, on, scale, mode) | (amount, on, fallback, scale, mode)",
 		datedRatesApply,
+	),
+	members.AccrueBetween: core.NewPureMethod(
+		"(principal, start, end, convention, scale, mode)",
+		datedRatesAccrueBetween,
+	),
+	members.AccruePartsBetween: core.NewPureMethod(
+		"(principal, start, end, convention, scale, mode)",
+		datedRatesAccruePartsBetween,
 	),
 }
 
@@ -58,7 +58,6 @@ var tieredChargesMethods = []core.Method{
 	members.Freeze: core.NewPureMethod("()", tieredChargesFreeze),
 	members.Runes:  core.NewPureMethod("([default])", tieredChargesRunes),
 	members.Array:  core.NewPureMethod("([default])", tieredChargesArray),
-	members.At:     core.NewPureMethod("(amount)", tieredChargesAt),
 	members.Bands:  core.NewPureMethod("()", tieredChargesBands),
 	members.Charge: core.NewPureMethod("(amount, rule, scale, mode)", tieredChargesCharge),
 	members.ChargeParts: core.NewPureMethod(
@@ -66,6 +65,7 @@ var tieredChargesMethods = []core.Method{
 		tieredChargesChargeParts,
 	),
 	members.Bounds: core.NewPureMethod("()", tieredChargesBounds),
+	members.Band:   core.NewPureMethod("(amount)", tieredChargesBand),
 }
 
 // tieredRatesMethods is the fin.tiered_rates type's member table,
@@ -78,12 +78,12 @@ var tieredRatesMethods = []core.Method{
 	members.Freeze:      core.NewPureMethod("()", tieredRatesFreeze),
 	members.Runes:       core.NewPureMethod("([default])", tieredRatesRunes),
 	members.Array:       core.NewPureMethod("([default])", tieredRatesArray),
-	members.At:          core.NewPureMethod("(amount)", tieredRatesAt),
 	members.Bands:       core.NewPureMethod("()", tieredRatesBands),
 	members.Rate:        core.NewPureMethod("(amount, rule, scale, mode)", tieredRatesRate),
 	members.Charge:      core.NewPureMethod("(amount, rule, scale, mode)", tieredRatesCharge),
 	members.ChargeParts: core.NewPureMethod("(amount, rule, scale, mode)", tieredRatesChargeParts),
 	members.Accrue:      core.NewPureMethod("(principal, f, rule, scale, mode)", tieredRatesAccrue),
+	members.Band:        core.NewPureMethod("(amount)", tieredRatesBand),
 }
 
 // yearFractionMethods is the fin.year_fraction type's member table,
@@ -99,7 +99,7 @@ var yearFractionMethods = []core.Method{
 	members.IsZero:     core.NewPureMethod("()", yearFractionIsZero),
 	members.IsPositive: core.NewPureMethod("()", yearFractionIsPositive),
 	members.IsNegative: core.NewPureMethod("()", yearFractionIsNegative),
-	members.Value:      core.NewPureMethod("(scale, mode)", yearFractionValue),
+	members.Round:      core.NewPureMethod("(n, mode)", yearFractionRound),
 	members.Terms:      core.NewPureMethod("()", yearFractionTerms),
 }
 

@@ -262,7 +262,6 @@ var decimalMethods = []Method{
 	members.Time:              NewPureMethod("([default])", decimalTime),
 	members.Decimal:           NewPureMethod("([default])", decimalDecimal),
 	members.Array:             NewPureMethod("([default])", decimalArray),
-	members.Split:             NewPureMethod("(k, n)", decimalSplit),
 	members.Abs:               NewPureMethod("()", decimalAbs),
 	members.Sign:              NewPureMethod("()", decimalSign),
 	members.IsZero:            NewPureMethod("()", decimalIsZero),
@@ -311,8 +310,12 @@ var decimalMethods = []Method{
 	members.Log10Round:        NewPureMethod("(n, mode)", decimalLog10Round),
 	members.Allocate:          NewPureMethod("(ratios, n)", decimalAllocate),
 	members.AllocateResidual:  NewPureMethod("(ratios, n, index, mode)", decimalAllocateResidual),
-	members.SplitResidual:     NewPureMethod("(k, n, index, mode)", decimalSplitResidual),
 	members.ErrorDetails:      NewPureMethod("()", decimalErrorDetails),
+	members.AllocateEqual:     NewPureMethod("(k, n)", decimalAllocateEqual),
+	members.AllocateEqualResidual: NewPureMethod(
+		"(k, n, index, mode)",
+		decimalAllocateEqualResidual,
+	),
 }
 
 // dictMethods is the dict type's member table,

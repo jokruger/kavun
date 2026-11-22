@@ -720,7 +720,7 @@ func arrayFlatten(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 // member cannot read the world on its own.
 //
 // The same seeded generator gives the same order on every run; `os.rand_generator()` gives an unpredictable one.
-// Fisher–Yates over `g.int(i + 1)`, so the generator's state moves:
+// Fisher–Yates over `g.draw_int(i + 1)`, so the generator's state moves:
 //
 // ```go
 // g := import("rand").generator(7)
@@ -1509,15 +1509,15 @@ func arrayShuffleInPlace(vm VM, v Value, id member.ID, args []Value) (Value, err
 	return v, nil
 }
 
-// shuffleWith permutes elems in place with the generator g: Fisher–Yates over its draws, g.int(i + 1). The
-// generator is required — a member cannot read the world on its own — and it is reached through its own int
+// shuffleWith permutes elems in place with the generator g: Fisher–Yates over its draws, g.draw_int(i + 1). The
+// generator is required — a member cannot read the world on its own — and it is reached through its own draw_int
 // member, so core never names the rand module.
 func shuffleWith(vm VM, id member.ID, g Value, elems []Value) error {
 	if g.Type != value.RandGenerator {
 		return errs.NewInvalidArgumentTypeError(id.String(), "first", "rand.generator", g.TypeName())
 	}
 	for i := len(elems) - 1; i > 0; i-- {
-		r, err := g.CallMember(vm, members.Int, "int", []Value{IntValue(int64(i + 1))})
+		r, err := g.CallMember(vm, members.DrawInt, "draw_int", []Value{IntValue(int64(i + 1))})
 		if err != nil {
 			return err
 		}

@@ -215,7 +215,7 @@ type accrual struct {
 	out       fin128.Rounding
 }
 
-// accrualArgs reads accrue/accrue_parts' arguments.
+// accrualArgs reads accrue_between/accrue_parts_between's arguments.
 func accrualArgs(name string, args []core.Value) (accrual, error) {
 	var a accrual
 	var err error

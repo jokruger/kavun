@@ -15,8 +15,8 @@ form or from band records:
 
 ## Members
 
-- [`accrue(principal, start, end, convention, scale, mode) -> decimal`](#accrue)
-- [`accrue_parts(principal, start, end, convention, scale, mode) -> array`](#accrue_parts)
+- [`accrue_between(principal, start, end, convention, scale, mode) -> decimal`](#accrue_between)
+- [`accrue_parts_between(principal, start, end, convention, scale, mode) -> array`](#accrue_parts_between)
 - [`apply(amount, on, scale, mode) -> decimal` / `apply(amount, on, fallback, scale, mode) -> decimal`](#apply)
 - [`array([default]) -> array`](#array)
 - [`at(on[, fallback]) -> decimal`](#at)
@@ -28,21 +28,21 @@ form or from band records:
 - [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 
-<a id="accrue"></a>
-### `accrue(principal, start, end, convention, scale, mode) -> decimal`
+<a id="accrue_between"></a>
+### `accrue_between(principal, start, end, convention, scale, mode) -> decimal`
 
 Answer the interest on `principal` from `start` to `end`, the rate changing at band dates.
 
 ```go
 fin := import("fin")
 dr := fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02")
-dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, "half_even")   // => 299.18d — 198.36 + 100.82
+dr.accrue_between(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, "half_even")   // => 299.18d — 198.36 + 100.82
 ```
 
-<a id="accrue_parts"></a>
-### `accrue_parts(principal, start, end, convention, scale, mode) -> array`
+<a id="accrue_parts_between"></a>
+### `accrue_parts_between(principal, start, end, convention, scale, mode) -> array`
 
-Answer each stretch of the accrual, as `[{start, end, rate, amount}]`; see [`accrue`](#accrue).
+Answer each stretch of the accrual, as `[{start, end, rate, amount}]`; see [`accrue_between`](#accrue_between).
 
 <a id="apply"></a>
 ### `apply(amount, on, scale, mode) -> decimal` / `apply(amount, on, fallback, scale, mode) -> decimal`

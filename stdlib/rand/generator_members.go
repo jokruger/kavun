@@ -88,8 +88,8 @@ func intArg(id member.ID, pos string, a core.Value) (int64, error) {
 
 // Draw an int in [0, 2^63), [0, hi) or [lo, hi); an empty range raises `invalid_value`.
 //
-//kavun:member int impure () | (hi) | (lo, hi) -> int
-func generatorInt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_int impure () | (hi) | (lo, hi) -> int
+func generatorDrawInt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	g := GeneratorOf(v)
 	switch len(args) {
 	case 0:
@@ -133,8 +133,8 @@ func floatArg(id member.ID, pos string, a core.Value) (float64, error) {
 
 // Draw a float in [0, 1), [0, hi) or [lo, hi); bounds must be finite and non-empty.
 //
-//kavun:member float impure () | (hi) | (lo, hi) -> float
-func generatorFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_float impure () | (hi) | (lo, hi) -> float
+func generatorDrawFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	g := GeneratorOf(v)
 	lo, hi := 0.0, 1.0
 	var err error
@@ -160,8 +160,8 @@ func generatorFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (c
 
 // Draw `n` random octets (`1 ≤ n ≤` the sequence ceiling).
 //
-//kavun:member bytes impure (n) -> bytes
-func generatorBytes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_bytes impure (n) -> bytes
+func generatorDrawBytes(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	n, err := intArg(id, "first", args[0])
 	if err != nil {
 		return core.Undefined, err
@@ -181,22 +181,22 @@ func generatorBytes(_ core.VM, v core.Value, id member.ID, args []core.Value) (c
 
 // Draw from the exponential distribution (rate 1).
 //
-//kavun:member exp_float impure () -> float
-func generatorExpFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_exp impure () -> float
+func generatorDrawExp(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	return core.FloatValue(GeneratorOf(v).expFloat64()), nil
 }
 
 // Draw from the standard normal distribution (mean 0, deviation 1).
 //
-//kavun:member norm_float impure () -> float
-func generatorNormFloat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_norm impure () -> float
+func generatorDrawNorm(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	return core.FloatValue(GeneratorOf(v).normFloat64()), nil
 }
 
 // Draw a random permutation of `0…n-1`.
 //
-//kavun:member perm impure (n) -> array
-func generatorPerm(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member draw_perm impure (n) -> array
+func generatorDrawPerm(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	n, err := intArg(id, "first", args[0])
 	if err != nil {
 		return core.Undefined, err

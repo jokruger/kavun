@@ -186,11 +186,14 @@ const (
 	Charge      = 436
 	ChargeParts = 437
 	Accrue      = 438
-	AccrueParts = 439
-	Apply       = 440
-	Bounds      = 441
-	Terms       = 442
-	// 443…448 reserved
+	// AccrueParts = 439 — retired
+	Apply              = 440
+	Bounds             = 441
+	Terms              = 442
+	Band               = 443
+	AccrueBetween      = 444
+	AccruePartsBetween = 445
+	// 446…448 reserved
 
 	// time and date (time, date)
 	Components   = 449
@@ -285,9 +288,11 @@ const (
 	Log10Round        = 570
 	Allocate          = 571
 	AllocateResidual  = 572
-	SplitResidual     = 573
-	ErrorDetails      = 574
-	// 575…584 reserved
+	// SplitResidual = 573 — retired
+	ErrorDetails          = 574
+	AllocateEqual         = 575
+	AllocateEqualResidual = 576
+	// 577…584 reserved
 
 	// modules — shared by several (base64, hex, json)
 	Encode = 585
@@ -317,13 +322,19 @@ const (
 	RawURLDecode = 622
 	// 623…624 reserved
 
-	// module rand
-	ExpFloat  = 625
-	NormFloat = 626
-	Perm      = 627
+	// module rand (draw_* are rand.generator's)
+	// ExpFloat = 625 — retired
+	// NormFloat = 626 — retired
+	// Perm = 627 — retired
 	Read      = 628
 	Generator = 629
-	// 630…640 reserved
+	DrawInt   = 630
+	DrawFloat = 631
+	DrawBytes = 632
+	DrawExp   = 633
+	DrawNorm  = 634
+	DrawPerm  = 635
+	// 636…640 reserved
 
 	// module clock (formerly times); duration_string is int's
 	Now            = 641

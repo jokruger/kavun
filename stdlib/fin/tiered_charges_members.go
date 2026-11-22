@@ -102,8 +102,8 @@ func tieredChargesBounds(_ core.VM, v core.Value, id member.ID, args []core.Valu
 
 // Answer the band `amount` falls in, as `{from, rate, fixed}`.
 //
-//kavun:member at pure (amount) -> record
-func tieredChargesAt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+//kavun:member band pure (amount) -> record
+func tieredChargesBand(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	t := TieredChargesOf(v)
 	amount, err := core.DecimalOperandArg(name, "amount", args[0])

@@ -23,6 +23,8 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `add_years` | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | ✓ | — |
 | `all` | ✓ | — | — | ✓ | — | — | ✓ | — | — | — | ✓ | — | ✓ | ✓ | — | — |
 | `allocate` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
+| `allocate_equal` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
+| `allocate_equal_residual` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
 | `allocate_residual` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
 | `any` | ✓ | — | — | ✓ | — | — | ✓ | — | — | — | ✓ | — | ✓ | ✓ | — | — |
 | `append` | ✓ | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — |
@@ -200,9 +202,8 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `sort_in_place` | ✓ | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | — | — | — |
 | `splice` | ✓ | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — |
 | `splice_in_place` | ✓ | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | — | — | — |
-| `split` | — | — | — | ✓ | — | ✓ | — | — | — | — | — | — | ✓ | ✓ | — | — |
+| `split` | — | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — |
 | `split_lines` | — | — | — | ✓ | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — |
-| `split_residual` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
 | `sqrt` | — | — | — | — | — | ✓ | — | — | ✓ | — | — | — | — | — | — | — |
 | `sqrt_round` | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — |
 | `start_of_month` | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — |
@@ -242,14 +243,15 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 
 | member | [exec.command](types/exec_command.md) | [exec.process](types/exec_process.md) | [fin.dated_charges](types/fin_dated_charges.md) | [fin.dated_rates](types/fin_dated_rates.md) | [fin.tiered_charges](types/fin_tiered_charges.md) | [fin.tiered_rates](types/fin_tiered_rates.md) | [fin.year_fraction](types/fin_year_fraction.md) | [fs.file](types/fs_file.md) | [rand.generator](types/rand_generator.md) | [re.pattern](types/re_pattern.md) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `accrue` | — | — | — | ✓ | — | ✓ | — | — | — | — |
-| `accrue_parts` | — | — | — | ✓ | — | — | — | — | — | — |
+| `accrue` | — | — | — | — | — | ✓ | — | — | — | — |
+| `accrue_between` | — | — | — | ✓ | — | — | — | — | — | — |
+| `accrue_parts_between` | — | — | — | ✓ | — | — | — | — | — | — |
 | `apply` | — | — | — | ✓ | — | — | — | — | — | — |
 | `array` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `at` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
+| `at` | — | — | ✓ | ✓ | — | — | — | — | — | — |
+| `band` | — | — | — | — | ✓ | ✓ | — | — | — | — |
 | `bands` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
 | `bounds` | — | — | — | — | ✓ | — | — | — | — | — |
-| `bytes` | — | — | — | — | — | — | — | — | ✓ | — |
 | `charge` | — | — | — | — | ✓ | ✓ | — | — | — | — |
 | `charge_parts` | — | — | — | — | ✓ | ✓ | — | — | — | — |
 | `chdir` | — | — | — | — | — | — | — | ✓ | — | — |
@@ -258,12 +260,15 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `close` | — | — | — | — | — | — | — | ✓ | — | — |
 | `combined_output` | ✓ | — | — | — | — | — | — | — | — | — |
 | `copy` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `exp_float` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_bytes` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_exp` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_float` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_int` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_norm` | — | — | — | — | — | — | — | — | ✓ | — |
+| `draw_perm` | — | — | — | — | — | — | — | — | ✓ | — |
 | `find` | — | — | — | — | — | — | — | — | — | ✓ |
-| `float` | — | — | — | — | — | — | — | — | ✓ | — |
 | `format` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `freeze` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `int` | — | — | — | — | — | — | — | — | ✓ | — |
 | `is_negative` | — | — | — | — | — | — | ✓ | — | — | — |
 | `is_positive` | — | — | — | — | — | — | ✓ | — | — | — |
 | `is_true` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -271,9 +276,7 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `kill` | — | ✓ | — | — | — | — | — | — | — | — |
 | `match` | — | — | — | — | — | — | — | — | — | ✓ |
 | `name` | — | — | — | — | — | — | — | ✓ | — | — |
-| `norm_float` | — | — | — | — | — | — | — | — | ✓ | — |
 | `output` | ✓ | — | — | — | — | — | — | — | — | — |
-| `perm` | — | — | — | — | — | — | — | — | ✓ | — |
 | `pid` | — | ✓ | — | — | — | — | — | — | — | — |
 | `process` | ✓ | — | — | — | — | — | — | — | — | — |
 | `rate` | — | — | — | — | — | ✓ | — | — | — | — |
@@ -281,6 +284,7 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `read_dir_names` | — | — | — | — | — | — | — | ✓ | — | — |
 | `release` | — | ✓ | — | — | — | — | — | — | — | — |
 | `replace` | — | — | — | — | — | — | — | — | — | ✓ |
+| `round` | — | — | — | — | — | — | ✓ | — | — | — |
 | `run` | ✓ | — | — | — | — | — | — | — | — | — |
 | `runes` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
 | `seek` | — | — | — | — | — | — | — | ✓ | — | — |
@@ -294,7 +298,6 @@ Every `✓` member is also readable as a value: `x.name` without a call answers 
 | `string` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
 | `sync` | — | — | — | — | — | — | — | ✓ | — | — |
 | `terms` | — | — | — | — | — | — | ✓ | — | — | — |
-| `value` | — | — | — | — | — | — | ✓ | — | — | — |
 | `wait` | ✓ | ✓ | — | — | — | — | — | — | — | — |
 | `write` | — | — | — | — | — | — | — | ✓ | — | — |
 | `write_string` | — | — | — | — | — | — | — | ✓ | — | — |

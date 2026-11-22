@@ -1,6 +1,10 @@
 package fin
 
 import (
+	"errors"
+
+	"github.com/jokruger/fin128"
+
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/member"
 )
@@ -89,17 +93,44 @@ func datedChargesBands(_ core.VM, v core.Value, id member.ID, args []core.Value)
 	return core.NewArrayValue(out, false), nil
 }
 
-// Answer the amount in force on the date `on`.
+// Answer the amount in force on the date `on`; `fallback` answers **only** a date before the first band.
 //
-//kavun:member at pure (on) -> decimal
+// ```go
+// fin := import("fin")
+// dc := fin.dated_charges("2026-01-01:25, 2026-07-01:30")
+// dc.at(d"2025-12-31")                            // Error: invalid_value: (at) no band covers the argument
+// dc.at(d"2025-12-31", 20)                        // => 20d — the fallback, before the first band only
+// dc.at(d"2026-08-01", 20)                        // => 30d
+// ```
+//
+//kavun:member at pure (on[, fallback]) -> decimal
 func datedChargesAt(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	t := DatedChargesOf(v)
-	// at(on): the amount in force (fin128 has no fallback form for a charge table)
+	// at(on[, fallback]): the amount in force; the fallback answers ONLY a date before the first band. fin128 has no
+	// fallback form for a charge table, so it is substituted here for ErrNoBand alone, as DatedRates.AtOr does: a
+	// zero-value table still raises, and a NaN fallback is refused whether or not it would have been used.
+	if len(args) > 2 {
+		return core.Undefined, core.ErrArgCount
+	}
 	on, err := dateArg(name, "on", args[0])
 	if err != nil {
 		return core.Undefined, err
 	}
+	if len(args) == 1 {
+		d, err := t.At(on)
+		return decimal(name, d, err)
+	}
+	fallback, err := core.DecimalOperandArg(name, "fallback", args[1])
+	if err != nil {
+		return core.Undefined, err
+	}
+	if fallback.IsNaN() {
+		return decimal(name, fallback, fallback.ErrorDetails())
+	}
 	d, err := t.At(on)
+	if errors.Is(err, fin128.ErrNoBand) {
+		return decimal(name, fallback, nil)
+	}
 	return decimal(name, d, err)
 }

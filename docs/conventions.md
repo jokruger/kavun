@@ -288,9 +288,14 @@ Never provide two methods with the same base name where one mutates and one does
 `push`/`push_first` are **not** a twin pair — they are two operations at two ends; the twins are
 `push`/`push_in_place` and `push_first`/`push_first_in_place`.
 
+`_in_place` marks the mutating twin of a pure member on a data type. A member that only advances a stateful
+module-owned value — `rand.generator`'s `draw_*`, `exec.process.wait`, `fs.file`'s members — has no pure twin: it
+is named by its verb and declared `impure`.
+
 This convention is a direct consequence of the [Purity Contract](purity.md): operators and methods must be pure by
-default so the AST optimizer can fold constant subexpressions safely. Impure operations should be exposed as
-top-level builtin functions (registered with `Pure = false`); `_in_place` methods are the last-resort escape hatch.
+default so the AST optimizer can fold constant subexpressions safely. On the builtin data types, impure operations
+should be exposed as top-level builtin functions (registered with `Pure = false`); `_in_place` methods are the
+last-resort escape hatch.
 
 ### Mutating vs Non-mutating Functions (Kavun-language, user-defined)
 
@@ -382,12 +387,23 @@ silently accept a narrower or different one. A different meaning under a shared 
 licence for a second template. `TestMemberTemplateParity` walks every `Methods` table and pins the rule; its
 exception table (name, types, reason) is the record of every deliberate divergence.
 
+- **A different form of input is a qualifier in the name**, never an overload of the template: `_between` takes
+  the period as `start, end, convention` (`fin.dated_rates.accrue_between`, beside `fin.year_fraction_between`),
+  `_in` takes a zone (`date_in`, `time_in`), `_equal` is `allocate`'s equal-ratio variant (`allocate_equal(k, n)`),
+  `_residual` hands the rounding leftover to one share. A unit is part of the name (`int.time_ms()`), never an
+  argument that would break the conversion template.
+- **A type whose value is an operation takes the subject as its argument.** `re.pattern` is a compiled
+  operation, not a sequence: its `split(s[, count])` and `replace(s, repl)` read the subject `s`, not the
+  receiver. Both entries share one reason in the exception table.
+- **Leaving an exact type is rounding**, spelled `round(n, mode)`: `decimal`, `float` and `fin.year_fraction`
+  — the last answers a `decimal`, since the exact type cannot hold a rounded result.
+
 The free conversion builtins (`vm/builtins.go`) do not implement the conversions a second time: `T(x)` calls
 `x`'s `T` entry through the dispatcher when that entry is pure and has the conversion template `([default])`, so
-the two spellings cannot drift ([purity.md](purity.md#method-purity)). A member of the same name with another template (`rand.generator`'s `int(lo, hi)`) is a
-different operation and is never reached by the free form. The free builtin keeps only what has no member: the
-zero value, the construction parameters of its second argument, `undefined`, `record`, and an embedder type's hook
-fallback. `TestFreeConversionParity` pins it.
+the two spellings cannot drift ([purity.md](purity.md#method-purity)); an entry without that template is never
+reached by the free form. The free builtin keeps only what has no member: the zero value, the construction
+parameters of its second argument, `undefined`, `record`, and an embedder type's hook fallback.
+`TestFreeConversionParity` pins it.
 
 ### Arity and templates
 

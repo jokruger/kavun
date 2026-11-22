@@ -32,7 +32,7 @@ an array back, which `fin.year_fraction(v...)` rebuilds.
 | `f + g` | the exact sum |
 | `f * n`, `n * f` (`n` an `int`) | scaled — e.g. a year fraction as compounding periods |
 | `f < g` (`<=` `>` `>=`), `f == g` | exact, numeric: `fin.year_fraction(31, 365) == fin.year_fraction(62, 730)` |
-| `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.value(…)` to leave the type |
+| `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.round(n, mode)` to leave the type |
 
 ## Members
 
@@ -44,10 +44,10 @@ an array back, which `fin.year_fraction(v...)` rebuilds.
 - [`is_positive() -> bool`](#is_positive)
 - [`is_true() -> bool`](#is_true)
 - [`is_zero() -> bool`](#is_zero)
+- [`round(n, mode) -> decimal`](#round)
 - [`runes([default]) -> runes`](#runes)
 - [`string([default]) -> string`](#string)
 - [`terms() -> array`](#terms)
-- [`value(scale, mode) -> decimal`](#value)
 
 <a id="array"></a>
 ### `array([default]) -> array`
@@ -95,6 +95,14 @@ Report truthiness: `0/1` is falsy, every other fraction truthy.
 
 Report whether the fraction is zero.
 
+<a id="round"></a>
+### `round(n, mode) -> decimal`
+
+Answer the decimal reading rounded to `n` fractional places — the only bridge to `decimal`.
+
+Rounding is how a value leaves an exact type: the result is a `decimal`, since the fraction cannot hold a rounded
+value.
+
 <a id="runes"></a>
 ### `runes([default]) -> runes`
 
@@ -113,8 +121,3 @@ Answer the terms as text: `"31/365"`, `"184/365+182/366"` — also what `f"{f}"`
 ### `terms() -> array`
 
 Answer `[n1, d1]` or `[n1, d1, n2, d2]`; `fin.year_fraction(f.terms()...) == f` always holds.
-
-<a id="value"></a>
-### `value(scale, mode) -> decimal`
-
-Answer the decimal reading at a stated rounding — the only bridge to `decimal`.

@@ -20,12 +20,12 @@ with another script.
 
 ```go
 g := import("rand").generator(1)
-g.int(100)                  // => 59 — then 8, then 71: seed 1 always starts this way
-g.int(1, 7)                 // a die roll in [1, 7)
-g.float()                   // [0, 1)
-g.perm(4)                   // a permutation of 0…3
+g.draw_int(100)             // => 59 — then 8, then 71: seed 1 always starts this way
+g.draw_int(1, 7)            // a die roll in [1, 7)
+g.draw_float()              // [0, 1)
+g.draw_perm(4)              // a permutation of 0…3
 d := import("os").rand_generator()
-d.int(1, 7)                 // unpredictable
+d.draw_int(1, 7)            // unpredictable
 ```
 
 ## Operators
@@ -48,16 +48,16 @@ no `string()`.
 ## Members
 
 - [`array([default]) -> array`](#array)
-- [`bytes(n) -> bytes`](#bytes)
 - [`copy() -> rand.generator`](#copy)
-- [`exp_float() -> float`](#exp_float)
-- [`float() -> float` / `float(hi) -> float` / `float(lo, hi) -> float`](#float)
+- [`draw_bytes(n) -> bytes`](#draw_bytes)
+- [`draw_exp() -> float`](#draw_exp)
+- [`draw_float() -> float` / `draw_float(hi) -> float` / `draw_float(lo, hi) -> float`](#draw_float)
+- [`draw_int() -> int` / `draw_int(hi) -> int` / `draw_int(lo, hi) -> int`](#draw_int)
+- [`draw_norm() -> float`](#draw_norm)
+- [`draw_perm(n) -> array`](#draw_perm)
 - [`format([spec]) -> string`](#format)
 - [`freeze() -> rand.generator`](#freeze)
-- [`int() -> int` / `int(hi) -> int` / `int(lo, hi) -> int`](#int)
 - [`is_true() -> bool`](#is_true)
-- [`norm_float() -> float`](#norm_float)
-- [`perm(n) -> array`](#perm)
 
 <a id="array"></a>
 ### `array([default]) -> array`
@@ -70,11 +70,6 @@ Total, so the default is never used.
 import("rand").generator(1).array().len()   // => 1
 ```
 
-<a id="bytes"></a>
-### `bytes(n) -> bytes`
-
-Draw `n` random octets (`1 ≤ n ≤` the sequence ceiling).
-
 <a id="copy"></a>
 ### `copy() -> rand.generator`
 
@@ -82,15 +77,35 @@ Answer an independent clone at the same state for a seeded generator; an entropy
 
 The seeded clone and the original then draw the same sequence.
 
-<a id="exp_float"></a>
-### `exp_float() -> float`
+<a id="draw_bytes"></a>
+### `draw_bytes(n) -> bytes`
+
+Draw `n` random octets (`1 ≤ n ≤` the sequence ceiling).
+
+<a id="draw_exp"></a>
+### `draw_exp() -> float`
 
 Draw from the exponential distribution (rate 1).
 
-<a id="float"></a>
-### `float() -> float` / `float(hi) -> float` / `float(lo, hi) -> float`
+<a id="draw_float"></a>
+### `draw_float() -> float` / `draw_float(hi) -> float` / `draw_float(lo, hi) -> float`
 
 Draw a float in [0, 1), [0, hi) or [lo, hi); bounds must be finite and non-empty.
+
+<a id="draw_int"></a>
+### `draw_int() -> int` / `draw_int(hi) -> int` / `draw_int(lo, hi) -> int`
+
+Draw an int in [0, 2^63), [0, hi) or [lo, hi); an empty range raises `invalid_value`.
+
+<a id="draw_norm"></a>
+### `draw_norm() -> float`
+
+Draw from the standard normal distribution (mean 0, deviation 1).
+
+<a id="draw_perm"></a>
+### `draw_perm(n) -> array`
+
+Draw a random permutation of `0…n-1`.
 
 <a id="format"></a>
 ### `format([spec]) -> string`
@@ -102,22 +117,7 @@ Render the generator by its source: `<rand.generator:seeded>` or `<rand.generato
 
 Answer the generator itself.
 
-<a id="int"></a>
-### `int() -> int` / `int(hi) -> int` / `int(lo, hi) -> int`
-
-Draw an int in [0, 2^63), [0, hi) or [lo, hi); an empty range raises `invalid_value`.
-
 <a id="is_true"></a>
 ### `is_true() -> bool`
 
 Report truthiness: a generator is always truthy.
-
-<a id="norm_float"></a>
-### `norm_float() -> float`
-
-Draw from the standard normal distribution (mean 0, deviation 1).
-
-<a id="perm"></a>
-### `perm(n) -> array`
-
-Draw a random permutation of `0…n-1`.

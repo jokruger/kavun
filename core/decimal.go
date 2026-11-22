@@ -330,16 +330,16 @@ func NewDecimalValue(d dec128.Dec128) Value {
 // The degree limit (and the same limit on a reduced `p` or `q` of `pow_rational_round`) is a cost ceiling: 16384
 // covers 40 years of daily rests.
 //
-// ## Splitting an amount
+// ## Allocating an amount
 //
-// `split` and `allocate` divide an amount into shares that **sum to exactly the amount** — a reconciliation is an
+// `allocate` and `allocate_equal` divide an amount into shares that **sum to exactly the amount** — a reconciliation is an
 // equality, not a tolerance. Both answer a new, mutable array.
 //
 // | member | shares | the leftover quanta go to |
 // | --- | --- | --- |
-// | `split(k, n)` | `k` equal shares at scale `n` | the shares with the largest remainders, ties to the lowest index |
+// | `allocate_equal(k, n)` | `k` equal shares at scale `n` | the shares with the largest remainders, ties to the lowest index |
 // | `allocate(ratios, n)` | proportional to `ratios` (an array of `decimal`/`int`) | the same |
-// | `split_residual(k, n, index, mode)` | every share rounded with `mode` … | … except the one at `index`, which takes what is left |
+// | `allocate_equal_residual(k, n, index, mode)` | every share rounded with `mode` … | … except the one at `index`, which takes what is left |
 // | `allocate_residual(ratios, n, index, mode)` | the same, proportionally | the same |
 //
 // The `_residual` forms are the convention of an amortization schedule or a syndicated facility: the last
@@ -347,24 +347,24 @@ func NewDecimalValue(d dec128.Dec128) Value {
 // does.
 //
 // ```go
-// (1000.00d).split(7, 2)
+// (1000.00d).allocate_equal(7, 2)
 // // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.85d, 142.85d]
-// (1000.00d).split_residual(7, 2, -1, "half_up")
+// (1000.00d).allocate_equal_residual(7, 2, -1, "half_up")
 // // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.84d]
 // (100.00d).allocate([1, 1, 1], 2)                  // => [33.34d, 33.33d, 33.33d]
 // (100.00d).allocate_residual([1, 1, 1], 2, -1, "half_up")   // => [33.33d, 33.33d, 33.34d]
-// (0.05d).split(3, 2)                               // => [0.02d, 0.02d, 0.01d]
-// (1000.00d).split(7, 2).sum() == 1000.00d          // => true
+// (0.05d).allocate_equal(3, 2)                      // => [0.02d, 0.02d, 0.01d]
+// (1000.00d).allocate_equal(7, 2).sum() == 1000.00d // => true
 // ```
 //
-// The target scale must be at least the amount's own: splitting 1.005 into cents would have to round first, and
-// the split refuses to do that silently.
+// The target scale must be at least the amount's own: allocating 1.005 into cents would have to round first, and
+// the allocation refuses to do that silently.
 //
 // ```go
-// (1.005d).split(3, 2)                               // Error: invalid_value: (split) scale 2 is below the amount's own scale 3; round the amount first
-// (1.005d).round(2, "half_even").split(3, 2)         // => [0.34d, 0.33d, 0.33d]
-// (1d).split(0, 2)                                   // Error: invalid_value: (split) argument count must be positive, got 0
-// (1000.00d).split_residual(7, 2, 7, "half_up")      // Error: index_out_of_bounds: (split_residual) 7 out of range [0, 6]
+// (1.005d).allocate_equal(3, 2)                      // Error: invalid_value: (allocate_equal) scale 2 is below the amount's own scale 3; round the amount first
+// (1.005d).round(2, "half_even").allocate_equal(3, 2) // => [0.34d, 0.33d, 0.33d]
+// (1d).allocate_equal(0, 2)                          // Error: invalid_value: (allocate_equal) argument count must be positive, got 0
+// (1000.00d).allocate_equal_residual(7, 2, 7, "half_up") // Error: index_out_of_bounds: (allocate_equal_residual) 7 out of range [0, 6]
 // (100d).allocate([1, -1], 2)                        // Error: invalid_value: (allocate) ratio at index 1 is negative
 // (100d).allocate([0, 0], 2)                         // Error: invalid_value: (allocate) ratios must not all be zero
 // (100d).allocate([], 2)                             // Error: invalid_value: (allocate) ratios must not be empty
@@ -1057,8 +1057,8 @@ func decimalRatiosArg(name string, a Value) ([]dec128.Dec128, error) {
 	return ratios, nil
 }
 
-// decimalSharesCountArg reads split()'s share count: positive, and within the sequence-allocation ceiling, because
-// the count sizes the array that dec128 builds.
+// decimalSharesCountArg reads allocate_equal()'s share count: positive, and within the sequence-allocation ceiling,
+// because the count sizes the array that dec128 builds.
 //
 // PURE by contract.
 func decimalSharesCountArg(name string, a Value) (int, error) {
@@ -1091,8 +1091,8 @@ func decimalResidualIndexArg(name string, a Value, count int) (int, error) {
 	return int(i), nil
 }
 
-// decimalShares finishes allocate/split: dec128's `ok == false` is turned into a raise, naming the one cause the
-// argument checks cannot rule out in advance cheaply (the amount's own scale), and otherwise the representation
+// decimalShares finishes allocate/allocate_equal: dec128's `ok == false` is turned into a raise, naming the one cause
+// the argument checks cannot rule out in advance cheaply (the amount's own scale), and otherwise the representation
 // limit. The shares come back as a new, mutable array.
 //
 // PURE by contract.

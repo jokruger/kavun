@@ -33,7 +33,7 @@ const MaxTagLen = 1024
 // Bytecode/core.Static/core.CompiledFunction, the gob or envelope format. A behavior fix bumps nothing.
 const (
 	coreVersionMajor = 1
-	coreVersionMinor = 1
+	coreVersionMinor = 2
 )
 
 // CoreVersion answers the engine's bytecode version: Decode runs bytecode whose core version it Reads.

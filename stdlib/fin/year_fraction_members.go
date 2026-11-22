@@ -72,13 +72,16 @@ func yearFractionTerms(_ core.VM, v core.Value, id member.ID, args []core.Value)
 	return core.NewArrayValue(out, false), nil
 }
 
-// Answer the decimal reading at a stated rounding — the only bridge to `decimal`.
+// Answer the decimal reading rounded to `n` fractional places — the only bridge to `decimal`.
 //
-//kavun:member value pure (scale, mode) -> decimal
-func yearFractionValue(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+// Rounding is how a value leaves an exact type: the result is a `decimal`, since the fraction cannot hold a rounded
+// value.
+//
+//kavun:member round pure (n, mode) -> decimal
+func yearFractionRound(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
 	name := id.String()
 	f := YearFractionOf(v)
-	// the decimal reading, at a stated rounding — the only bridge to decimal
+	// the decimal reading, rounded to n places — the only bridge to decimal
 	scale, mode, err := core.ScaleModeArgs(name, args, 0)
 	if err != nil {
 		return core.Undefined, err

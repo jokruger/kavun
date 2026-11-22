@@ -301,16 +301,16 @@ All of them raise rather than answering a sentinel:
 The degree limit (and the same limit on a reduced `p` or `q` of `pow_rational_round`) is a cost ceiling: 16384
 covers 40 years of daily rests.
 
-## Splitting an amount
+## Allocating an amount
 
-`split` and `allocate` divide an amount into shares that **sum to exactly the amount** — a reconciliation is an
+`allocate` and `allocate_equal` divide an amount into shares that **sum to exactly the amount** — a reconciliation is an
 equality, not a tolerance. Both answer a new, mutable array.
 
 | member | shares | the leftover quanta go to |
 | --- | --- | --- |
-| `split(k, n)` | `k` equal shares at scale `n` | the shares with the largest remainders, ties to the lowest index |
+| `allocate_equal(k, n)` | `k` equal shares at scale `n` | the shares with the largest remainders, ties to the lowest index |
 | `allocate(ratios, n)` | proportional to `ratios` (an array of `decimal`/`int`) | the same |
-| `split_residual(k, n, index, mode)` | every share rounded with `mode` … | … except the one at `index`, which takes what is left |
+| `allocate_equal_residual(k, n, index, mode)` | every share rounded with `mode` … | … except the one at `index`, which takes what is left |
 | `allocate_residual(ratios, n, index, mode)` | the same, proportionally | the same |
 
 The `_residual` forms are the convention of an amortization schedule or a syndicated facility: the last
@@ -318,24 +318,24 @@ installment, or the lead bank, absorbs the rounding. `index` counts from the end
 does.
 
 ```go
-(1000.00d).split(7, 2)
+(1000.00d).allocate_equal(7, 2)
 // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.85d, 142.85d]
-(1000.00d).split_residual(7, 2, -1, "half_up")
+(1000.00d).allocate_equal_residual(7, 2, -1, "half_up")
 // [142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.86d, 142.84d]
 (100.00d).allocate([1, 1, 1], 2)                  // => [33.34d, 33.33d, 33.33d]
 (100.00d).allocate_residual([1, 1, 1], 2, -1, "half_up")   // => [33.33d, 33.33d, 33.34d]
-(0.05d).split(3, 2)                               // => [0.02d, 0.02d, 0.01d]
-(1000.00d).split(7, 2).sum() == 1000.00d          // => true
+(0.05d).allocate_equal(3, 2)                      // => [0.02d, 0.02d, 0.01d]
+(1000.00d).allocate_equal(7, 2).sum() == 1000.00d // => true
 ```
 
-The target scale must be at least the amount's own: splitting 1.005 into cents would have to round first, and
-the split refuses to do that silently.
+The target scale must be at least the amount's own: allocating 1.005 into cents would have to round first, and
+the allocation refuses to do that silently.
 
 ```go
-(1.005d).split(3, 2)                               // Error: invalid_value: (split) scale 2 is below the amount's own scale 3; round the amount first
-(1.005d).round(2, "half_even").split(3, 2)         // => [0.34d, 0.33d, 0.33d]
-(1d).split(0, 2)                                   // Error: invalid_value: (split) argument count must be positive, got 0
-(1000.00d).split_residual(7, 2, 7, "half_up")      // Error: index_out_of_bounds: (split_residual) 7 out of range [0, 6]
+(1.005d).allocate_equal(3, 2)                      // Error: invalid_value: (allocate_equal) scale 2 is below the amount's own scale 3; round the amount first
+(1.005d).round(2, "half_even").allocate_equal(3, 2) // => [0.34d, 0.33d, 0.33d]
+(1d).allocate_equal(0, 2)                          // Error: invalid_value: (allocate_equal) argument count must be positive, got 0
+(1000.00d).allocate_equal_residual(7, 2, 7, "half_up") // Error: index_out_of_bounds: (allocate_equal_residual) 7 out of range [0, 6]
 (100d).allocate([1, -1], 2)                        // Error: invalid_value: (allocate) ratio at index 1 is negative
 (100d).allocate([0, 0], 2)                         // Error: invalid_value: (allocate) ratios must not all be zero
 (100d).allocate([], 2)                             // Error: invalid_value: (allocate) ratios must not be empty
@@ -370,6 +370,8 @@ There is no `byte()` or `rune()` conversion — `int` is the sole gateway to the
 
 - [`abs() -> decimal`](#abs)
 - [`allocate(ratios, n) -> array`](#allocate)
+- [`allocate_equal(k, n) -> array`](#allocate_equal)
+- [`allocate_equal_residual(k, n, index, mode) -> array`](#allocate_equal_residual)
 - [`allocate_residual(ratios, n, index, mode) -> array`](#allocate_residual)
 - [`array([default]) -> array`](#array)
 - [`bool([default]) -> bool`](#bool)
@@ -425,8 +427,6 @@ There is no `byte()` or `rune()` conversion — `int` is the sole gateway to the
 - [`scale_by_pow10(n) -> decimal`](#scale_by_pow10)
 - [`sign() -> int`](#sign)
 - [`significant_digits() -> int`](#significant_digits)
-- [`split(k, n) -> array`](#split)
-- [`split_residual(k, n, index, mode) -> array`](#split_residual)
 - [`sqrt() -> decimal`](#sqrt)
 - [`sqrt_round(n, mode) -> decimal`](#sqrt_round)
 - [`string([default]) -> string`](#string)
@@ -444,12 +444,22 @@ Answer the absolute value.
 <a id="allocate"></a>
 ### `allocate(ratios, n) -> array`
 
-Split into shares at scale `n`, proportional to `ratios`, that sum to exactly the amount; see [Splitting an amount](#splitting-an-amount).
+Allocate into shares at scale `n`, proportional to `ratios`, that sum to exactly the amount; see [Allocating an amount](#allocating-an-amount).
+
+<a id="allocate_equal"></a>
+### `allocate_equal(k, n) -> array`
+
+Allocate into `k` equal shares at scale `n` that sum to exactly the amount; see [Allocating an amount](#allocating-an-amount).
+
+<a id="allocate_equal_residual"></a>
+### `allocate_equal_residual(k, n, index, mode) -> array`
+
+Allocate into `k` equal shares rounded with `mode`, the share at `index` taking what is left; see [Allocating an amount](#allocating-an-amount).
 
 <a id="allocate_residual"></a>
 ### `allocate_residual(ratios, n, index, mode) -> array`
 
-Split proportionally to `ratios`, each share rounded with `mode` and the one at `index` taking what is left; see [Splitting an amount](#splitting-an-amount).
+Allocate proportionally to `ratios`, each share rounded with `mode` and the one at `index` taking what is left; see [Allocating an amount](#allocating-an-amount).
 
 <a id="array"></a>
 ### `array([default]) -> array`
@@ -959,16 +969,6 @@ Answer the number of significant digits, trailing zeros included.
 ```go
 (1.50d).significant_digits()      // => 3 — trailing zeros are digits of the representation
 ```
-
-<a id="split"></a>
-### `split(k, n) -> array`
-
-Split into `k` equal shares at scale `n` that sum to exactly the amount; see [Splitting an amount](#splitting-an-amount).
-
-<a id="split_residual"></a>
-### `split_residual(k, n, index, mode) -> array`
-
-Split into `k` shares rounded with `mode`, the share at `index` taking what is left; see [Splitting an amount](#splitting-an-amount).
 
 <a id="sqrt"></a>
 ### `sqrt() -> decimal`

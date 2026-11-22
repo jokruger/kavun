@@ -263,7 +263,7 @@ func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 // Answer a [`rand.generator`](../types/rand_generator.md) over `crypto/rand` — the one entropy source.
 //
-// `os.rand_generator().int(1, 7)` rolls an unpredictable die.
+// `os.rand_generator().draw_int(1, 7)` rolls an unpredictable die.
 //
 // It is a world read, so it lives here and not in the pure `rand` module; a reproducible run seeds `rand.generator(…)`
 // instead.

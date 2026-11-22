@@ -964,7 +964,7 @@ Convert each element to one symbol of a `runes`; see [`string`](#string).
 Reorder the elements randomly, drawing from a [`rand.generator`](rand_generator.md) — required, because a member cannot read the world on its own.
 
 The same seeded generator gives the same order on every run; `os.rand_generator()` gives an unpredictable one.
-Fisher–Yates over `g.int(i + 1)`, so the generator's state moves:
+Fisher–Yates over `g.draw_int(i + 1)`, so the generator's state moves:
 
 ```go
 g := import("rand").generator(7)

@@ -18,7 +18,7 @@ A dated charge has no `apply` member (`dc.apply(…)` is `invalid_method`).
 ## Members
 
 - [`array([default]) -> array`](#array)
-- [`at(on) -> decimal`](#at)
+- [`at(on[, fallback]) -> decimal`](#at)
 - [`bands() -> array`](#bands)
 - [`copy() -> fin.dated_charges`](#copy)
 - [`format([spec]) -> string`](#format)
@@ -39,9 +39,17 @@ import("fin").dated_charges().array()   // => [fin.dated_charges("0001-01-01:0")
 ```
 
 <a id="at"></a>
-### `at(on) -> decimal`
+### `at(on[, fallback]) -> decimal`
 
-Answer the amount in force on the date `on`.
+Answer the amount in force on the date `on`; `fallback` answers **only** a date before the first band.
+
+```go
+fin := import("fin")
+dc := fin.dated_charges("2026-01-01:25, 2026-07-01:30")
+dc.at(d"2025-12-31")                            // Error: invalid_value: (at) no band covers the argument
+dc.at(d"2025-12-31", 20)                        // => 20d — the fallback, before the first band only
+dc.at(d"2026-08-01", 20)                        // => 30d
+```
 
 <a id="bands"></a>
 ### `bands() -> array`

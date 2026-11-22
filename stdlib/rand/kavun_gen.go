@@ -15,13 +15,13 @@ var generatorMethods = []core.Method{
 	members.Format:    core.NewPureMethod("([spec])", generatorFormat),
 	members.Copy:      core.NewPureMethod("()", generatorCopy),
 	members.Freeze:    core.NewPureMethod("()", generatorFreeze),
-	members.Int:       core.NewMethod("() | (hi) | (lo, hi)", generatorInt),
-	members.Float:     core.NewMethod("() | (hi) | (lo, hi)", generatorFloat),
 	members.Array:     core.NewPureMethod("([default])", generatorArray),
-	members.Bytes:     core.NewMethod("(n)", generatorBytes),
-	members.ExpFloat:  core.NewMethod("()", generatorExpFloat),
-	members.NormFloat: core.NewMethod("()", generatorNormFloat),
-	members.Perm:      core.NewMethod("(n)", generatorPerm),
+	members.DrawInt:   core.NewMethod("() | (hi) | (lo, hi)", generatorDrawInt),
+	members.DrawFloat: core.NewMethod("() | (hi) | (lo, hi)", generatorDrawFloat),
+	members.DrawBytes: core.NewMethod("(n)", generatorDrawBytes),
+	members.DrawExp:   core.NewMethod("()", generatorDrawExp),
+	members.DrawNorm:  core.NewMethod("()", generatorDrawNorm),
+	members.DrawPerm:  core.NewMethod("(n)", generatorDrawPerm),
 }
 
 // init registers the rand module declared by the //kavun:module and //kavun:fn directives.

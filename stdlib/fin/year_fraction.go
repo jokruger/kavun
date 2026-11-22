@@ -95,7 +95,7 @@ func yearFractionResult(op string, f daycount.Fraction) (core.Value, error) {
 // | `f + g` | the exact sum |
 // | `f * n`, `n * f` (`n` an `int`) | scaled — e.g. a year fraction as compounding periods |
 // | `f < g` (`<=` `>` `>=`), `f == g` | exact, numeric: `fin.year_fraction(31, 365) == fin.year_fraction(62, 730)` |
-// | `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.value(…)` to leave the type |
+// | `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.round(n, mode)` to leave the type |
 //
 //kavun:type fin.year_fraction
 
