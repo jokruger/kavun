@@ -20,6 +20,10 @@ test: generate
     @go test -race -timeout 60s ./...
     @go run ./cmd/kavun -resolve ./testdata/cli/test.kvn
 
+# the harness scripts again at an optimization level (default O0): the optimizer must not change a result
+test-opt level="O3": generate
+    @KAVUN_TEST_OPT={{level}} go test -race -timeout 120s .
+
 bench-tool: generate
     @go run ./cmd/bench
 

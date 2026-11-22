@@ -2,11 +2,6 @@
 
 ## potential problems
 
-8.  **`kavun_test.go` cannot see a wrong cached symbol count in an all-literal script.** The harness compiles at O3,
-    the optimizer folds the call chain into a constant, and the static pool recounts the folded string — so `.len()`
-    is right even when a member stored a wrong count (found 2026-10-13: a pad mutant counting a fused result as its
-    width passed). A count pin must go through a user function (`f := func(s) { return s.m(...).len() }; out = f(x)`),
-    which the optimizer does not fold across. Option: run `expectRun` once more at O0.
 9. **A runtime error's trace omits the frames of the callback it was raised in.** `[1].map(f)` with `f` raising
     reports only the `map` call site: `VM.Call` restores the frame count before `Run` builds the trace from the
     frame chain, so the callback's own frames (and their positions) are gone. Fix: capture the trace at the host

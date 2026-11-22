@@ -95,6 +95,7 @@ func traceCompileRun(
 	symbols map[string]core.Value,
 	customModules map[string][]byte,
 	customBuiltinModules map[string]module,
+	oc *compiler.OptimizationConfig,
 ) (res map[string]core.Value, trace []string, err error) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
@@ -156,7 +157,7 @@ func traceCompileRun(
 	machine.AllowAllModules()
 
 	tr := &vmTracer{}
-	c := compiler.NewCompiler(compiler.O3(), nil, file.InputFile, symTable, nil, customModules, tr)
+	c := compiler.NewCompiler(testOptimization(oc), nil, file.InputFile, symTable, nil, customModules, tr)
 	c.AllowAllModules()
 	var node ast.Node
 	node, err = c.Optimize(file)
@@ -227,6 +228,30 @@ type testOpts struct {
 	customBuiltinModules map[string]module
 	symbols              map[string]core.Value
 	skip2ndPass          bool
+	optimization         *compiler.OptimizationConfig // nil: the suite default, see testOptimization
+}
+
+// testOptimization answers the optimization level a harness script compiles at: the test's own when it set one
+// (Opts().Optimize), else the suite default — O0, so a test exercises the VM and the members as written rather than
+// a folded constant (the static pool rebuilds a folded string and would hide, e.g., a wrong cached symbol count).
+// KAVUN_TEST_OPT=O1|O2|O3 overrides the default for the whole suite: that run is the optimizer's
+// result-preservation check over every harness script (`just test-opt`).
+func testOptimization(oc *compiler.OptimizationConfig) *compiler.OptimizationConfig {
+	if oc != nil {
+		return oc
+	}
+	switch level := os.Getenv("KAVUN_TEST_OPT"); level {
+	case "", "O0":
+		return compiler.O0()
+	case "O1":
+		return compiler.O1()
+	case "O2":
+		return compiler.O2()
+	case "O3":
+		return compiler.O3()
+	default:
+		panic("KAVUN_TEST_OPT: unknown optimization level " + strconv.Quote(level))
+	}
 }
 
 func Opts() *testOpts {
@@ -244,6 +269,7 @@ func (o *testOpts) copy() *testOpts {
 		customBuiltinModules: make(map[string]module),
 		symbols:              make(map[string]core.Value),
 		skip2ndPass:          o.skip2ndPass,
+		optimization:         o.optimization,
 	}
 	maps.Copy(c.customModules, o.customModules)
 	maps.Copy(c.customBuiltinModules, o.customBuiltinModules)
@@ -275,6 +301,13 @@ func (o *testOpts) Skip2ndPass() *testOpts {
 	return c
 }
 
+// Optimize compiles the script at oc instead of the suite default (a preset, or a config with chosen passes).
+func (o *testOpts) Optimize(oc *compiler.OptimizationConfig) *testOpts {
+	c := o.copy()
+	c.optimization = oc
+	return c
+}
+
 func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
@@ -287,7 +320,7 @@ func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules, opts.optimization)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
 }
@@ -304,7 +337,7 @@ func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules, opts.optimization)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
@@ -326,7 +359,7 @@ func expectError(t *testing.T, input string, opts *testOpts, expected string) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules, opts.optimization)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 	// a pin ending in a position must match the whole trace line: "at test:1:1" is a substring of "at test:1:11"
@@ -358,7 +391,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		}
 
 		// compiler/VM
-		res, trace, err := traceCompileRun(file, symbols, opts.customModules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(file, symbols, opts.customModules, opts.customBuiltinModules, opts.optimization)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
 		e := kavun.MustValueOf(expected)
@@ -375,7 +408,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		symbols[testOut] = core.Undefined
 		modules := maps.Clone(opts.customModules)
 		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
-		res, trace, err := traceCompileRun(file, symbols, modules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(file, symbols, modules, opts.customBuiltinModules, opts.optimization)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
 		e := kavun.MustValueOf(expected)
@@ -8832,7 +8865,7 @@ func TestO3_ModuleExportBindingsAreNotEliminated(t *testing.T) {
 		Opts().Module("iface_mod", `
 res := 6 * 7
 export res
-`),
+`).Optimize(compiler.O3()),
 		int64(42),
 	)
 }
@@ -9400,7 +9433,7 @@ func TestDefer_RootScope_RunsWhenErrorEscapes(t *testing.T) {
 	res, trace, err := traceCompileRun(
 		parse(t, "defer func() { ran = true }()\nx := 1/0\n"),
 		map[string]core.Value{"ran": core.Undefined},
-		nil, nil,
+		nil, nil, nil,
 	)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero), "expected division_by_zero, got: %v\n%s", err, strings.Join(trace, "\n"))
@@ -9412,7 +9445,7 @@ func TestDefer_RootScope_FatalSkipsDefers(t *testing.T) {
 	res, trace, err := traceCompileRun(
 		parse(t, "defer func() { ran = true }()\nraise(\"boom\", true)\n"),
 		map[string]core.Value{"ran": core.Undefined},
-		nil, nil,
+		nil, nil, nil,
 	)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.Equal(t, core.Undefined, res["ran"], "\n"+strings.Join(trace, "\n"))
@@ -12108,7 +12141,7 @@ norm = func(v) {
 		if file == nil {
 			t.FailNow()
 		}
-		res, trace, err := traceCompileRun(file, map[string]core.Value{testOut: core.Undefined}, nil, nil)
+		res, trace, err := traceCompileRun(file, map[string]core.Value{testOut: core.Undefined}, nil, nil, nil)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		return res[testOut]
 	}
