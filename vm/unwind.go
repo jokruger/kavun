@@ -38,6 +38,7 @@ func (v *VM) runUntilSuspend(stopAt int) {
 // trace, and v.err is set to the propagated error.
 func (v *VM) tryRecover(stopAt int) bool {
 	errVal := v.makeVMErrorValue(v.err)
+	from, callee := errVal, calleeTraceOf(v.err) // a callback's frames stay with the error while it is still this one
 	v.err = nil
 
 	// Walk frames from innermost to outermost without popping.
@@ -45,7 +46,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f := &v.frames[idx]
 		if f.fn == callbackTrampolineFn {
 			// Trampoline boundary — propagate to the host caller.
-			v.err = unwrapKavunError(errVal)
+			v.err = keepCalleeTrace(unwrapKavunError(errVal), errVal, from, callee)
 			return false
 		}
 		if len(f.defers) == 0 {
@@ -81,7 +82,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f.inFlightErr = core.Undefined
 	}
 
-	v.err = unwrapKavunError(errVal)
+	v.err = keepCalleeTrace(unwrapKavunError(errVal), errVal, from, callee)
 	return false
 }
 

@@ -9661,6 +9661,39 @@ func TestRuntimeError_TypedForHost(t *testing.T) {
 	})
 }
 
+// A callback runs in frames VM.Call drops before the error reaches the host; the trace still lists them, innermost
+// first, exactly as a direct call would.
+func TestRuntimeError_TraceThroughCallbacks(t *testing.T) {
+	const defs = "inner := func(x) {\n\treturn x / 0\n}\nf := func(x) {\n\treturn inner(x)\n}\n"
+
+	// direct call, for reference, then the same raise two levels deep inside a callback
+	expectError(t, defs+"f(1)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:2:11\n\tat test:5:14\n\tat test:7:2")
+	expectError(t, defs+"[1].map(f)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:2:11\n\tat test:5:14\n\tat test:7:5")
+
+	// nested callbacks: every level keeps its frames
+	expectError(t, defs+"g := func(x) {\n\treturn [x].map(f)\n}\n[1].map(g)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:2:11\n\tat test:5:14\n\tat test:8:13\n\tat test:10:5")
+
+	// defers on the way out that do not recover keep it the same error, and so keep its callback frames
+	expectError(t, defs+"g := func(x) {\n\tdefer func() { y := 1 }()\n\treturn [x].map(f)\n}\n[1].map(g)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:2:11\n\tat test:5:14\n\tat test:9:13\n\tat test:11:5")
+	expectError(t, "defer func() { y := 1 }()\n"+defs+"[1].map(f)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:3:11\n\tat test:6:14\n\tat test:8:5")
+
+	// a fatal error bypasses the unwinder and keeps them too
+	expectError(t, "f := func(x) {\n\traise(\"boom\", true)\n}\n[1].map(f)", nil,
+		"Runtime Error: boom\n\tat test:2:7\n\tat test:4:5")
+
+	// a recovered error is a value: raised again, it starts where it is raised
+	expectError(t, defs+"e := func() r {\n\tdefer func() { r = recover() }()\n\t[1].map(f)\n}()\nraise(e)", nil,
+		"Runtime Error: division_by_zero: division by zero\n\tat test:11:6")
+	// an error a defer raises in place of the callback's starts without the callback's frames
+	expectError(t, defs+"h := func() {\n\tdefer func() { recover(); raise(\"other\") }()\n\t[1].map(f)\n}\nh()", nil,
+		"Runtime Error: other\n\tat test:9:6\n\tat test:11:2")
+}
+
 // Every hook family has exactly one translation point, so a raw Go error can never reach the unwinder (where a
 // non-*errs.Error is read as fatal and stops the VM). These were the reachable holes.
 // One kind, one severity, one category — the invariant the whole error model rests on. Every constructor in

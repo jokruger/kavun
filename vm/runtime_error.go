@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"errors"
+	"slices"
 	"strings"
 
 	"github.com/jokruger/kavun/ast"
@@ -37,7 +39,8 @@ type RuntimeError struct {
 	// passed for raise(x) / require(cond, x) — a dict, a record, any value.
 	Payload core.Value
 
-	// Trace lists the source positions of the active frames, innermost first.
+	// Trace lists the source positions of the frames the error passed through, innermost first — a callback's own
+	// frames included, ahead of the call that ran it.
 	Trace []ast.SourceFilePos
 
 	// cause is the error as the VM produced it, kept so the Unwrap chain reaches the *errs.Error underneath.
@@ -61,8 +64,9 @@ func (e *RuntimeError) Unwrap() error {
 	return e.cause
 }
 
-// newRuntimeError classifies err and collects the stack trace from the current frame chain. Like the frame walk it
-// replaces, it consumes the chain (framesIndex is wound back to the main frame) — Run resets it before the next run.
+// newRuntimeError classifies err and collects the stack trace: the frames of the callbacks it was raised in, then the
+// current frame chain. It consumes the chain (framesIndex is wound back to the main frame) — Run resets it before
+// the next run.
 func (v *VM) newRuntimeError(err error) *RuntimeError {
 	e := &RuntimeError{cause: err}
 
@@ -85,11 +89,63 @@ func (v *VM) newRuntimeError(err error) *RuntimeError {
 		e.Message = err.Error()
 	}
 
-	e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip)))
-	for v.framesIndex > 1 {
-		v.framesIndex--
-		v.curFrame = &v.frames[v.framesIndex-1]
-		e.Trace = append(e.Trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip)))
+	// frames a callback had when the error left VM.Call come first: they were innermost, and are gone from the chain
+	if ct := calleeTraceOf(err); ct != nil {
+		e.Trace = append(e.Trace, ct.trace...)
 	}
+	e.Trace = v.appendFrameTrace(e.Trace, 0)
+	v.framesIndex = 1
+	v.curFrame = &v.frames[0]
 	return e
+}
+
+// appendFrameTrace appends the source positions of the frames from the current one down to frames[bottom], innermost
+// first, skipping the synthetic trampoline frames. It leaves the frame chain as it is.
+func (v *VM) appendFrameTrace(trace []ast.SourceFilePos, bottom int) []ast.SourceFilePos {
+	trace = append(trace, v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip)))
+	for i := v.framesIndex - 2; i >= bottom; i-- {
+		if f := &v.frames[i]; f.fn != callbackTrampolineFn {
+			trace = append(trace, v.fileSet.Position(f.fn.SourcePos(f.ip)))
+		}
+	}
+	return trace
+}
+
+// calleeTraceError is an error that left VM.Call, carrying the source positions of the callee's frames, innermost
+// first: VM.Call restores the caller's frame chain before it returns, so the frames the error was raised in are gone
+// by the time it escapes the script. A nested callback's frames accumulate (the outermost wrapper holds them all).
+// It renders and unwraps as the error itself, so classification and errors.Is/As see through it.
+type calleeTraceError struct {
+	err   error
+	trace []ast.SourceFilePos
+}
+
+func (e *calleeTraceError) Error() string { return e.err.Error() }
+
+func (e *calleeTraceError) Unwrap() error { return e.err }
+
+// withCalleeTrace wraps err, which is leaving VM.Call, with the positions of the frames above frames[bottom] (the
+// callee's), after those of any callback deeper down that err already carries.
+func (v *VM) withCalleeTrace(err error, bottom int) error {
+	var trace []ast.SourceFilePos
+	if ct := calleeTraceOf(err); ct != nil {
+		trace = slices.Clone(ct.trace)
+	}
+	return &calleeTraceError{err: err, trace: v.appendFrameTrace(trace, bottom)}
+}
+
+// calleeTraceOf answers the callee trace err carries, or nil.
+func calleeTraceOf(err error) *calleeTraceError {
+	ct, _ := errors.AsType[*calleeTraceError](err)
+	return ct
+}
+
+// keepCalleeTrace answers err — a Kavun error value turned back into a Go error by the unwinder — with the callee
+// trace of the error it was made from, as long as it is still that error (from is the in-flight value it started
+// as, ct the trace it carried); an error a defer raised in its place starts without one.
+func keepCalleeTrace(err error, errVal, from core.Value, ct *calleeTraceError) error {
+	if ct == nil || errVal.Ptr != from.Ptr {
+		return err
+	}
+	return &calleeTraceError{err: err, trace: ct.trace}
 }

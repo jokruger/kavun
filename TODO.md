@@ -2,11 +2,6 @@
 
 ## potential problems
 
-9. **A runtime error's trace omits the frames of the callback it was raised in.** `[1].map(f)` with `f` raising
-    reports only the `map` call site: `VM.Call` restores the frame count before `Run` builds the trace from the
-    frame chain, so the callback's own frames (and their positions) are gone. Fix: capture the trace at the host
-    boundary — when an error leaves `VM.Call`, append the callee's frames to the error before restoring — and pin
-    the positions in a test (a raise two levels deep inside a callback).
 10. **A top-level `recover()` leaves values on the operand stack.** Found 2026-10-13. `defer func() { out =
     recover().kind() }(); func(a) {}(1, 2)` answers the right `out`, but `VM.IsStackEmpty()` is false afterwards,
     so `kavun_test.go`'s harness fails it with "non empty stack after execution" (with or without a spread
@@ -75,6 +70,12 @@
     rune). Every other runes value round-trips. A fix (store the runes, or mark the escapes) changes the value
     encoding, so it needs a ruling and probably a core version bump. Bytecode literals are unaffected: the static
     pool stores a `u"…"` literal's runes as they are.
+22. **A runtime error's trace omits the frames of the deferred function it was raised in.** Found 2026-11-22 (the
+    callback-trace fix). `invokeDeferred` restores the frame chain before the error reaches the reporter, exactly as
+    `VM.Call` did for callbacks: a `1 / 0` two calls deep inside `defer func() { inner() }()` reports only the owner's
+    frame and its caller. Same fix as `VM.Call`'s (`withCalleeTrace` before the restore, `keepCalleeTrace` where
+    `runFrameDefers`/`runRootDefers`/the `Return` handler turn the error into a value and back), plus a ruling on
+    where the owner's own line goes — at the `defer` statement or where the function returned.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a

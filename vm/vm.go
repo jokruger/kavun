@@ -367,6 +367,9 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	if v.err == nil {
 		// The return value is at savedSp (the callee slot position)
 		result = v.stack[savedSp]
+	} else if !errors.Is(v.err, errAborted) {
+		// the callee's frames are still above the trampoline: record their positions before the restore drops them
+		v.err = v.withCalleeTrace(v.err, trampolineIdx+1)
 	}
 
 	// Restore VM state
@@ -440,10 +443,13 @@ func (v *VM) Run() (err error) {
 		return v.runError()
 	}
 
+	var rootErr core.Value // the error that escaped the body, while root defers run, and its callee trace
+	var rootCallee *calleeTraceError
 	if len(v.frames[0].defers) > 0 {
 		if v.err != nil {
 			// A recoverable error escaped the body: put it in flight so a root recover() can catch it.
 			v.frames[0].inFlightErr = v.makeVMErrorValue(v.err)
+			rootErr, rootCallee = v.frames[0].inFlightErr, calleeTraceOf(v.err)
 			v.err = nil
 		}
 		v.runRootDefers()
@@ -456,7 +462,8 @@ func (v *VM) Run() (err error) {
 	}
 	if v.frames[0].inFlightErr.Type != value.Undefined {
 		// Nothing recovered the in-flight error (or a defer raised a new one): it escapes to the host.
-		v.err = unwrapKavunError(v.frames[0].inFlightErr)
+		errVal := v.frames[0].inFlightErr
+		v.err = keepCalleeTrace(unwrapKavunError(errVal), errVal, rootErr, rootCallee)
 		v.frames[0].inFlightErr = core.Undefined
 		return v.runError()
 	}

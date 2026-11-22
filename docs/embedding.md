@@ -419,7 +419,7 @@ type RuntimeError struct {
     Message  string              // human-readable detail, without the kind prefix
     Payload  core.Value          // the error value's payload — a string for runtime errors,
                                  // whatever the script passed for raise(x)
-    Trace    []ast.SourceFilePos // active frames, innermost first
+    Trace    []ast.SourceFilePos // frames the error passed through (callbacks included), innermost first
 }
 ```
 
