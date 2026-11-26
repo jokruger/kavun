@@ -34,7 +34,7 @@ func intIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 // `format([spec])` renders the value; with no spec it is the plain decimal rendering. Verbs: `d` (decimal,
 // default), `b` / `o` / `x` / `X` (binary / octal / hex, prefixed `0b` / `0o` / `0x`), `c` (the code point as a
@@ -197,7 +197,7 @@ func intRunes(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // Read the value as a unix timestamp in seconds.
 //
 // In conversion context an int is a **unix timestamp** (the duration reading belongs to operator context — `t + n` adds
-// nanoseconds; see [time](time.md) — and to the [Durations](#durations) members). Each member names the
+// nanoseconds; see [time](kavun:type/time) — and to the [Durations](#durations) members). Each member names the
 // encoding it reads and inverts the `time` accessor with the matching suffix (`time_ms` ↔ `unix_ms`, and the unsuffixed
 // `time()` ↔ `unix()` / `int()`). All produce UTC:
 //

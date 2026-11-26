@@ -1040,7 +1040,7 @@ module or a Kavun source file.
 
 A **builtin module** answers a value of type [`module`](reference/types/module.md) whose functions and constants
 are its members (`math.hypot(3, 4)`, `math.pi`, `arr.map(math.cbrt)`), each listed on the module's page under
-[reference/stdlib/](reference/stdlib.md); it is read-only, and a name it does not have raises
+[reference/modules/](reference/modules.md); it is read-only, and a name it does not have raises
 (`math.pii` → `module 'math' has no member 'pii'`). `len`, `in` and `for k, v in m` see its members, sorted by
 name. Which builtin modules a script may import is the host's decision: by default only the pure ones (no world
 access); `clock`, `exec`, `fs`, `io` and `os` need a grant (`docs/embedding.md` § The module grant). The `kavun` CLI

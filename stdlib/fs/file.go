@@ -29,7 +29,7 @@ func FileOf(v core.Value) *os.File {
 //
 // ## Overview
 //
-// `fs.file` is a handle on the world: it is owned by the [`fs`](../stdlib/fs.md) module, every member touches the file
+// `fs.file` is a handle on the world: it is owned by the [`fs`](kavun:module/fs) module, every member touches the file
 // system, and a refusal raises `io` naming the member (`(fs.file.read) read …: bad file descriptor`). It has no text
 // content, so it renders instead (`format(f)` → `<fs.file:./out.txt>`) and has no `string()`.
 //

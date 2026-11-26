@@ -1,7 +1,7 @@
 # Standard Library
 
-The builtin modules are listed, with their grants and summaries, in [reference/stdlib.md](reference/stdlib.md); each
-has its own generated page under `reference/stdlib/`.
+The builtin modules are listed, with their grants and summaries, in [reference/modules.md](reference/modules.md); each
+has its own generated page under `reference/modules/`.
 
 Notes:
 

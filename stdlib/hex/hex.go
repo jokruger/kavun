@@ -19,7 +19,7 @@ import (
 //
 // **Failures.** A malformed input raises kind `conversion`: `(hex.decode) encoding/hex: invalid byte …`.
 //
-//kavun:module hex pure
+//kavun:module hex id=value.ModuleHex pure
 
 // Decode hexadecimal text.
 //

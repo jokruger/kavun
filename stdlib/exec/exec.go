@@ -23,17 +23,17 @@ import (
 // p.wait().success                        // => true
 // ```
 //
-// The two types are documented on their own pages: [`exec.command`](../types/exec_command.md) (`run`, `start`, `wait`,
+// The two types are documented on their own pages: [`exec.command`](kavun:type/exec.command) (`run`, `start`, `wait`,
 // `output`, `combined_output`, `set_path`, `set_dir`, `set_env`, `process`) and
-// [`exec.process`](../types/exec_process.md) (`pid`, `kill`, `signal`, `wait`, `release`). `process.wait()` answers a
+// [`exec.process`](kavun:type/exec.process) (`pid`, `kill`, `signal`, `wait`, `release`). `process.wait()` answers a
 // frozen record of facts: `{pid, exited, success, status}`.
 //
 // **Failures.** A program that cannot be found or run, or ends badly for `run`/`output`, raises `io` naming the call
 // (`(exec.command.run) exit status 1`).
 //
-//kavun:module exec impure
+//kavun:module exec id=value.ModuleExec impure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+// moduleExtras declares what the directives do not: the module's owned types.
 func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.ExecCommand, TypeCommand)
 	m.Type(value.ExecProcess, TypeProcess)

@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "origin": "example.com/kavunembed",
+  "core_version": "1.2",
+  "types": [
+    {
+      "name": "gadget",
+      "summary": "A whole number, held by the embedder; render it with [`string`](kavun:type/string) text.",
+      "doc": [
+        {
+          "kind": "text",
+          "markdown": "Its members are the embedder's own names beside the builtin ones: see [`double`](kavun:type/gadget/double)."
+        }
+      ],
+      "pos": {
+        "file": "gadget/gadget.go",
+        "line": 23
+      },
+      "members": [
+        {
+          "name": "double",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer twice the gadget's number.",
+          "doc": [
+            {
+              "kind": "example",
+              "code": "g.double()",
+              "line": 11,
+              "norun": true,
+              "reason": "the fixture's examples are not run"
+            }
+          ],
+          "pos": {
+            "file": "gadget/gadget_members.go",
+            "line": 14
+          }
+        },
+        {
+          "name": "len",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer the gadget's number.",
+          "doc": [],
+          "pos": {
+            "file": "gadget/gadget_members.go",
+            "line": 21
+          }
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "mymod",
+      "pure": true,
+      "summary": "The embedder's own module, beside Kavun's: a [gadget](kavun:type/gadget)'s companion.",
+      "doc": [],
+      "pos": {
+        "file": "mymod/mymod.go",
+        "line": 15
+      },
+      "functions": [
+        {
+          "name": "double",
+          "pure": true,
+          "signature": {
+            "template": "(n)",
+            "arity": 1,
+            "variadic": false,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "n"
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer twice n.",
+          "doc": [],
+          "pos": {
+            "file": "mymod/mymod.go",
+            "line": 19
+          }
+        }
+      ],
+      "constants": [
+        {
+          "name": "label",
+          "type": "string",
+          "summary": "The module's label, a [`string`](kavun:type/string).",
+          "doc": [],
+          "pos": {
+            "file": "mymod/mymod.go",
+            "line": 30
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -28,12 +28,12 @@ func RuneValue(c rune) Value {
 //
 // ## Overview
 //
-// `rune` is an ordinal scalar with text content: the element type of [`string`](string.md) and
-// [`runes`](runes.md). It holds a single code point (`U+0000`–`U+10FFFF`, excluding the surrogate range),
+// `rune` is an ordinal scalar with text content: the element type of [`string`](kavun:type/string) and
+// [`runes`](kavun:type/runes). It holds a single code point (`U+0000`–`U+10FFFF`, excluding the surrogate range),
 // whatever its UTF-8 length — `'A'` and `'є'` are both one rune.
 //
 // Its **domain** is exactly what can be encoded back to octets: a Unicode scalar value, **or** one of the 128
-// [octet escapes](string.md#undecodable-octets) (`U+DC80`–`U+DCFF`) standing for an octet that is not a symbol.
+// [octet escapes](kavun:type/string#undecodable-octets) (`U+DC80`–`U+DCFF`) standing for an octet that is not a symbol.
 // Everything else — a high surrogate, a negative, anything past `U+10FFFF` — raises where it is written, so no
 // conversion *out* of a `rune` can fail. `is_valid()` distinguishes the two: a real symbol, or an escape.
 //
@@ -57,7 +57,7 @@ func RuneValue(c rune) Value {
 // e := '\udcff'        // => '\udcff' — the octet escape for 0xFF
 // ```
 //
-// An [octet escape](string.md#undecodable-octets) is spelled `'\udcNN'` (or `'\U0000DCNN'`), NN = `80`–`ff`;
+// An [octet escape](kavun:type/string#undecodable-octets) is spelled `'\udcNN'` (or `'\U0000DCNN'`), NN = `80`–`ff`;
 // every other surrogate is a parse error. `'\xff'` is `U+00FF` (`ÿ`), a symbol — not the escape. The `v` and `q`
 // renders write an escape in the same spelling, so a render always reads back as the rune it came from:
 //
@@ -101,7 +101,7 @@ func RuneValue(c rune) Value {
 //
 // `rune - rune` is the distance between two code points — a plain `int`, not a rune. `rune - byte` reads the
 // same way once the byte is read as text (`byte.rune()`: ASCII as itself, a high octet as its
-// [escape](string.md#undecodable-octets)):
+// [escape](kavun:type/string#undecodable-octets)):
 //
 // ```go
 // 'd' - 'a'            // => 3
@@ -121,7 +121,7 @@ func RuneValue(c rune) Value {
 //
 // Comparisons order by code point and accept the numeric-valued scalars — `rune`, `byte`, `int`, `bool`
 // (as 0/1), `float`. A `byte` is read as text first, as `byte.rune()` reads it: an ASCII octet is that symbol, a
-// higher one its [escape](string.md#undecodable-octets) — never its Latin-1 code point:
+// higher one its [escape](kavun:type/string#undecodable-octets) — never its Latin-1 code point:
 //
 // ```go
 // 'a' < 'b'            // => true

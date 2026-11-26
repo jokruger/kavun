@@ -1,13 +1,10 @@
 package kavungen
 
-import (
-	"fmt"
-	"go/token"
-	"strings"
-)
+import "strings"
 
-// The examples of the doc blocks. A fenced ```go block in a doc block is a standalone Kavun script, run by
-// TestDocExamples (kavun_test.go) and checked line by line through its comments:
+// The examples of the doc blocks. A fenced ```go block in a doc block is a standalone Kavun script: the reference
+// carries it as an example block (docBlocks), and TestDocExamples (kavun_test.go) runs every example block of
+// kavun_reference.json and checks it line by line through its comments:
 //
 //	expr   // => <render>        the expression's value renders as <render>: format(value)
 //	stmt   // Error: <kind>[: …] the statement raises an error of that kind
@@ -19,21 +16,6 @@ import (
 
 // NoRun is the fence marker of an example that is not run: ```go norun [reason].
 const NoRun = "norun"
-
-// Example is one fenced `go` block of a doc block.
-type Example struct {
-	Owner  string         // what the doc block declares, for messages: "member pad_start", "type array"
-	Pos    token.Position // the opening fence line
-	NoRun  bool           // fenced ```go norun: not run
-	Reason string         // the text after `norun` on the fence, its leading "—" dropped; "" when none
-	Lines  []ExampleLine  // the content lines, gofmt's code-block tab removed
-}
-
-// ExampleLine is one line of an example with its source position.
-type ExampleLine struct {
-	Text string
-	Pos  token.Position
-}
 
 // LineKind is what a line of an example claims (ClassifyLine).
 type LineKind int
@@ -172,65 +154,6 @@ func fenceInfo(line string) (lang string, noRun bool, reason string) {
 	return lang, false, ""
 }
 
-// Examples reads the package directories (as kavun-gen does: the files the build includes, tests excluded) and
-// answers every fenced ```go block of their doc blocks, in directory, file and line order. A package whose
-// directives do not parse is reported as kavun-gen would report it.
-func Examples(dirs []string) ([]Example, error) {
-	var out []Example
-	var errs errorList
-	for _, dir := range dirs {
-		files, _, problems := readPackage(dir)
-		if len(problems) > 0 {
-			errs = append(errs, problems...)
-			continue
-		}
-		scanned, problems := scanPackage(dir, files)
-		if len(problems) > 0 {
-			errs = append(errs, problems...)
-			continue
-		}
-		for _, f := range scanned.files {
-			for _, d := range f.directives {
-				out = append(out, docExamples(d)...)
-			}
-		}
-	}
-	if err := errs.err(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// docExamples answers the fenced go blocks of one directive's doc body.
-func docExamples(d Directive) []Example {
-	owner := string(d.Kind)
-	if d.Name != "" {
-		owner += " " + d.Name
-	}
-	body, pos := d.Doc.Body, d.Doc.BodyPos
-	var out []Example
-	for _, sp := range fenceSpans(body) {
-		if sp.close < 0 {
-			break
-		}
-		lang, noRun, reason := fenceInfo(body[sp.open])
-		if lang != "go" {
-			continue
-		}
-		ex := Example{Owner: owner, Pos: pos[sp.open], NoRun: noRun, Reason: reason}
-		content := body[sp.open+1 : sp.close]
-		tabbed := containsTabbed(content)
-		for i, l := range content {
-			if tabbed {
-				l = strings.TrimPrefix(l, "\t")
-			}
-			ex.Lines = append(ex.Lines, ExampleLine{Text: l, Pos: pos[sp.open+1+i]})
-		}
-		out = append(out, ex)
-	}
-	return out
-}
-
 // containsTabbed reports whether a fenced block is in gofmt's code-block form (a tab before its lines).
 func containsTabbed(content []string) bool {
 	for _, l := range content {
@@ -239,9 +162,4 @@ func containsTabbed(content []string) bool {
 		}
 	}
 	return false
-}
-
-// String renders an example's place for messages: file:line (owner).
-func (e Example) String() string {
-	return fmt.Sprintf("%s (%s)", where(e.Pos), e.Owner)
 }

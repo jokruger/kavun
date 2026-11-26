@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+
+	"github.com/jokruger/kavun/reference"
 )
 
 // sourceFile is one Go source file of a package: its base name and content.
@@ -34,6 +37,19 @@ type scannedPackage struct {
 	pkgName   string
 	files     []scannedFile // sorted by name
 	hasExtras bool          // the package declares func moduleExtras(m *core.ModuleBuilder)
+	// consts and vars hold the names of the package-level constants and variables: a //kavun:names key must be a
+	// constant (a table's index), a module's bare id= one of either.
+	consts, vars map[string]bool
+	// refusedModule reports that a //kavun:module of the package was refused (reported): its functions and
+	// constants are then not reported again as lacking a module.
+	refusedModule bool
+}
+
+// valueDecl is a var or const declaration as a doc comment above it sees it: its token and the names it declares.
+type valueDecl struct {
+	tok    token.Token
+	names  []string
+	values []ast.Expr // the initial values of a single spec; nil for a group's doc
 }
 
 // otherToolDirective matches a comment line that is another tool's directive (`//go:build`, `//nolint:x`,
@@ -48,14 +64,15 @@ var (
 )
 
 // extrasFunc is the optional hand-written hook a module package declares to add what the generated init does not:
-// constants (ModuleBuilder.Const), owned types (ModuleBuilder.Type) and the rest of the builder's calls.
+// owned types (ModuleBuilder.Type) and the rest of the builder's calls. A constant has its directive
+// (//kavun:const); one added here by hand is not in the reference.
 const extrasFunc = "moduleExtras"
 
 // scanPackage parses the files of one package and collects every directive with its doc block. It reports every
 // problem it can see in one file at a time; cross-file rules are model.go's.
 func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 	var errs errorList
-	p := &scannedPackage{dir: dir}
+	p := &scannedPackage{dir: dir, consts: map[string]bool{}, vars: map[string]bool{}}
 	fset := token.NewFileSet()
 
 	files = slices.Clone(files)
@@ -76,6 +93,7 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 		// judged: a function's doc comment, attached elsewhere, free-standing, or inside a body.
 		attached := map[*ast.CommentGroup]bool{}
 		funcDocs := map[*ast.CommentGroup]*ast.FuncDecl{}
+		valueDocs := map[*ast.CommentGroup]valueDecl{}
 		var bodies []*ast.BlockStmt
 		ast.Inspect(f, func(n ast.Node) bool {
 			switch n := n.(type) {
@@ -91,6 +109,29 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 				}
 			case *ast.GenDecl:
 				attached[n.Doc] = true
+				if n.Tok == token.VAR || n.Tok == token.CONST {
+					// the declaration's doc names everything it declares: one spec, or each spec of its group
+					v := valueDecl{tok: n.Tok}
+					for _, spec := range n.Specs {
+						for _, name := range spec.(*ast.ValueSpec).Names {
+							v.names = append(v.names, name.Name)
+						}
+					}
+					if len(n.Specs) == 1 {
+						v.values = n.Specs[0].(*ast.ValueSpec).Values
+					}
+					valueDocs[n.Doc] = v
+					if n.Lparen.IsValid() { // in a group, a spec's own doc names its names only
+						for _, spec := range n.Specs {
+							vs := spec.(*ast.ValueSpec)
+							v := valueDecl{tok: n.Tok, values: vs.Values}
+							for _, name := range vs.Names {
+								v.names = append(v.names, name.Name)
+							}
+							valueDocs[vs.Doc] = v
+						}
+					}
+				}
 			case *ast.Field:
 				attached[n.Doc], attached[n.Comment] = true, true
 			case *ast.ValueSpec:
@@ -103,8 +144,20 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 			return true
 		})
 		delete(attached, nil)
+		delete(valueDocs, nil)
 
 		for _, decl := range f.Decls {
+			if gd, ok := decl.(*ast.GenDecl); ok && (gd.Tok == token.CONST || gd.Tok == token.VAR) {
+				for _, spec := range gd.Specs {
+					for _, name := range spec.(*ast.ValueSpec).Names {
+						if gd.Tok == token.CONST {
+							p.consts[name.Name] = true
+						} else {
+							p.vars[name.Name] = true
+						}
+					}
+				}
+			}
 			fd, ok := decl.(*ast.FuncDecl)
 			if !ok || fd.Recv != nil {
 				continue
@@ -122,10 +175,12 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 		for _, group := range f.Comments {
 			d, ok := scanGroup(fset, group, &errs)
 			if !ok {
+				p.refusedModule = p.refusedModule || d.Kind == KindModule
 				continue
 			}
 			inBody := slices.ContainsFunc(bodies, func(b *ast.BlockStmt) bool { return group.Pos() > b.Lbrace && group.End() < b.Rbrace })
 			fd := funcDocs[group]
+			vd, onValue := valueDocs[group]
 			switch {
 			case inBody:
 				errs.add(d.Pos, "//kavun:%s inside a function body: directives sit at the top level", d.Kind)
@@ -133,9 +188,41 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 			case d.Kind.attachedToFunc() && fd == nil:
 				errs.add(d.Pos, "//kavun:%s must be in the doc comment of the Go function it declares (no blank line between them)", d.Kind)
 				continue
-			case !d.Kind.attachedToFunc() && attached[group]:
+			case d.Kind.attachedToVar() && !onValue:
+				what := "holding its value"
+				if d.Kind == KindNames {
+					what = "holding the names"
+				}
+				errs.add(d.Pos, "%s must be in the doc comment of the package-level var %s (no blank line between them)", d.label(), what)
+				continue
+			case d.Kind == KindNames && vd.tok == token.CONST:
+				errs.add(d.Pos, "//kavun:names is on a Go const: put it on the package-level var holding the map[member.ID]string literal")
+				continue
+			case d.Kind.attachedToVar() && vd.tok == token.CONST:
+				errs.add(d.Pos, "//kavun:%s %s is on a Go const: the value is a core.Value, which a Go const cannot hold; declare it with var", d.Kind, d.Name)
+				continue
+			case d.Kind.attachedToVar() && len(vd.names) != 1:
+				errs.add(d.Pos, "%s is on a var declaring %d names (%s): one var, one name", d.label(), len(vd.names), strings.Join(vd.names, ", "))
+				continue
+			case !d.Kind.attachedToFunc() && !d.Kind.attachedToVar() && attached[group]:
 				errs.add(d.Pos, "//kavun:%s must be free-standing: separate it from the declaration below by a blank line", d.Kind)
 				continue
+			}
+			if d.Kind.attachedToVar() {
+				if vd.names[0] == "_" {
+					errs.add(d.Pos, "%s is on the blank var `_`: name the var", d.label())
+					continue
+				}
+				d.GoVar = vd.names[0]
+			}
+			if d.Kind == KindNames {
+				// the entries that are well-formed stay declared even when another is refused (generation fails
+				// anyway): the members using them are not reported as using undeclared names
+				names, ok := scanNames(fset, d, vd, &errs)
+				if !ok && len(names) == 0 {
+					continue
+				}
+				d.Names = names
 			}
 			if fd != nil {
 				want, shapeName := nativeShape, "func(vm core.VM, args []core.Value) (core.Value, error)"
@@ -156,6 +243,66 @@ func scanPackage(dir string, files []sourceFile) (*scannedPackage, errorList) {
 	return p, errs
 }
 
+// label names a directive in a message: "//kavun:const pi", "//kavun:names".
+func (d Directive) label() string {
+	if d.Name == "" {
+		return directivePrefix + string(d.Kind)
+	}
+	return directivePrefix + string(d.Kind) + " " + d.Name
+}
+
+// namesType is the type of a //kavun:names literal.
+const namesType = "map[member.ID]string"
+
+// scanNames reads the map literal of a //kavun:names var: `map[member.ID]string{Key: "name", …}`, every key an
+// identifier (a constant of the package, checked by the caller) and every value a string literal that is a member
+// name. ok is false when the literal is malformed (reported).
+func scanNames(fset *token.FileSet, d Directive, vd valueDecl, errs *errorList) ([]NameDecl, bool) {
+	var lit *ast.CompositeLit
+	if len(vd.values) == 1 {
+		lit, _ = vd.values[0].(*ast.CompositeLit)
+	}
+	if lit == nil || lit.Type == nil || types.ExprString(lit.Type) != namesType {
+		errs.add(d.Pos, "//kavun:names %s: the var must hold a %s{Key: \"name\", …} literal", d.GoVar, namesType)
+		return nil, false
+	}
+	var out []NameDecl
+	ok := true
+	for _, elt := range lit.Elts {
+		pos := fset.Position(elt.Pos())
+		kv, isKV := elt.(*ast.KeyValueExpr)
+		if !isKV {
+			errs.add(pos, "//kavun:names %s: an entry is not `Key: \"name\"`", d.GoVar)
+			ok = false
+			continue
+		}
+		key, isIdent := kv.Key.(*ast.Ident)
+		val, isLit := kv.Value.(*ast.BasicLit)
+		if !isIdent {
+			errs.add(pos, "//kavun:names %s: the key %s is not an identifier of the package (a member.ID constant)", d.GoVar, types.ExprString(kv.Key))
+			ok = false
+			continue
+		}
+		if !isLit || val.Kind != token.STRING {
+			errs.add(pos, "//kavun:names %s: the name of %s is not a string literal", d.GoVar, key.Name)
+			ok = false
+			continue
+		}
+		name, err := strconv.Unquote(val.Value)
+		if err != nil || !namePattern.MatchString(name) {
+			errs.add(pos, "//kavun:names %s: %s is not a member name ([a-z_][a-z0-9_]*)", d.GoVar, val.Value)
+			ok = false
+			continue
+		}
+		out = append(out, NameDecl{Key: key.Name, Name: name, Pos: pos})
+	}
+	if ok && len(out) == 0 {
+		errs.add(d.Pos, "//kavun:names %s declares no name", d.GoVar)
+		return nil, false
+	}
+	return out, ok
+}
+
 // scanGroup reads one comment group: ok is false when it holds no directive (or a malformed one, reported).
 func scanGroup(fset *token.FileSet, group *ast.CommentGroup, errs *errorList) (Directive, bool) {
 	var d Directive
@@ -173,7 +320,7 @@ func scanGroup(fset *token.FileSet, group *ast.CommentGroup, errs *errorList) (D
 			parsed, err := parseDirective(strings.TrimSpace(strings.TrimPrefix(c.Text, directivePrefix)))
 			if err != nil {
 				errs.add(pos, "%v", err)
-				return d, false
+				return Directive{Kind: parsed.Kind}, false // its kind, for refusedModule
 			}
 			parsed.Pos = pos
 			d, found = parsed, true
@@ -199,8 +346,9 @@ func scanGroup(fset *token.FileSet, group *ast.CommentGroup, errs *errorList) (D
 			}
 		}
 		for i, line := range lines {
-			if title, ok := strings.CutPrefix(line, "## "); ok && !fenced[i] {
-				d.Sections = append(d.Sections, Section{Title: strings.TrimSpace(title), Pos: linePos[i]})
+			if title, ok := reference.HeadingText(line); ok && !fenced[i] {
+				level := len(line) - len(strings.TrimLeft(line, "#"))
+				d.Sections = append(d.Sections, Section{Title: title, Level: level, Pos: linePos[i]})
 			}
 		}
 	}
@@ -239,8 +387,13 @@ func parseDoc(lines []string, pos []token.Position) (doc Doc, at token.Position,
 	}
 	end := start
 	var words []string
+	var starts []int // where each line starts in the summary
+	n := 0
 	for end < len(lines) && !isBlank(lines[end]) {
-		words = append(words, strings.TrimSpace(lines[end]))
+		w := strings.TrimSpace(lines[end])
+		words = append(words, w)
+		starts = append(starts, n)
+		n += len(w) + 1
 		end++
 	}
 	summary := strings.Join(words, " ")
@@ -251,7 +404,7 @@ func parseDoc(lines []string, pos []token.Position) (doc Doc, at token.Position,
 		return Doc{}, pos[start], fmt.Errorf("summary %q must be one sentence: a second one starts at %q; move it to the body, after a blank comment line", summary, summary[loc[0]+2:])
 	}
 	body, bodyPos := trimBlankPos(lines[end:], pos[end:])
-	return Doc{Summary: summary, Body: body, BodyPos: bodyPos}, at, nil
+	return Doc{Summary: summary, SummaryPos: pos[start:end], SummaryAt: starts, Body: body, BodyPos: bodyPos}, at, nil
 }
 
 // trimBlankPos is trimBlank over lines and their positions together: it answers the same lines and the positions
@@ -315,7 +468,11 @@ func funcShape(fd *ast.FuncDecl) string {
 type errorList []string
 
 func (l *errorList) add(pos token.Position, format string, args ...any) {
-	*l = append(*l, where(pos)+": "+fmt.Sprintf(format, args...))
+	msg := fmt.Sprintf(format, args...)
+	if w := where(pos); w != "" {
+		msg = w + ": " + msg
+	}
+	*l = append(*l, msg)
 }
 
 // where renders a position as file:line (just the file when the line is unknown).

@@ -88,7 +88,10 @@ out, err := compiled.Get("out")
 if err != nil {
     panic(err)
 }
-sum, _ := out.AsInt()
+sum, ok := out.AsInt()
+if !ok {
+    panic("out is " + out.TypeName() + ", not an int")
+}
 fmt.Println(sum)
 ```
 
@@ -127,19 +130,28 @@ before the body runs, exactly like a builtin's:
 var clampSig = core.MustSignature("(x, lo, hi)") // parsed once; a malformed template panics here
 
 clamp := core.NewBuiltinClosureValue("clamp", clampSig, func(_ core.VM, args []core.Value) (core.Value, error) {
-    x, _ := args[0].AsInt() // three arguments are guaranteed
-    lo, _ := args[1].AsInt()
-    hi, _ := args[2].AsInt()
-    return core.IntValue(min(max(x, lo), hi)), nil
+    var n [3]int64 // x, lo, hi: three arguments are guaranteed, their types are not
+    for i, pos := range []string{"first", "second", "third"} {
+        v, ok := args[i].AsInt()
+        if !ok { // answer an error, never a silent zero
+            return core.Undefined, errs.NewInvalidArgumentTypeError("clamp", pos, "int(compatible)", args[i].TypeName())
+        }
+        n[i] = v
+    }
+    return core.IntValue(min(max(n[0], n[1]), n[2])), nil
 })
 // clamp(1) in a script raises: wrong_num_arguments: (clamp) expected (x, lo, hi), got 1 argument
+// clamp("a", 0, 9) raises: invalid_argument_type: (clamp) argument first expects type int(compatible), got string
 ```
 
 A template is the parameter list a script author would write: names, an optional group `[, x]`, a rest `...xs`, and
 readings joined by ` | ` (see [conventions.md § Arity and templates](conventions.md#arity-and-templates)).
 `core.ParseSignature(template)` returns the error instead of panicking; `core.SignatureOf(arity, variadic)` builds
 the bare pair when only the count is known at run time (the error then states it: `(f) expected 2 arguments, got 1
-argument`). A body whose template names an upper bound (`"(x[, y])"`) refuses more by returning `core.ErrArgCount`.
+argument`). A `core.Signature` keeps what the call check needs — the template, the arity and whether it is variadic;
+the exact count set and the readings are package `signature`'s (`signature.Parse(sig.Template())`, then
+`Accepts`/`Max`/`Readings`). A body whose template names an upper bound (`"(x[, y])"`) refuses more by returning
+`core.ErrArgCount`.
 A closure answers its pair to callback-taking members like any function: `xs.map(clamp)` is refused (it accepts
 three arguments, not one), so a script adapts it with a lambda (`xs.map(x => clamp(x, 0, 9))`).
 
@@ -222,9 +234,9 @@ functions and constants through `core.NewModule`, each under a member id (a buil
 ```go
 const myModule = uint8(200)
 
-var (
-    memberDouble = member.ID(2100) // embedder member ids start at member.FirstUserDefined (2048)
-    memberLabel  = member.ID(2101)
+const (
+    memberDouble member.ID = 2100 // embedder member ids start at member.FirstUserDefined (2048)
+    memberLabel  member.ID = 2101
 )
 
 func init() {
@@ -233,7 +245,11 @@ func init() {
     member.Define(memberLabel, "label")
     err := core.NewModule(myModule, "mymod", true). // true: pure — granted by default
         PureFn(memberDouble, 0, "(n)", func(_ core.VM, args []core.Value) (core.Value, error) {
-            n, _ := args[0].AsInt()
+            n, ok := args[0].AsInt()
+            if !ok { // answer an error, never a silent zero
+                return core.Undefined, errs.NewInvalidArgumentTypeError("mymod.double", "first",
+                    "int(compatible)", args[0].TypeName())
+            }
             return core.IntValue(2 * n), nil
         }).
         Const(memberLabel, core.NewStringValue("mine")).
@@ -243,6 +259,18 @@ func init() {
     }
 }
 ```
+
+The same registration can be generated: with `//kavun:module mymod id=myModule pure` beside the package's
+`myModule` constant, a `//kavun:fn double slot=0 pure (n) -> int` on the function and a `//kavun:const label ->
+string` on a package-level `var` holding the value, `go run github.com/jokruger/kavun/cmd/kavun-gen ./...` writes an
+`init()` into `kavun_gen.go` that makes the `NewModule` … `Register` calls above. The embedder names `double` and
+`label` are declared once with `//kavun:names` on a `map[member.ID]string` literal keyed by the `member.ID`
+constants (they must be constants, as above: a generated table is indexed by them); the generated file binds them
+with `member.Define` in a package-level variable initializer, which Go runs before any `init()` of the package. The
+generated code does not call `core.SetHostVersion`: the embedder still calls it, in an `init()` of its own (beside a
+type's `SetValueType`, say) or in `main` before the first script is compiled. The same run writes the module's
+`kavun_reference.json`, which `cmd/kavun-docs` renders into reference pages
+([conventions.md § Declaring native functions](conventions.md#declaring-native-functions-directives-and-kavun-gen)).
 
 `PureFn` claims a function pure (the optimizer may fold its calls), `Fn` does not. The template is the count
 check: a call is checked against it before the function runs (`(mymod.double) expected (n), got 0 arguments`), so

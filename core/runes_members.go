@@ -26,7 +26,7 @@ func runesIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 // ```go
 // u"hi".format("v")   // => "u\"hi\""
@@ -210,7 +210,7 @@ func runesDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return textDateMember(id.String(), runesTypeName, text.EncodeText((*Runes)(v.Ptr).Elements), args)
 }
 
-// Parse the text as a `time` under a [layout](time.md#text-layouts); text the layout does not read raises unless a
+// Parse the text as a `time` under a [layout](kavun:type/time#text-layouts); text the layout does not read raises unless a
 // default is given.
 //
 // A malformed layout always raises (`invalid_value`). The default comes after the layout.
@@ -227,14 +227,14 @@ func runesParseTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // Parse the text as a `date` under a layout; text the layout does not read raises unless a default is given.
 //
 // `"date"` reads the strict `YYYY-MM-DD` form, any other layout is read as for [`parse_time`](#parse_time) (see
-// [date](date.md)); the default comes after the layout.
+// [date](kavun:type/date)); the default comes after the layout.
 //
 //kavun:member parse_date pure (layout[, default]) -> date
 func runesParseDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return textParseDateMember(id.String(), runesTypeName, text.EncodeText((*Runes)(v.Ptr).Elements), args)
 }
 
-// Report whether every element is a real symbol, with no [octet escapes](string.md#undecodable-octets).
+// Report whether every element is a real symbol, with no [octet escapes](kavun:type/string#undecodable-octets).
 //
 //kavun:member is_valid pure () -> bool
 func runesIsValid(_ VM, v Value, id member.ID, args []Value) (Value, error) {

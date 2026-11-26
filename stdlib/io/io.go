@@ -17,7 +17,7 @@ import (
 // The script's console: print, write and read on the VM's standard streams.
 //
 // It writes to the VM's stdout and reads from its stdin — the process streams unless the host redirects them
-// (`VM.SetStdout`, `VM.SetStdin`, see [embedding.md § Standard streams](../../embedding.md#standard-streams)).
+// (`VM.SetStdout`, `VM.SetStdin`, see [embedding.md § Standard streams](kavun:doc/embedding#standard-streams)).
 //
 // | | line-oriented | raw stream |
 // | --- | --- | --- |
@@ -41,7 +41,7 @@ import (
 // Failures: `io` (an output or input stream the world refused, or end of input for `read_line` without a default);
 // `invalid_value` (a negative count); `invalid_argument_type`; `wrong_num_arguments`.
 //
-//kavun:module io impure
+//kavun:module io id=value.ModuleIo impure
 
 // Print the values separated by spaces, then a newline.
 //

@@ -85,9 +85,9 @@ A summary is shown below:
 - [Type Reference](docs/types.md) - The type families and the language-wide rules: argument dispatch, conversions,
   member/operator correspondence, callbacks, mutability, truthiness.
 - [Reference](docs/reference/builtins.md) - Generated from the source: one page per [type](docs/reference/types/array.md)
-  (`docs/reference/types/`), per [module](docs/reference/stdlib.md), the [builtin functions](docs/reference/builtins.md)
+  (`docs/reference/types/`), per [module](docs/reference/modules.md), the [builtin functions](docs/reference/builtins.md)
   and the [function matrix](docs/reference/function_matrix.md).
-- [Standard Library](docs/stdlib.md) - General notes on the builtin modules: the module type, the grant, the failure policy. The per-module reference is [docs/reference/stdlib.md](docs/reference/stdlib.md).
+- [Standard Library](docs/stdlib.md) - General notes on the builtin modules: the module type, the grant, the failure policy. The per-module reference is [docs/reference/modules.md](docs/reference/modules.md).
 - [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
 - [Virtual Machine](docs/vm.md) - Virtual machine specifics and limitations.
 - [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions, and how a native function

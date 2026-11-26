@@ -1,0 +1,245 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [
+    {
+      "name": "gadget",
+      "summary": "A gadget: the fixture for a type with no members file — its page is this block alone.",
+      "doc": [
+        {
+          "kind": "text",
+          "markdown": "## Fields\n\nA gadget is read through its fields; the free builtins document the rest:\n\n| builtin | reading |\n| --- | --- |\n| `len(g)` | the field count |\n\nAn example that is not run keeps its `norun` marker in the source only; the page shows a plain `go` fence:\n"
+        },
+        {
+          "kind": "example",
+          "code": "len(g)",
+          "line": 16,
+          "norun": true,
+          "reason": "g is a placeholder"
+        }
+      ],
+      "pos": {
+        "file": "gadget.go",
+        "line": 19
+      },
+      "members": []
+    },
+    {
+      "name": "widget",
+      "summary": "A widget: the fixture for a type declared in package core.",
+      "doc": [
+        {
+          "kind": "text",
+          "markdown": "## Overview\n\nThe page head: its own `##` sections, verbatim.\n\n- a list item\nwith an unindented continuation line\n- a second item\n\n| operator | reading |\n| --- | --- |\n| `w + x` | exactly `append(x)` |\n\n### A third-level heading\n"
+        },
+        {
+          "kind": "example",
+          "code": "w := widget()\n\nw.len()   // 0",
+          "line": 20
+        }
+      ],
+      "pos": {
+        "file": "widget.go",
+        "line": 25
+      },
+      "members": [
+        {
+          "name": "is_true",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "bool",
+          "summary": "Report truthiness.",
+          "doc": [
+            {
+              "kind": "text",
+              "markdown": "A wrapper's doc block is rendered like any other."
+            }
+          ],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 56
+          }
+        },
+        {
+          "name": "len",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer the number of parts.",
+          "doc": [],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 49
+          }
+        },
+        {
+          "name": "pad_end",
+          "pure": true,
+          "signature": {
+            "template": "(n[, fill])",
+            "arity": 1,
+            "variadic": true,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "n"
+                  },
+                  {
+                    "name": "fill",
+                    "optional": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "widget",
+          "summary": "Pad at the back until length `n`.",
+          "doc": [
+            {
+              "kind": "text",
+              "markdown": "The fill is **one element**:\n\n1. a numbered item\n2. another\n"
+            },
+            {
+              "kind": "example",
+              "code": "w.pad_end(3)\n\nw.pad_end(3, 0)",
+              "line": 13
+            },
+            {
+              "kind": "text",
+              "markdown": ""
+            },
+            {
+              "kind": "example",
+              "code": "w.each(func(x) {\n    print(x)\n})",
+              "line": 20
+            },
+            {
+              "kind": "text",
+              "markdown": "\n#### A fourth-level heading\n\n| width | result |\n| --- | --- |\n| below the length | unchanged |"
+            }
+          ],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 32
+          }
+        },
+        {
+          "name": "pad_start",
+          "pure": true,
+          "signature": {
+            "template": "(n[, fill])",
+            "arity": 1,
+            "variadic": true,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "n"
+                  },
+                  {
+                    "name": "fill",
+                    "optional": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "widget",
+          "summary": "Pad at the front until length `n`; see [`pad_end`](kavun:type/widget/pad_end).",
+          "doc": [],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 37
+          }
+        },
+        {
+          "name": "shuffle",
+          "pure": false,
+          "signature": {
+            "template": "(g)",
+            "arity": 1,
+            "variadic": false,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "g"
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "widget",
+          "summary": "Shuffle the parts with the generator `g`.",
+          "doc": [],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 61
+          }
+        },
+        {
+          "name": "splice",
+          "pure": true,
+          "signature": {
+            "template": "([start[, delete_count]]) | (start, delete_count, ...items)",
+            "arity": 0,
+            "variadic": true,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "start",
+                    "optional": 1
+                  },
+                  {
+                    "name": "delete_count",
+                    "optional": 2
+                  }
+                ]
+              },
+              {
+                "params": [
+                  {
+                    "name": "start"
+                  },
+                  {
+                    "name": "delete_count"
+                  }
+                ],
+                "rest": "items"
+              }
+            ]
+          },
+          "result": "widget",
+          "summary": "Remove `delete_count` parts at `start`, then insert the items there.",
+          "doc": [],
+          "pos": {
+            "file": "widget_members.go",
+            "line": 43
+          }
+        }
+      ]
+    }
+  ],
+  "modules": []
+}

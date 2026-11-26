@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [
+    {
+      "name": "gadget",
+      "summary": "A gadget: the fixture for a type declared outside package core.",
+      "doc": [],
+      "pos": {
+        "file": "gadget.go",
+        "line": 5
+      },
+      "members": [
+        {
+          "name": "format",
+          "pure": true,
+          "signature": {
+            "template": "([spec])",
+            "arity": 0,
+            "variadic": true,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "spec",
+                    "optional": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "string",
+          "summary": "Render the gadget.",
+          "doc": [],
+          "pos": {
+            "file": "gadget_members.go",
+            "line": 17
+          }
+        },
+        {
+          "name": "len",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer the number of parts.",
+          "doc": [],
+          "pos": {
+            "file": "gadget_members.go",
+            "line": 10
+          }
+        }
+      ]
+    }
+  ],
+  "modules": []
+}

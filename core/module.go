@@ -243,7 +243,7 @@ func (b *ModuleBuilder) Register() error {
 				return err
 			}
 		} else {
-			if err := validateTables(&d); err != nil {
+			if err := validateTables(&d, false); err != nil {
 				return errs.NewHostError(fmt.Sprintf("(module %s) type %d: %v", name, id, err))
 			}
 			setValueType(id, d)
@@ -253,14 +253,14 @@ func (b *ModuleBuilder) Register() error {
 	}
 	b.def.roster = NewRecordValue(b.roster, true)
 	if t >= value.FirstUserDefinedType {
-		if err := SetValueType(t, b.descr); err != nil {
+		if err := setUserValueType(t, b.descr, true); err != nil {
 			return err
 		}
 	} else {
-		if err := validateTables(&b.descr); err != nil {
+		if err := validateTables(&b.descr, true); err != nil {
 			return errs.NewHostError(fmt.Sprintf("(module %s) %v", name, err))
 		}
-		setValueType(t, b.descr)
+		installValueType(t, b.descr)
 	}
 	moduleDefs[t] = b.def
 	moduleByName[name] = b.def

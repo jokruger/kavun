@@ -35,9 +35,9 @@ func NewDecimalValue(d dec128.Dec128) Value {
 // `decimal` is a 128-bit decimal floating-point number: up to 38 significant digits with a fractional scale of 0 to
 // 19 digits. Arithmetic is exact in base 10 — `0.1d + 0.2d == 0.3d` is `true`, where the float spelling is famously
 // `false`. Money and anything else that must be exact in base 10 belongs in `decimal`; measurements and physics
-// belong in [`float`](float.md).
+// belong in [`float`](kavun:type/float).
 //
-// `decimal` belongs to the numeric family alongside [`int`](int.md) and `float`: it pairs with `int` in arithmetic
+// `decimal` belongs to the numeric family alongside [`int`](kavun:type/int) and `float`: it pairs with `int` in arithmetic
 // and compares exactly against both. It has no Inf representation at all (`is_inf()` is constantly `false`), and a
 // NaN exists only as an error state a **host** can hand in — no operation in the language produces one, because
 // every path that would raises instead (see [NaN as an error state](#nan-as-an-error-state)).

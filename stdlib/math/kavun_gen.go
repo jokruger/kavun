@@ -8,7 +8,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 )
 
-// init registers the math module declared by the //kavun:module and //kavun:fn directives.
+// init registers the math module declared by the //kavun:module, //kavun:fn and //kavun:const directives.
 func init() {
 	m := core.NewModule(value.ModuleMath, "math", true)
 	m.PureFn(members.Inf, 0, "(sign)", mathInf)
@@ -47,7 +47,31 @@ func init() {
 	m.PureFn(members.Y0, 33, "(x)", mathY0)
 	m.PureFn(members.Y1, 34, "(x)", mathY1)
 	m.PureFn(members.Yn, 35, "(n, x)", mathYn)
-	moduleExtras(m)
+	m.Const(members.E, constE)
+	m.Const(members.Ln10, constLn10)
+	m.Const(members.Ln2, constLn2)
+	m.Const(members.Log10e, constLog10e)
+	m.Const(members.Log2e, constLog2e)
+	m.Const(members.MaxFloat32, constMaxFloat32)
+	m.Const(members.MaxFloat64, constMaxFloat64)
+	m.Const(members.MaxInt, constMaxInt)
+	m.Const(members.MaxInt16, constMaxInt16)
+	m.Const(members.MaxInt32, constMaxInt32)
+	m.Const(members.MaxInt64, constMaxInt64)
+	m.Const(members.MaxInt8, constMaxInt8)
+	m.Const(members.MinInt, constMinInt)
+	m.Const(members.MinInt16, constMinInt16)
+	m.Const(members.MinInt32, constMinInt32)
+	m.Const(members.MinInt64, constMinInt64)
+	m.Const(members.MinInt8, constMinInt8)
+	m.Const(members.Phi, constPhi)
+	m.Const(members.Pi, constPi)
+	m.Const(members.SmallestNonzeroFloat32, constSmallestNonzeroFloat32)
+	m.Const(members.SmallestNonzeroFloat64, constSmallestNonzeroFloat64)
+	m.Const(members.Sqrt2, constSqrt2)
+	m.Const(members.SqrtE, constSqrtE)
+	m.Const(members.SqrtPhi, constSqrtPhi)
+	m.Const(members.SqrtPi, constSqrtPi)
 	if err := m.Register(); err != nil {
 		panic(err)
 	}

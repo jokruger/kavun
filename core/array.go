@@ -85,7 +85,7 @@ func NewArrayValue(arr []Value, immutable bool) Value {
 // An array literal is **constructed**, not constant: its elements are expressions evaluated when execution
 // reaches them (`[f(x), i + 1]`), so each evaluation builds a fresh body — which is why an array literal is
 // mutable while a `b"..."` / `u"..."` text literal is a shared, immutable constant. See [Constant literals and
-// constructed literals](../../language.md#constant-literals-and-constructed-literals).
+// constructed literals](kavun:doc/language#constant-literals-and-constructed-literals).
 //
 // The free `array(...)` constructor has two forms with two different jobs:
 // - **Arity 1**: it decomposes a convertible sequence into elements and wraps any other value as one element.
@@ -239,7 +239,7 @@ func NewArrayValue(arr []Value, immutable bool) Value {
 //
 // Two reasons, and they will still hold when the language grows typed vectors (`ints`, `floats`, …):
 //
-// - `string` and `runes` hold the *same* text and are interchangeable everywhere (see [runes](runes.md)),
+// - `string` and `runes` hold the *same* text and are interchangeable everywhere (see [runes](kavun:type/runes)),
 // so neither can spread while the other stays an element — and `arr + "text"` must keep meaning *append the
 // text*.
 // - a `range` that quietly became an `array` would answer an `array` today and an `ints` tomorrow, silently, in a

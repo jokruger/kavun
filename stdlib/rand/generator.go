@@ -64,7 +64,7 @@ func GeneratorOf(v core.Value) *Generator {
 //
 // ## Overview
 //
-// `rand.generator` is owned by the [`rand`](../stdlib/rand.md) module. It is ONE type over two sources, so anything
+// `rand.generator` is owned by the [`rand`](kavun:module/rand) module. It is ONE type over two sources, so anything
 // that takes a generator — `array.shuffle(g)`, a function of your own — accepts either:
 //
 // | constructor | source | sequence |

@@ -29,7 +29,7 @@ func stringIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 // ```go
 // "hi".format("q")     // => "\"hi\"" — quoted render
@@ -83,7 +83,7 @@ func stringSlice(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 
 // Answer the receiver: a string is immutable and identity-less, so there is nothing to construct.
 //
-// The mutable-bodied types copy instead: see [`array()`](array.md#array).
+// The mutable-bodied types copy instead: see [`array()`](kavun:type/array/array).
 //
 //kavun:member string pure ([default]) -> string
 func stringString(_ VM, v Value, id member.ID, args []Value) (Value, error) {
@@ -214,7 +214,7 @@ func stringDate(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return textDateMember(id.String(), stringTypeName, *(*string)(v.Ptr), args)
 }
 
-// Parse the text as a `time` under a [layout](time.md#text-layouts); text the layout does not read raises unless a
+// Parse the text as a `time` under a [layout](kavun:type/time#text-layouts); text the layout does not read raises unless a
 // default is given.
 //
 // A malformed layout always raises (`invalid_value`): it is the script's mistake, not the data's. The default
@@ -234,7 +234,7 @@ func stringParseTime(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 // Parse the text as a `date` under a layout; text the layout does not read raises unless a default is given.
 //
 // `"date"` reads the strict `YYYY-MM-DD` form, any other layout is read as for [`parse_time`](#parse_time) (see
-// [date](date.md)); the default comes after the layout.
+// [date](kavun:type/date)); the default comes after the layout.
 //
 // ```go
 // "29/08/2026".parse_date("%d/%m/%Y").month()   // => 8

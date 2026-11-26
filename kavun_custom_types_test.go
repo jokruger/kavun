@@ -190,18 +190,15 @@ func init() {
 				}
 				return core.IntValue(int64(v.Data) * n), nil
 			}),
-			// conversion entries: the free form calls a pure ([default]) entry, never an impure one
+			// conversion entries (registration holds them pure, with the template ([default])): the free form calls them
 			members.String: core.NewPureMethod("([default])", func(_ core.VM, v core.Value, _ member.ID, args []core.Value) (core.Value, error) {
 				return core.ConvMember("string", "tabled", args, true, core.NewStringValue(fmt.Sprintf("member:%d", int64(v.Data))))
 			}),
 			members.Array: core.NewPureMethod("([default])", func(_ core.VM, v core.Value, _ member.ID, args []core.Value) (core.Value, error) {
 				return core.ConvMember("array", "tabled", args, true, core.NewArrayValue([]core.Value{core.NewStringValue("member"), v}, false))
 			}),
-			members.Int: core.NewMethod("([default])", func(_ core.VM, _ core.Value, _ member.ID, args []core.Value) (core.Value, error) {
-				return core.ConvMember("int", "tabled", args, true, core.IntValue(999))
-			}),
 		},
-		// the hook the free int(x) falls back to, since the int entry is impure
+		// the hook the free int(x) falls back to, since the type has no int entry
 		AsInt: func(v core.Value) (int64, bool) { return int64(v.Data), true },
 		Properties: []core.Property{
 			memberLabel: core.NewPureProperty(func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
@@ -770,16 +767,16 @@ func TestEmbedderMemberTables(t *testing.T) {
 	require.False(t, core.HasMember(MyTabled, "raw"))
 }
 
-// A free conversion on a host type calls the type's pure ([default]) entry; without one — no entry, or an impure
-// one, which a pure builtin never runs — the type's hooks answer (docs/extending_types.md).
+// A free conversion on a host type calls the type's conversion entry; without one the type's hooks answer
+// (docs/extending_types.md). An entry that is not pure with ([default]) cannot be registered (TestMemberTablesValidation).
 func TestEmbedderFreeConversions(t *testing.T) {
 	tabled := Opts().Symbol("x", core.Value{Type: MyTabled, Data: 6}).Skip2ndPass()
 	expectRun(t, `out = string(x)`, tabled, "member:6")
 	expectRun(t, `out = x.string()`, tabled, "member:6")
 	expectRun(t, `out = array(x)[0]`, tabled, "member")
 	expectRun(t, `out = x.array()[0]`, tabled, "member")
-	expectRun(t, `out = x.int()`, tabled, 999) // the impure entry answers the member call...
-	expectRun(t, `out = int(x)`, tabled, 6)    // ...but not the free form: the AsInt hook does
+	expectRun(t, `out = int(x)`, tabled, 6)             // no int entry: the AsInt hook answers the free form...
+	expectError(t, `x.int()`, tabled, "invalid_method") // ...and there is no member to call
 	expectError(t, `dict(x)`, tabled, "conversion")
 
 	hooked := Opts().Symbol("x", core.Value{Type: MyHooked, Data: 2}).Skip2ndPass()
@@ -837,6 +834,29 @@ func TestEmbedderModuleConversions(t *testing.T) {
 	expectError(t, `m := import("conv_mod"); string(m)`, nil, "cannot convert module to string: no conversion exists")
 	expectRun(t, `m := import("conv_mod"); out = [array(m)[0] == m, m.array()[0] == m]`, nil, ARR{true, true})
 	expectError(t, `int(import("math"))`, nil, "cannot convert module to int: no conversion exists")
+}
+
+// The conversion-name rule holds every value type's table, a module-owned type's included, but not a module's own
+// functions: they are never conversions, so an impure int(lo, hi) is just a function of the module.
+func TestEmbedderModuleConversionNames(t *testing.T) {
+	const tid = uint8(230)
+	b := core.NewModule(tid, "conv_names", true).
+		Fn(members.Int, 0, "(lo, hi)", func(_ core.VM, args []core.Value) (core.Value, error) {
+			lo, _ := args[0].AsInt()
+			hi, _ := args[1].AsInt()
+			return core.IntValue(lo + hi), nil
+		})
+	require.NoError(t, b.Register())
+	defer func() { require.NoError(t, core.UnregisterModule(tid)) }()
+	expectRun(t, `m := import("conv_names"); out = m.int(1, 2)`, nil, 3)
+
+	noop := func(core.VM, core.Value, member.ID, []core.Value) (core.Value, error) { return core.Undefined, nil }
+	owned := core.NewModule(231, "conv_owned", true).
+		Type(232, core.ValueTypeDescr{Methods: []core.Method{members.Int: core.NewPureMethod("(lo, hi)", noop)}})
+	err := owned.Register()
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "(int) is a conversion: it must be pure with the template ([default])"), err.Error())
+	require.True(t, core.ModuleByType(231) == nil, "a refused module is not registered")
 }
 
 // The builder refuses what would make a module ambiguous; each refusal is a host error from Register.

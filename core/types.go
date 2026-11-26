@@ -305,28 +305,42 @@ var DefaultValueType = ValueTypeDescr{
 	AsIntRange: Const2Hook(IntRange{}, false),                              // PURE by contract
 }
 
+// conversionTemplate is the template of every conversion member: x.T([default]).
+const conversionTemplate = "([default])"
+
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.
 var ValueTypes [256]ValueTypeDescr
 
 // SetValueType registers a user-defined value type descriptor for the given type ID.
 func SetValueType(t uint8, f ValueTypeDescr) error {
+	return setUserValueType(t, f, false)
+}
+
+// setUserValueType registers an embedder type id: a value type (module false) or an embedder module's own type
+// (module true, whose function members are never conversions — validateTables).
+func setUserValueType(t uint8, f ValueTypeDescr, module bool) error {
 	if t < value.FirstUserDefinedType {
 		// A host setup mistake, not a script fault: fatal, kind "host".
 		return errs.NewHostError(fmt.Sprintf("(SetValueType) cannot set value type for built-in type %d", t))
 	}
-	if err := validateTables(&f); err != nil {
+	if err := validateTables(&f, module); err != nil {
 		return errs.NewHostError(fmt.Sprintf("(SetValueType) type %d: %v", t, err))
 	}
-	setValueType(t, f)
+	installValueType(t, f)
 	embedderTypes[t] = true
 	return nil
 }
 
 // setValueType registers a builtin type: a table violation is a defect in core, found at init.
 func setValueType(t uint8, f ValueTypeDescr) {
-	if err := validateTables(&f); err != nil {
+	if err := validateTables(&f, false); err != nil {
 		panic(fmt.Sprintf("(setValueType) type %d: %v", t, err))
 	}
+	installValueType(t, f)
+}
+
+// installValueType fills a validated descriptor's nil hooks from DefaultValueType and stores it at t.
+func installValueType(t uint8, f ValueTypeDescr) {
 	fv := reflect.ValueOf(&f).Elem()
 	dv := reflect.ValueOf(DefaultValueType)
 
@@ -341,8 +355,11 @@ func setValueType(t uint8, f ValueTypeDescr) {
 }
 
 // validateTables checks a descriptor's Methods and Properties: within member.Max, every filled slot at a bound
-// member ID, and no `_in_place` member declared pure (docs/conventions.md: `_in_place` mutates the receiver).
-func validateTables(f *ValueTypeDescr) error {
+// member ID, no `_in_place` member declared pure (docs/conventions.md: `_in_place` mutates the receiver), and — on a
+// value type, not on a module's own type (module), whose function members are never conversions — every member named
+// after a conversion (member.IsConversion) pure with the template `([default])`: the free conversion `T(x)` calls
+// that entry, so the name is the contract.
+func validateTables(f *ValueTypeDescr, module bool) error {
 	if len(f.Methods) > int(member.Max) {
 		return fmt.Errorf("Methods table too long: %d (max: %d)", len(f.Methods), member.Max)
 	}
@@ -359,6 +376,9 @@ func validateTables(f *ValueTypeDescr) error {
 		}
 		if e.Pure && strings.HasSuffix(name, "_in_place") {
 			return fmt.Errorf("Methods[%d] (%s) is declared pure but an _in_place member mutates its receiver", i, name)
+		}
+		if !module && member.IsConversion(member.ID(i)) && (!e.Pure || e.Sig.Template() != conversionTemplate) {
+			return fmt.Errorf("Methods[%d] (%s) is a conversion: it must be pure with the template %s", i, name, conversionTemplate)
 		}
 	}
 	for i, e := range f.Properties {

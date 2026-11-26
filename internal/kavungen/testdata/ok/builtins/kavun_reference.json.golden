@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [],
+  "builtins": {
+    "doc": [
+      {
+        "kind": "text",
+        "markdown": "The free builtin functions: the builtins root has no summary, its whole block is the page's intro."
+      }
+    ],
+    "pos": {
+      "file": "builtins.go",
+      "line": 7
+    },
+    "functions": [
+      {
+        "name": "int",
+        "pure": true,
+        "signature": {
+          "template": "(x[, default])",
+          "arity": 1,
+          "variadic": true,
+          "readings": [
+            {
+              "params": [
+                {
+                  "name": "x"
+                },
+                {
+                  "name": "default",
+                  "optional": 1
+                }
+              ]
+            }
+          ]
+        },
+        "result": "int",
+        "summary": "Convert to an int.",
+        "doc": [
+          {
+            "kind": "text",
+            "markdown": "- a string is parsed\n- a float must be whole"
+          }
+        ],
+        "pos": {
+          "file": "builtins.go",
+          "line": 14
+        }
+      },
+      {
+        "name": "len",
+        "pure": true,
+        "signature": {
+          "template": "(x)",
+          "arity": 1,
+          "variadic": false,
+          "readings": [
+            {
+              "params": [
+                {
+                  "name": "x"
+                }
+              ]
+            }
+          ]
+        },
+        "result": "int",
+        "summary": "Answer the length.",
+        "doc": [
+          {
+            "kind": "text",
+            "markdown": "#### Containers\n\n| type | length |\n| --- | --- |\n| array | elements |"
+          }
+        ],
+        "pos": {
+          "file": "builtins.go",
+          "line": 25
+        }
+      },
+      {
+        "name": "recover",
+        "pure": false,
+        "signature": {
+          "template": "()",
+          "arity": 0,
+          "variadic": false,
+          "readings": [
+            {
+              "params": []
+            }
+          ]
+        },
+        "result": "value",
+        "summary": "Recover a raised error.",
+        "doc": [],
+        "pos": {
+          "file": "builtins.go",
+          "line": 30
+        }
+      }
+    ]
+  },
+  "modules": []
+}

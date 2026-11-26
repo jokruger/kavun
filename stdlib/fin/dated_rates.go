@@ -89,8 +89,8 @@ func datedRatesEqual(a, b fin128.DatedRates) bool {
 //
 // ## Overview
 //
-// `fin.dated_rates` is owned by the [`fin`](../stdlib/fin.md) module (see [Rate and charge
-// tables](../stdlib/fin.md#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
+// `fin.dated_rates` is owned by the [`fin`](kavun:module/fin) module (see [Rate and charge
+// tables](kavun:module/fin#rate-and-charge-tables) for what the four tables share). It is built from a one-line text
 // form or from band records:
 //
 // | text form | band record |

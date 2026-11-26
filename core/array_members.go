@@ -716,7 +716,7 @@ func arrayFlatten(_ VM, v Value, _ member.ID, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
-// Reorder the elements randomly, drawing from a [`rand.generator`](rand_generator.md) — required, because a
+// Reorder the elements randomly, drawing from a [`rand.generator`](kavun:type/rand.generator) — required, because a
 // member cannot read the world on its own.
 //
 // The same seeded generator gives the same order on every run; `os.rand_generator()` gives an unpredictable one.
@@ -928,7 +928,7 @@ func arraySlice(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 //
 // The sharing twin of [`slice`](#slice).
 //
-// The free `is_view(x)` reports it; see [container semantics](../../container_semantics.md) before using views.
+// The free `is_view(x)` reports it; see [container semantics](kavun:doc/container_semantics) before using views.
 //
 // ```go
 // a = [1, 2, 3, 4]
@@ -1146,7 +1146,7 @@ func arrayRecord(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 //
 // It is equal to the receiver but is not the receiver
 // (`a.array() == a` is `true`; a write through the result never reaches `a`). Shared storage is
-// [`slice_view`/`chunk_view`](../../container_semantics.md#views), never a conversion.
+// [`slice_view`/`chunk_view`](kavun:doc/container_semantics#views), never a conversion.
 //
 // The `default` is taken for interface uniformity — every conversion carries it — and is never used: the
 // conversion is total.
@@ -1190,7 +1190,7 @@ func arrayFreezeShallow(_ VM, v Value, id member.ID, args []Value) (Value, error
 	return v.ToImmutable()
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 //kavun:member format pure ([spec]) -> string
 func arrayFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {

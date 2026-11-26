@@ -20,14 +20,14 @@ import (
 // ```
 //
 // Durations are **int members**, not module functions: `30.seconds()`, `1.5.hours()`, `d.in_minutes()`,
-// `d.duration_string()`, `"1h30m".nanoseconds()` (see [reference/types/int.md § Durations](../types/int.md#durations)).
+// `d.duration_string()`, `"1h30m".nanoseconds()` (see [reference/types/int.md § Durations](kavun:type/int#durations)).
 // Construction, parsing, zones, calendar arithmetic and calendar facts are on the `time` and `date` types —
 // `time(…)`, `t.in_zone(z)`, `t.add_months(n, rule)`, `t.is_leap_year()`.
 //
 // **Failures.** An argument that does not convert to `time` (`since`, `until`) or to an `int` duration (`sleep`)
 // raises kind `invalid_argument_type`; a wrong count, `wrong_num_arguments`.
 //
-//kavun:module clock impure
+//kavun:module clock id=value.ModuleClock impure
 
 // Answer the current instant, in UTC.
 //

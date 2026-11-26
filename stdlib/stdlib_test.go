@@ -3,8 +3,11 @@ package stdlib_test
 import (
 	"errors"
 	"fmt"
+	"io"
+	"math"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -766,6 +769,19 @@ func TestRetiredModuleFunctions(t *testing.T) {
 			require.True(t, strings.Contains(err.Error(), fmt.Sprintf("invalid_selector: module '%s' has no member '%s'", module, name)), err.Error())
 		}
 	}
+}
+
+// The module constants (//kavun:const) answer the Go values they are declared with.
+func TestModuleConstants(t *testing.T) {
+	expect(t, `m := import("math"); out = [m.pi, m.e, m.max_int64, m.min_int8, m.smallest_nonzero_float64]`,
+		ARR{math.Pi, math.E, int64(math.MaxInt64), int64(math.MinInt8), math.SmallestNonzeroFloat64})
+	expect(t, `fs := import("fs"); out = [fs.o_create, fs.o_rdwr | fs.o_trunc, fs.seek_end, fs.mode_dir, fs.mode_perm]`,
+		ARR{int64(os.O_CREATE), int64(os.O_RDWR | os.O_TRUNC), int64(io.SeekEnd), int64(os.ModeDir), int64(os.ModePerm)})
+	expect(t, `o := import("os"); out = [o.platform, o.arch, o.dev_null, string(o.path_separator), string(o.path_list_separator)]`,
+		ARR{runtime.GOOS, runtime.GOARCH, os.DevNull, string(os.PathSeparator), string(os.PathListSeparator)})
+	// the separators are runes, not one-character strings
+	expect(t, `o := import("os"); out = [type_name(o.path_separator), type_name(o.path_list_separator), int(o.path_separator), int(o.path_list_separator)]`,
+		ARR{"rune", "rune", int64(os.PathSeparator), int64(os.PathListSeparator)})
 }
 
 // io prints to the VM's stdout and reads from its stdin, never the process streams.

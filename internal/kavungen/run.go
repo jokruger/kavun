@@ -7,26 +7,39 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/jokruger/kavun/internal/genfile"
+	"github.com/jokruger/kavun/reference"
 )
 
 // RunConfig is one kavun-gen invocation.
 type RunConfig struct {
-	Dir      string   // the directory it runs in: patterns resolve, and messages name files, relative to it
-	Check    bool     // compare with the files on disk instead of writing them
-	Docs     *string  // the -docs value; nil when the flag was not given
+	Dir   string // the directory it runs in: patterns resolve, and messages name files, relative to it
+	Check bool   // compare with the files on disk instead of writing them
+	// Reference is the -reference value, the path of the reference file (relative to Dir); nil when the flag was
+	// not given: <module root>/kavun_reference.json. "" generates none.
+	Reference *string
+	DocsURL   string // the -docs-url value: the reference's docs field; "" for none
+	// With holds the -with values: reference files (kavun_reference.json) of other modules, relative to Dir, whose
+	// declarations the links of the run may target.
+	With     []string
 	Patterns []string // Go package patterns ("./...")
 	Stdout   io.Writer
 	Stderr   io.Writer
 }
 
-// Run is the whole of kavun-gen: it resolves the packages, decides where the reference pages go, generates, and
-// writes or (with Check) prints a diff of every out-of-date file, failing when there is one.
+// Run is the whole of kavun-gen: it resolves the packages, decides where the reference file goes, generates, and writes or (with Check) prints a diff of every out-of-date file, failing when there is one.
 //
-// Packages under <kavun root>/tmp/ — the repository's scratch folder — are never read (SkipScratch). The pages
-// go to Docs when given ("" for none); by default to <module root>/docs/reference, but only when the main module
-// is Kavun and the patterns cover all of its packages. docs/reference is wholly generated, so a run over part of
-// the module never reports or deletes a page as stale: an explicit -docs then generates the pages of the packages
-// it read and leaves every other file alone, and the default generates none.
+// The reference file (kavun_reference.json, see package reference) describes the main module: it is generated only
+// when the patterns cover all of its packages, at <module root>/kavun_reference.json or at Reference; a run over part
+// of the module generates the tables only and says so on stderr.
+//
+// The links of the doc blocks are checked against the run's own declarations and the references it loads: when the
+// main module is not Kavun, Kavun's reference — <kavun root>/kavun_reference.json, from the Kavun module the run
+// builds against —, and every -with file. A name declared by two of them is refused (reference.Merge).
+//
+// Packages under <kavun root>/tmp/ — the repository's scratch folder — are never read (SkipScratch). The Markdown
+// pages are not kavun-gen's: cmd/kavun-docs renders them from the reference file.
 func Run(cfg RunConfig) error {
 	root, err := KavunRoot(cfg.Dir)
 	if err != nil {
@@ -44,6 +57,24 @@ func Run(cfg RunConfig) error {
 
 	opts := Options{Root: cfg.Dir}
 	modPath, modDir, isModule := MainModule(cfg.Dir)
+	if modPath != KavunModule {
+		ref, err := reference.ReadFile(filepath.Join(root, reference.FileName))
+		if err != nil {
+			return fmt.Errorf("loading Kavun's reference from the Kavun module the module builds against, %s (the links may target Kavun's declarations): %v\n"+
+				"run the kavun-gen of that same Kavun version — `go run github.com/jokruger/kavun/cmd/kavun-gen ./...` from the module, not an installed binary of another version", root, err)
+		}
+		opts.Loaded = append(opts.Loaded, ref)
+	}
+	for _, w := range cfg.With {
+		if !filepath.IsAbs(w) {
+			w = filepath.Join(cfg.Dir, w)
+		}
+		ref, err := reference.ReadFile(w)
+		if err != nil {
+			return fmt.Errorf("-with: %v", err)
+		}
+		opts.Loaded = append(opts.Loaded, ref)
+	}
 	covered := false
 	if isModule {
 		opts.Root = modDir
@@ -54,20 +85,23 @@ func Run(cfg RunConfig) error {
 		covered = covers(dirs, SkipScratch(root, all))
 	}
 	switch {
-	case cfg.Docs != nil:
-		opts.DocsDir = *cfg.Docs
-		if opts.DocsDir != "" && !covered {
-			opts.KeepStale = true
-			fmt.Fprintln(cfg.Stderr, "kavun-gen: the packages do not cover the whole module: their pages are generated, but no page is reported or deleted as stale")
+	case cfg.Reference != nil && *cfg.Reference == "":
+	case !isModule:
+		fmt.Fprintln(cfg.Stderr, "kavun-gen: kavun_reference.json not generated: not in a Go module")
+	case !covered:
+		fmt.Fprintln(cfg.Stderr, "kavun-gen: kavun_reference.json not generated: the packages do not cover the whole module (run it on ./... from the module root)")
+	default:
+		opts.Origin = modPath
+		opts.Reference = filepath.Join(modDir, reference.FileName)
+		if cfg.Reference != nil {
+			opts.Reference = *cfg.Reference
+			if !filepath.IsAbs(opts.Reference) {
+				opts.Reference = filepath.Join(cfg.Dir, opts.Reference)
+			}
 		}
-	case isModule && modPath == KavunModule:
-		if covered {
-			opts.DocsDir = filepath.Join(modDir, "docs", "reference")
-		} else {
-			fmt.Fprintln(cfg.Stderr, "kavun-gen: reference pages not generated: the packages do not cover the whole module (run it on ./... from the module root, or pass -docs)")
-		}
+		opts.DocsURL = cfg.DocsURL
+		opts.ReferenceExplicit = cfg.Reference != nil
 	}
-
 	// messages name files relative to where the tool runs — when that is the process's working directory, so the
 	// relative paths still resolve
 	if wd, err := os.Getwd(); err == nil && sameDir(wd, cfg.Dir) {
@@ -76,9 +110,9 @@ func Run(cfg RunConfig) error {
 				dirs[i] = rel
 			}
 		}
-		if filepath.IsAbs(opts.DocsDir) {
-			if rel, err := filepath.Rel(wd, opts.DocsDir); err == nil {
-				opts.DocsDir = rel
+		if filepath.IsAbs(opts.Reference) {
+			if rel, err := filepath.Rel(wd, opts.Reference); err == nil {
+				opts.Reference = rel
 			}
 		}
 	}
@@ -87,10 +121,13 @@ func Run(cfg RunConfig) error {
 	if err != nil {
 		return err
 	}
-	if !cfg.Check {
-		return Write(files)
+	if opts.ReferenceExplicit && !slices.ContainsFunc(files, func(f File) bool { return f.Path == opts.Reference }) {
+		fmt.Fprintf(cfg.Stderr, "kavun-gen: %s not generated: the module declares nothing\n", opts.Reference)
 	}
-	diffs, err := Check(files)
+	if !cfg.Check {
+		return genfile.Write(files)
+	}
+	diffs, err := genfile.Check(files)
 	if err != nil {
 		return err
 	}

@@ -36,9 +36,9 @@ func IntValue(i int64) Value {
 // `int` is a 64-bit signed integer (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807; the bounds are
 // available as `math.max_int` / `math.min_int`). It is a **checked** numeric: any arithmetic whose mathematical
 // result does not fit in 64 bits raises a catchable error instead of silently wrapping. Wide modular arithmetic is
-// not part of the language — [`byte`](byte.md) is the only type with wrap-around arithmetic.
+// not part of the language — [`byte`](kavun:type/byte) is the only type with wrap-around arithmetic.
 //
-// `int` belongs to the numeric family alongside [`float`](float.md) and [`decimal`](decimal.md): it pairs with both
+// `int` belongs to the numeric family alongside [`float`](kavun:type/float) and [`decimal`](kavun:type/decimal): it pairs with both
 // in arithmetic and compares exactly against both. Use `int` for counts, indexes, identifiers, and timestamps; use
 // `decimal` for money and `float` for measurements.
 //
@@ -59,8 +59,8 @@ func IntValue(i int64) Value {
 // big = 1_000_000   // underscores group digits in any base
 // ```
 //
-// A literal with a decimal point, an exponent, or an `f` suffix is a [`float`](float.md); a `d` suffix makes a
-// [`decimal`](decimal.md). A `.` followed by a letter is NOT a decimal point but a member call on the int —
+// A literal with a decimal point, an exponent, or an `f` suffix is a [`float`](kavun:type/float); a `d` suffix makes a
+// [`decimal`](kavun:type/decimal). A `.` followed by a letter is NOT a decimal point but a member call on the int —
 // `30.seconds()`, `7.string()` need no parentheses (so `1.e5` is not a float: write `1e5` or `1.0e5`).
 //
 // ## Arithmetic and operators
@@ -224,8 +224,8 @@ func IntValue(i int64) Value {
 // | `nanoseconds()` `microseconds()` `milliseconds()` `seconds()` `minutes()` `hours()` `days()` `weeks()` | `in_microseconds()` `in_milliseconds()` `in_seconds()` `in_minutes()` `in_hours()` `in_days()` `in_weeks()` |
 //
 // A day is 24 hours and a week 7 days — fixed durations, not calendar units (to move by calendar days or months, use
-// the [time](time.md) arithmetic members). The text form of the same reading is
-// [`"1h30m".nanoseconds()`](string.md#nanoseconds); a float builds one too, rounded to the nearest nanosecond
+// the [time](kavun:type/time) arithmetic members). The text form of the same reading is
+// [`"1h30m".nanoseconds()`](kavun:type/string/nanoseconds); a float builds one too, rounded to the nearest nanosecond
 // (`1.5.hours()`). Full words name durations; the abbreviations (`time_ms`) stay on the timestamp family.
 //
 // ## Parsing text into int

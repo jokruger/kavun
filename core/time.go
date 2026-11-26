@@ -126,7 +126,7 @@ func NewTimeValue(t time.Time) Value {
 // "x".parse_time("%d/%m/%Y", undefined)     // => undefined — the data missed, the layout is fine
 // ```
 //
-// ### Components
+// ### Component records
 //
 // A `dict` or `record` converts through the **components** reading — the same shape `components()` answers.
 // Every key is optional and defaults to the zero value's part; an unknown key raises; nothing normalizes:
@@ -190,7 +190,7 @@ func NewTimeValue(t time.Time) Value {
 // ```
 //
 // On bad input every constructor **raises** a catchable error — none answers an `error` value. The current instant
-// is the only world read: it comes from the [`clock`](../stdlib/clock.md) module (`now`, `since`, `until`,
+// is the only world read: it comes from the [`clock`](kavun:module/clock) module (`now`, `since`, `until`,
 // `sleep`). Calendar facts are members (`t.is_leap_year()`, `t.days_in_month()`).
 //
 // ## Operators
@@ -223,7 +223,7 @@ func NewTimeValue(t time.Time) Value {
 // ### Reading a duration
 //
 // A duration is nothing special — a plain `int` of nanoseconds. Its members read it in a unit, render it, and
-// build one (see [int § Durations](int.md#durations)):
+// build one (see [int § Durations](kavun:type/int#durations)):
 //
 // ```go
 // t := t"2026-08-29T15:04:05.123456789Z"
@@ -271,7 +271,7 @@ func NewTimeValue(t time.Time) Value {
 // Zone names resolve through the host's IANA tzdata (Go's lookup order: `ZONEINFO`, the system copy,
 // `$GOROOT/lib/time/zoneinfo.zip`, and the embedded copy the `kavun` CLI links in). Zone rules change, so a
 // named-zone result can differ between hosts with different tzdata versions; UTC and fixed offsets never do.
-// See [embedding](../../embedding.md#time-zone-data) for pinning tzdata and replaying past results.
+// See [embedding](kavun:doc/embedding#time-zone-data) for pinning tzdata and replaying past results.
 //
 //kavun:type time
 

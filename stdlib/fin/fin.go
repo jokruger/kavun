@@ -75,7 +75,7 @@ import (
 // | cashflows | [`npv`](#npv), [`irr`](#irr), [`mirr`](#mirr) — `cf` is an array of `decimal\|int`, one per period |
 // | depreciation | [`straight_line`](#straight_line), [`sum_of_digits`](#sum_of_digits), [`declining_balance`](#declining_balance), [`declining_rate_from_factor`](#declining_rate_from_factor), [`declining_rate_from_salvage`](#declining_rate_from_salvage) |
 // | rates and factors | [`nominal_to_effective`](#nominal_to_effective), [`effective_to_nominal`](#effective_to_nominal) (`m` compounding periods a year), [`compound_factor`](#compound_factor), [`discount_factor`](#discount_factor), [`per_year`](#per_year) → `int` |
-// | day count | [`year_fraction`](#year_fraction) (the constructor), [`year_fraction_between`](#year_fraction_between), [`year_fraction_between_final`](#year_fraction_between_final), [`days_between`](#days_between), [`days_between_final`](#days_between_final), [`days_in_year`](#days_in_year), [`conventions`](#conventions), [`is_year_fraction`](#is_year_fraction) — see [fin.year_fraction](../types/fin_year_fraction.md) |
+// | day count | [`year_fraction`](#year_fraction) (the constructor), [`year_fraction_between`](#year_fraction_between), [`year_fraction_between_final`](#year_fraction_between_final), [`days_between`](#days_between), [`days_between_final`](#days_between_final), [`days_in_year`](#days_in_year), [`conventions`](#conventions), [`is_year_fraction`](#is_year_fraction) — see [fin.year_fraction](kavun:type/fin.year_fraction) |
 // | interest over a fraction | [`accrue_simple`](#accrue_simple), [`accrue_compound`](#accrue_compound), [`compound_factor_for`](#compound_factor_for), [`discount_factor_for`](#discount_factor_for) |
 // | discount instruments | [`discount_price`](#discount_price), [`discount_rate`](#discount_rate), [`discount_yield`](#discount_yield) |
 // | dated cashflows | [`xnpv`](#xnpv), [`xirr`](#xirr) — `flows` is an array of `{date, amount}`, ascending by date |
@@ -93,7 +93,7 @@ import (
 // Quantize then recompute: a function's result is already rounded to the scale you asked for, and each function
 // rounds its own result once. So two results rounded independently — `balance` and `principal_part` of the same
 // period — can disagree by a cent with their difference. Build a schedule from **one** rounded series and derive the
-// rest from it (see [the loan example](../../examples.md#a-loan-schedule-with-fin)).
+// rest from it (see [the loan example](kavun:doc/examples#a-loan-schedule-with-fin)).
 //
 // ## Day count
 //
@@ -190,9 +190,9 @@ import (
 // **In configuration**, store the text form: `json.encode` writes a table as its text, and `json.decode` gives the
 // string back for `fin.tiered_rates(cfg.rates)`. (JSON numbers decode as `float`, which the record form refuses.)
 //
-//kavun:module fin pure
+//kavun:module fin id=value.ModuleFin pure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+// moduleExtras declares what the directives do not: the module's owned types.
 func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.FinYearFraction, TypeYearFraction)
 	m.Type(value.FinTieredRates, TypeTieredRates)
@@ -894,7 +894,7 @@ func finDefaultSolver(_ core.VM, args []core.Value) (core.Value, error) {
 // ---------------------------------------------------------------------------------------------------------------
 // fin.year_fraction and day count
 
-// Answer a [`fin.year_fraction`](../types/fin_year_fraction.md) stated directly, or `0/1` with no arguments.
+// Answer a [`fin.year_fraction`](kavun:type/fin.year_fraction) stated directly, or `0/1` with no arguments.
 //
 //kavun:fn year_fraction slot=31 pure () | (n1, d1[, n2, d2]) -> fin.year_fraction
 func finYearFraction(_ core.VM, args []core.Value) (core.Value, error) {
@@ -1180,7 +1180,7 @@ func finXIRR(_ core.VM, args []core.Value) (core.Value, error) {
 // The constructors take the table's text form or an array of band records; with no argument they answer the
 // type's default, the zero-rate table. tiered_charges with records takes the bounds too: (bands, min, max).
 
-// Build a [`fin.tiered_rates`](../types/fin_tiered_rates.md) from its text form or band records; with no argument, the
+// Build a [`fin.tiered_rates`](kavun:type/fin.tiered_rates) from its text form or band records; with no argument, the
 // zero-rate table.
 //
 //kavun:fn tiered_rates slot=48 pure ([table]) -> fin.tiered_rates
@@ -1194,7 +1194,7 @@ func finTieredRates(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.Undefined, core.ErrArgCount
 }
 
-// Build a [`fin.tiered_charges`](../types/fin_tiered_charges.md) from its text form, or from band records with `min`
+// Build a [`fin.tiered_charges`](kavun:type/fin.tiered_charges) from its text form, or from band records with `min`
 // and `max`; with no argument, the zero table.
 //
 //kavun:fn tiered_charges slot=49 pure () | (text) | (bands, min, max) -> fin.tiered_charges
@@ -1205,7 +1205,7 @@ func finTieredCharges(_ core.VM, args []core.Value) (core.Value, error) {
 	return tieredChargesFrom("fin.tiered_charges", args)
 }
 
-// Build a [`fin.dated_rates`](../types/fin_dated_rates.md) from its text form or band records; with no argument, the
+// Build a [`fin.dated_rates`](kavun:type/fin.dated_rates) from its text form or band records; with no argument, the
 // zero-rate table.
 //
 //kavun:fn dated_rates slot=50 pure ([table]) -> fin.dated_rates
@@ -1219,7 +1219,7 @@ func finDatedRates(_ core.VM, args []core.Value) (core.Value, error) {
 	return core.Undefined, core.ErrArgCount
 }
 
-// Build a [`fin.dated_charges`](../types/fin_dated_charges.md) from its text form or band records; with no argument,
+// Build a [`fin.dated_charges`](kavun:type/fin.dated_charges) from its text form or band records; with no argument,
 // the zero table.
 //
 //kavun:fn dated_charges slot=51 pure ([table]) -> fin.dated_charges

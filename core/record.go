@@ -57,7 +57,7 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 //
 // ## Overview
 //
-// A record is the same string-keyed map as a [`dict`](dict.md), carried in the **field-access shape**: `{a: 1}`
+// A record is the same string-keyed map as a [`dict`](kavun:type/dict), carried in the **field-access shape**: `{a: 1}`
 // is a record literal and `r.a` reads a field. That grammar is the whole design — on a record, `r.anything` is
 // field access, so **member functions can never exist on it**: `r.len` would be the field `"len"`, not an
 // operation. A record therefore has **no member surface at all**, and every operation that must reach one has a
@@ -65,7 +65,7 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 // builtins exist for every type.
 //
 // Records are reference-typed: `b = a` shares the map, `copy()` makes an independent one — see [container
-// semantics](../../container_semantics.md). Use a record where the data is object-shaped and read by name; use a
+// semantics](kavun:doc/container_semantics). Use a record where the data is object-shaped and read by name; use a
 // `dict` where you need the map operations (`merge`, `keep`, `keys`, …) — the two convert into each other with one
 // call, and compare equal across the boundary.
 //
@@ -90,7 +90,7 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 // independent, mutable record — a shallow copy (`record(freeze(r))` is writable again; the field *values* keep
 // their own state). A record literal is likewise built at run time, which is why it is mutable while a text
 // literal is a shared constant — see [Constant literals and constructed
-// literals](../../language.md#constant-literals-and-constructed-literals).
+// literals](kavun:doc/language#constant-literals-and-constructed-literals).
 //
 // ```go
 // r = {a: 1}
@@ -168,7 +168,7 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 // Rendering, encoding **and iteration** are all key-sorted, so a display, a `json.encode` payload, a binary blob
 // and a `for k in r` pass are the same on every run (see [Iteration](#iteration)).
 //
-// `copy`/`copy_shallow` and `freeze`/`freeze_shallow` behave exactly as on [`dict`](dict.md#copy):
+// `copy`/`copy_shallow` and `freeze`/`freeze_shallow` behave exactly as on [`dict`](kavun:type/dict/copy):
 // the unsuffixed forms are deep, the `_shallow` twins stop one level down.
 //
 // ## Operators

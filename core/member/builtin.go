@@ -480,6 +480,18 @@ var builtinNames = [...]string{
 	members.SetPath:                  "set_path",
 }
 
+// IsConversion reports whether id names a conversion: a member the free conversion `T(x)` of the same name calls
+// (`x.T()`). The name is the contract — every type's entry under one of these ids must be pure with the template
+// `([default])`, which type registration and the generator both check (docs/conventions.md).
+func IsConversion(id ID) bool {
+	switch id {
+	case members.Array, members.Bool, members.Byte, members.Bytes, members.Date, members.Decimal, members.Dict,
+		members.Float, members.Int, members.Record, members.Rune, members.Runes, members.String, members.Time:
+		return true
+	}
+	return false
+}
+
 func init() {
 	for id, name := range builtinNames {
 		if name != "" {

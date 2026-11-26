@@ -8,7 +8,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 )
 
-// init registers the os module declared by the //kavun:module and //kavun:fn directives.
+// init registers the os module declared by the //kavun:module, //kavun:fn and //kavun:const directives.
 func init() {
 	m := core.NewModule(value.ModuleOs, "os", false)
 	m.Fn(members.Args, 0, "()", osArgs)
@@ -32,7 +32,11 @@ func init() {
 	m.Fn(members.GetGroups, 18, "()", osGetgroups)
 	m.Fn(members.GetPageSize, 19, "()", osGetpagesize)
 	m.Fn(members.RandGenerator, 20, "()", osRandGenerator)
-	moduleExtras(m)
+	m.Const(members.Arch, constArch)
+	m.Const(members.DevNull, constDevNull)
+	m.Const(members.PathListSeparator, constPathListSeparator)
+	m.Const(members.PathSeparator, constPathSeparator)
+	m.Const(members.Platform, constPlatform)
 	if err := m.Register(); err != nil {
 		panic(err)
 	}

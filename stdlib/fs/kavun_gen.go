@@ -30,7 +30,7 @@ var fileMethods = []core.Method{
 	members.ReadDirNames: core.NewMethod("(n)", fileReadDirNames),
 }
 
-// init registers the fs module declared by the //kavun:module and //kavun:fn directives.
+// init registers the fs module declared by the //kavun:module, //kavun:fn and //kavun:const directives.
 func init() {
 	m := core.NewModule(value.ModuleFs, "fs", false)
 	m.Fn(members.Open, 0, "(path)", fsOpen)
@@ -51,6 +51,31 @@ func init() {
 	m.Fn(members.Symlink, 15, "(old_path, new_path)", fsSymlink)
 	m.Fn(members.ReadLink, 16, "(path)", fsReadlink)
 	m.Fn(members.TempDir, 17, "()", fsTempDir)
+	m.Const(members.ModeAppend, constModeAppend)
+	m.Const(members.ModeCharDevice, constModeCharDevice)
+	m.Const(members.ModeDevice, constModeDevice)
+	m.Const(members.ModeDir, constModeDir)
+	m.Const(members.ModeExclusive, constModeExclusive)
+	m.Const(members.ModeNamedPipe, constModeNamedPipe)
+	m.Const(members.ModePerm, constModePerm)
+	m.Const(members.ModeSetGui, constModeSetGui)
+	m.Const(members.ModeSetUID, constModeSetUID)
+	m.Const(members.ModeSocket, constModeSocket)
+	m.Const(members.ModeSticky, constModeSticky)
+	m.Const(members.ModeSymlink, constModeSymlink)
+	m.Const(members.ModeTemporary, constModeTemporary)
+	m.Const(members.ModeType, constModeType)
+	m.Const(members.OAppend, constOAppend)
+	m.Const(members.OCreate, constOCreate)
+	m.Const(members.OExcl, constOExcl)
+	m.Const(members.ORd, constORd)
+	m.Const(members.ORdwr, constORdwr)
+	m.Const(members.OSync, constOSync)
+	m.Const(members.OTrunc, constOTrunc)
+	m.Const(members.OWr, constOWr)
+	m.Const(members.SeekCur, constSeekCur)
+	m.Const(members.SeekEnd, constSeekEnd)
+	m.Const(members.SeekSet, constSeekSet)
 	moduleExtras(m)
 	if err := m.Register(); err != nil {
 		panic(err)

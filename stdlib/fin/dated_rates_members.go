@@ -21,7 +21,7 @@ func datedRatesIsTrue(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (cor
 	return core.BoolValue(t), nil
 }
 
-// Render the table per the [format mini-language](../../format_mini_language.md).
+// Render the table per the [format mini-language](kavun:doc/format_mini_language).
 //
 //kavun:member format pure ([spec]) -> string
 func datedRatesFormat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {

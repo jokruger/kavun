@@ -20,7 +20,7 @@ import (
 // **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode)
 // illegal base64 data at input byte 0`.
 //
-//kavun:module base64 pure
+//kavun:module base64 id=value.ModuleBase64 pure
 
 // Decode URL-safe Base64 text written without padding.
 //

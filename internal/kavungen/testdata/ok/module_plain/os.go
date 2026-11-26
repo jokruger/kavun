@@ -4,7 +4,7 @@ import "github.com/jokruger/kavun/core"
 
 // The operating system: a world module.
 //
-//kavun:module os impure
+//kavun:module os id=value.ModuleOs impure
 
 // Answer an environment variable.
 //

@@ -25,7 +25,7 @@ func bytesIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 // ```go
 // bytes("hi").format("v")     // => "bytes([104, 105])"

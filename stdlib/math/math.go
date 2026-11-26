@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -12,7 +11,7 @@ import (
 //
 // A numeric operation that `decimal` has is a **float member** instead — `x.sqrt()`, `x.pow(y)`, `x.exp()`, `x.ln()`,
 // `x.log2()`, `x.log10()`, `x.round(n, mode)` and its twins, `x.copy_sign(y)`, `x.quo_rem(y)`, … (see
-// [reference/types/float.md § Overview](../types/float.md#overview)) — so no function exists both ways. `min`/`max` are
+// [reference/types/float.md § Overview](kavun:type/float#overview)) — so no function exists both ways. `min`/`max` are
 // not module functions either: selection over arguments is the free variadic `min(a, b, ...)` / `max(a, b, ...)`, and
 // aggregation over elements is the member (`arr.min()`).
 //
@@ -25,48 +24,141 @@ import (
 // math.pi                // => 3.141592653589793
 // ```
 //
-// Constants:
-//
-// - Core numeric constants: `e`, `pi`, `phi`, `sqrt2`, `sqrt_e`, `sqrt_pi`, `sqrt_phi`, `ln2`, `log2e`, `ln10`,
-// `log10e`.
-// - Float bounds: `max_float32`, `smallest_nonzero_float32`, `max_float64`, `smallest_nonzero_float64`.
-// - Integer bounds: `max_int`, `min_int`, `max_int8`, `min_int8`, `max_int16`, `min_int16`, `max_int32`, `min_int32`,
-// `max_int64`, `min_int64`.
+// The constants are the numeric constants [`pi`](#pi), [`e`](#e), [`phi`](#phi), their square roots and the
+// logarithms [`ln2`](#ln2), [`log2e`](#log2e), [`ln10`](#ln10), [`log10e`](#log10e); the float bounds
+// [`max_float64`](#max_float64), [`smallest_nonzero_float64`](#smallest_nonzero_float64) and their 32-bit pair; and
+// the integer bounds, [`max_int64`](#max_int64) / [`min_int64`](#min_int64) down to the 8-bit pair.
 //
 // **Failures.** A non-numeric argument raises kind `invalid_argument_type`; a wrong count, `wrong_num_arguments`. A
 // result outside the reals is the float's own error state, answered rather than raised (`math.acos(2)` → `NaN`,
 // `math.inf(1)` → `+Inf`): arithmetic on it raises, and `x.is_nan()` / `x.is_inf()` ask about it.
 //
-//kavun:module math pure
+//kavun:module math id=value.ModuleMath pure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
-func moduleExtras(m *core.ModuleBuilder) {
-	m.Const(members.Pi, core.FloatValue(math.Pi))
-	m.Const(members.E, core.FloatValue(math.E))
-	m.Const(members.Phi, core.FloatValue(math.Phi))
-	m.Const(members.Sqrt2, core.FloatValue(math.Sqrt2))
-	m.Const(members.SqrtE, core.FloatValue(math.SqrtE))
-	m.Const(members.SqrtPi, core.FloatValue(math.SqrtPi))
-	m.Const(members.SqrtPhi, core.FloatValue(math.SqrtPhi))
-	m.Const(members.Ln2, core.FloatValue(math.Ln2))
-	m.Const(members.Log2e, core.FloatValue(math.Log2E))
-	m.Const(members.Ln10, core.FloatValue(math.Ln10))
-	m.Const(members.Log10e, core.FloatValue(math.Log10E))
-	m.Const(members.MaxInt, core.IntValue(math.MaxInt))
-	m.Const(members.MinInt, core.IntValue(math.MinInt))
-	m.Const(members.MaxInt8, core.IntValue(math.MaxInt8))
-	m.Const(members.MinInt8, core.IntValue(math.MinInt8))
-	m.Const(members.MaxInt16, core.IntValue(math.MaxInt16))
-	m.Const(members.MinInt16, core.IntValue(math.MinInt16))
-	m.Const(members.MaxInt32, core.IntValue(math.MaxInt32))
-	m.Const(members.MinInt32, core.IntValue(math.MinInt32))
-	m.Const(members.MaxInt64, core.IntValue(math.MaxInt64))
-	m.Const(members.MinInt64, core.IntValue(math.MinInt64))
-	m.Const(members.MaxFloat32, core.FloatValue(math.MaxFloat32))
-	m.Const(members.SmallestNonzeroFloat32, core.FloatValue(math.SmallestNonzeroFloat32))
-	m.Const(members.MaxFloat64, core.FloatValue(math.MaxFloat64))
-	m.Const(members.SmallestNonzeroFloat64, core.FloatValue(math.SmallestNonzeroFloat64))
-}
+// The ratio of a circle's circumference to its diameter.
+//
+//kavun:const pi -> float
+var constPi = core.FloatValue(math.Pi)
+
+// Euler's number, the base of the natural logarithm.
+//
+//kavun:const e -> float
+var constE = core.FloatValue(math.E)
+
+// The golden ratio, (1 + √5) / 2.
+//
+//kavun:const phi -> float
+var constPhi = core.FloatValue(math.Phi)
+
+// The square root of 2.
+//
+//kavun:const sqrt2 -> float
+var constSqrt2 = core.FloatValue(math.Sqrt2)
+
+// The square root of [`e`](#e).
+//
+//kavun:const sqrt_e -> float
+var constSqrtE = core.FloatValue(math.SqrtE)
+
+// The square root of [`pi`](#pi).
+//
+//kavun:const sqrt_pi -> float
+var constSqrtPi = core.FloatValue(math.SqrtPi)
+
+// The square root of [`phi`](#phi).
+//
+//kavun:const sqrt_phi -> float
+var constSqrtPhi = core.FloatValue(math.SqrtPhi)
+
+// The natural logarithm of 2.
+//
+//kavun:const ln2 -> float
+var constLn2 = core.FloatValue(math.Ln2)
+
+// The base-2 logarithm of [`e`](#e), 1 / [`ln2`](#ln2).
+//
+//kavun:const log2e -> float
+var constLog2e = core.FloatValue(math.Log2E)
+
+// The natural logarithm of 10.
+//
+//kavun:const ln10 -> float
+var constLn10 = core.FloatValue(math.Ln10)
+
+// The base-10 logarithm of [`e`](#e), 1 / [`ln10`](#ln10).
+//
+//kavun:const log10e -> float
+var constLog10e = core.FloatValue(math.Log10E)
+
+// The largest integer of the host's word size: [`max_int64`](#max_int64) on a 64-bit platform.
+//
+//kavun:const max_int -> int
+var constMaxInt = core.IntValue(math.MaxInt)
+
+// The smallest integer of the host's word size: [`min_int64`](#min_int64) on a 64-bit platform.
+//
+//kavun:const min_int -> int
+var constMinInt = core.IntValue(math.MinInt)
+
+// The largest 8-bit signed integer, 127.
+//
+//kavun:const max_int8 -> int
+var constMaxInt8 = core.IntValue(math.MaxInt8)
+
+// The smallest 8-bit signed integer, -128.
+//
+//kavun:const min_int8 -> int
+var constMinInt8 = core.IntValue(math.MinInt8)
+
+// The largest 16-bit signed integer, 32767.
+//
+//kavun:const max_int16 -> int
+var constMaxInt16 = core.IntValue(math.MaxInt16)
+
+// The smallest 16-bit signed integer, -32768.
+//
+//kavun:const min_int16 -> int
+var constMinInt16 = core.IntValue(math.MinInt16)
+
+// The largest 32-bit signed integer, 2147483647.
+//
+//kavun:const max_int32 -> int
+var constMaxInt32 = core.IntValue(math.MaxInt32)
+
+// The smallest 32-bit signed integer, -2147483648.
+//
+//kavun:const min_int32 -> int
+var constMinInt32 = core.IntValue(math.MinInt32)
+
+// The largest 64-bit signed integer, 9223372036854775807: the largest `int`.
+//
+//kavun:const max_int64 -> int
+var constMaxInt64 = core.IntValue(math.MaxInt64)
+
+// The smallest 64-bit signed integer, -9223372036854775808: the smallest `int`.
+//
+//kavun:const min_int64 -> int
+var constMinInt64 = core.IntValue(math.MinInt64)
+
+// The largest finite 32-bit float, about 3.4e38.
+//
+//kavun:const max_float32 -> float
+var constMaxFloat32 = core.FloatValue(math.MaxFloat32)
+
+// The smallest positive 32-bit float, about 1.4e-45 (a subnormal).
+//
+//kavun:const smallest_nonzero_float32 -> float
+var constSmallestNonzeroFloat32 = core.FloatValue(math.SmallestNonzeroFloat32)
+
+// The largest finite `float`, about 1.8e308.
+//
+//kavun:const max_float64 -> float
+var constMaxFloat64 = core.FloatValue(math.MaxFloat64)
+
+// The smallest positive `float`, about 4.9e-324 (a subnormal).
+//
+//kavun:const smallest_nonzero_float64 -> float
+var constSmallestNonzeroFloat64 = core.FloatValue(math.SmallestNonzeroFloat64)
 
 // Answer `frac * 2**exp`.
 //

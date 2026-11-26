@@ -77,7 +77,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 //
 // **Storage and cost.** A `string` is stored as compact UTF-8 with a cached symbol count and an ASCII fast
 // path: indexing and slicing are O(1) on pure-ASCII strings and O(n) worst case on multibyte content. For heavy
-// positional work on non-ASCII text, convert to [`runes`](runes.md) first — `runes` is the O(1)-indexing,
+// positional work on non-ASCII text, convert to [`runes`](kavun:type/runes) first — `runes` is the O(1)-indexing,
 // materialized form of the same text.
 // Members whose answer depends on the ends of the text or on the argument alone — `first`/`last`, the anchored pair
 // and their `remove_` twins, the `trim` family, the pads, and `contains`/`count`/`index`/`index_last`/`replace` —
@@ -98,7 +98,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 // this is invisible — the type has no mutating member either way — but it is the same mechanism that makes
 // `b"..."` and `u"..."` immutable *constants* of otherwise mutable types, and the reason all three short forms
 // exist: text written down in a program is usually constant text. See [Constant literals and constructed
-// literals](../../language.md#constant-literals-and-constructed-literals); when you want a mutable buffer of the
+// literals](kavun:doc/language#constant-literals-and-constructed-literals); when you want a mutable buffer of the
 // same content, construct one — `runes("abc")` or `bytes("abc")`.
 //
 // **`string` and `runes` are semantically interchangeable** — the same text, the same member surface, the same
@@ -146,7 +146,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 // ```
 //
 // F-strings interpolate expressions and format specs into a `string`: `f"n={n:5d}"`. See
-// [f-strings](../../f_strings.md) and the [format mini-language](../../format_mini_language.md).
+// [f-strings](kavun:doc/f_strings) and the [format mini-language](kavun:doc/format_mini_language).
 //
 // ## Operators
 //
@@ -223,7 +223,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 // | `int` (members only) | one symbol iff a valid code point; **operators never take `int`** |
 // | `bool` / `float` / `decimal` | raise — a number as text is ambiguous (`65` could be `"65"` or `'A'`) |
 // | `int` (`*` only) | a repeat **count** — `s * n` is exactly `s.repeat(n)`; there is no reflected `n * s` |
-// | `array` / `range` / `dict` / callables / `undefined` | raise — the text family is closed. One exception is not `string`'s doing: `"ab" + [1, 2]` → `["ab", 1, 2]`, because a left operand that declines hands `+` to the array, which prepends it as one element (see [array](array.md)) |
+// | `array` / `range` / `dict` / callables / `undefined` | raise — the text family is closed. One exception is not `string`'s doing: `"ab" + [1, 2]` → `["ab", 1, 2]`, because a left operand that declines hands `+` to the array, which prepends it as one element (see [array](kavun:type/array)) |
 //
 // The match members (`contains`, `count`, `index`, `index_last`, `keep`, `remove`, `any`, `all`, `split`, …)
 // share one argument menu:
@@ -301,7 +301,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 // **A string is its octets, so building one joins octets.** Every member and operator that builds a string — `+`,
 // `append`, `prepend`, `push`, `replace`, `pad_start`/`pad_end`, f-strings — concatenates the octets, and the result is
 // read afresh: escapes whose octets meet to complete a sequence read as the one symbol they spell.
-// [`runes`](runes.md) holds symbols, so the same building keeps them apart; the octets are the same either
+// [`runes`](kavun:type/runes) holds symbols, so the same building keeps them apart; the octets are the same either
 // way.
 //
 // ```go
@@ -312,7 +312,7 @@ func stringASCIIFastPath(_ Value, s string) bool {
 // a.runes().append(b).len()         // => 3 — runes keeps the three escapes
 // ```
 //
-// **The two places this is visible elsewhere.** A [`rune`](rune.md)'s domain is exactly what can be encoded
+// **The two places this is visible elsewhere.** A [`rune`](kavun:type/rune)'s domain is exactly what can be encoded
 // — scalar values plus the 128 escapes — so `rune(0xDCFF)` exists while `rune(0xD800)` raises where it is written, and
 // no conversion *out* of `rune`/`runes` can fail. And the boundary **out** of the language is not total: `json.encode`
 // raises on text holding escapes, because JSON text is UTF-8 by definition. Encode the `bytes` instead (they go as

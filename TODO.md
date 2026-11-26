@@ -6,18 +6,11 @@
     `(join) expected ([sep]), got 2 arguments`; a script function only `(call) expected 2 arguments, got 1
     argument`, because parameter names are not in the bytecode. Direction: a `CompiledFunction` field for the
     names (a codec change → core version bump), then the template text for script functions too.
-14. **An LSP needs the reference as data.** Found 2026-10-25. The templates, summaries and bodies exist only as
-    Markdown pages today. Direction: `kavun-gen` emits `docs/reference/reference.json` from the same parse, for
-    hover, completion and signature help; host callable types would then want a `Signature` hook beside
-    `Arity`/`IsVariadic`, so they can carry a template too.
 15. **Operator rows of the type pages are hand-written.** Found 2026-10-25. Each type's Operators table lives in its
     `//kavun:type` block, so the member ↔ operator parity (`+` ≡ `append`, `-` ≡ `remove`, `in` ≡ `contains`, `*` ≡
     `repeat`) is pinned by `value_binaryop_matrix_test.go` but not reflected on the page by construction. Direction: an
-    `op=` directive key on the member, from which the generator derives the row.
-16. **`kavun-gen` covers builtin names only.** Found 2026-10-25. An embedder package can generate a type table only
-    over builtin member names (`member.Lookup`; names added with `member.Define` are not read), cannot generate a
-    module (modules need a `value.Module*` constant), and gets pages only with `-docs <dir>`. Direction: read the
-    embedder's `member.Define` calls / a declared id range, and let a module directive carry its own type id.
+    `op=` key on the member directive, carried by `kavun_reference.json` (so an LSP sees it too), from which
+    `kavun-docs` renders the row.
 17. **`range(range(0, 3))` is refused.** Found 2026-10-15. Every other constructor on a value of its own type
     answers a copy (`array(a)`, `bytes(b)`), but `range` with one argument reads the components record, so a range
     argument raises `invalid_argument_type`. Decide: accept a range (a copy — the value is immutable, so itself)
@@ -50,6 +43,22 @@
     frame and its caller. Same fix as `VM.Call`'s (`withCalleeTrace` before the restore, `keepCalleeTrace` where
     `runFrameDefers`/`runRootDefers`/the `Return` handler turn the error into a value and back), plus a ruling on
     where the owner's own line goes — at the `defer` statement or where the function returned.
+23. **The universal members of `function` and `module` are not in the reference.** Found 2026-11-26 (reference-as-data
+    design). The callable kinds (`core/builtin_function.go`, `builtin_closure.go`, `compiled_function.go`,
+    `bound_member.go`) and `module` keep hand tables of `is_true`, `format`, `copy`, `freeze`, `array`, with no
+    `//kavun:` directive, and `function` has no reference page at all — so `kavun_reference.json` cannot answer an
+    LSP's completion of `f.` or `m.`, and `TestReferenceMatchesRuntime` lists them as exceptions. Direction:
+    directives for those hand tables (bodies stay per kind) and a `function` type page.
+24. **Embedders cannot run their doc examples.** Found 2026-11-26 (reference-as-data design). `TestDocExamples`
+    checks Kavun's own examples from `kavun_reference.json`, but the line reader (`ClassifyLine`, the `// =>` /
+    `// Error:` checks) lives in `internal/kavungen` and the runner in `kavun_test.go`, so an embedder's examples —
+    in its own `kavun_reference.json`, run against its own types and modules — have no checker. Direction: a public
+    runner (beside package `reference`: an example block in, a per-line verdict out, the host supplying the
+    configured `Script`).
+25. **`fs.mode_set_gui` looks like a misspelling of set-gid.** Found 2026-11-26 (the `//kavun:const` sweep). The
+    constant holds `os.ModeSetgid` and its summary says set-group-ID, beside `mode_set_uid`; `gui` reads as a typo of
+    `gid`. Renaming changes a frozen member-table name (`members.ModeSetGui`, `core/member/builtin.go`) — a core
+    version bump — and is a breaking change for scripts.
 - **Constant-fold `re.pattern("literal")`.** The optimizer cannot fold it today (a non-scalar result has no static
   pool slot), so a pattern built inside a loop is recompiled on every pass; scripts must hoist it by hand. A static
   pool kind for compiled patterns (encoded as their source, recompiled on decode) would let the compiler fold a
@@ -621,7 +630,7 @@ It should be possible to avoid temp copying to stack !
   checks only the floor, so the upper bound and the gaps are refused by the body's own `ErrArgCount`, and a
   forgotten one is caught by `TestMemberArity`, not by construction. Direction: each form gets its own Go
   function with its own `//kavun:` directive (same name); `kavun-gen` gathers the directives of one name,
-  assembles the single `Signature` (the union of the forms — `Accepts`, render, `CallbackForm` and
+  assembles the single `Signature` (the union of the forms — its template, render, `CallbackForm` and
   `TestMemberArity` unchanged) and emits one wrapper per name, `switch len(args)` over the form bodies, registered
   as the entry's `Func`. Every accepted count then has its implementation and every refused one none, by
   construction. Notes:
@@ -633,7 +642,10 @@ It should be possible to avoid temp copying to stack !
     with those;
   - docs need a merge rule: which form carries the page summary (e.g. the lowest-count one), and whether each
     form renders its own sub-block on the reference page;
-  - afterwards a body's `ErrArgCount` remains only for a variadic rest's bound or gap.
+  - afterwards a body's `ErrArgCount` remains only for a variadic rest's bound or gap;
+  - the forms are already readable: `signature.Parse(template).Readings` (package `signature`, public) gives each
+    reading's parameter names and their optional depth, so the generator can check a form's directive against the
+    union, and the reference already carries the readings per entry.
   Pairs with multi-arity script functions (next entry): same model, separate task.
 
 - **Multi-arity script functions** — a language feature; noted 2026-11-26 (the script half of former potential
@@ -643,4 +655,5 @@ It should be possible to avoid temp copying to stack !
   a multi-arity callable (`core.CallbackForm` assumes one arity + a variadic flag); the bytecode layout (several
   bodies per `CompiledFunction` — a frozen-table change, `coreVersion` bump); the render of a non-contiguous count
   set (`/N`, `/N+` today); bound members and `ArgCountError` naming the forms. Do it as a pair with the codegen
-  entry, as a separate task.
+  entry, as a separate task. A form's readings are `signature.Reading` values (parameter names, optional depth),
+  the same model the natives' templates parse into.

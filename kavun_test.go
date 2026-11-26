@@ -41,6 +41,8 @@ import (
 	"github.com/jokruger/kavun/internal/kavungen"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/reference"
+	"github.com/jokruger/kavun/signature"
 	"github.com/jokruger/kavun/stdlib/exec"
 	"github.com/jokruger/kavun/stdlib/fs"
 	"github.com/jokruger/kavun/vm"
@@ -12907,6 +12909,10 @@ out = [undefined, true, false, byte(0), b'A', b'\xff', '\x00', '8', 'є', '\udce
 		}
 	}
 	require.Equal(t, len(conversions), len(free))
+	// the list is exactly member.IsConversion's set: every member id it holds, and no other
+	for id := member.ID(1); id < member.FirstUserDefined; id++ {
+		require.Equal(t, slices.Contains(conversions, id.String()), member.IsConversion(id), id.String())
+	}
 
 	kindOf := func(err error) string {
 		if e := errs.AsError(err); e != nil {
@@ -12949,7 +12955,7 @@ out = [undefined, true, false, byte(0), b'A', b'\xff', '\x00', '8', 'є', '\udce
 				continue
 			}
 			ms := core.ValueTypes[x.Type].Methods
-			if int(id) < len(ms) && ms[id].Fn != nil && ms[id].Pure && ms[id].Sig.Template() == "([default])" {
+			if int(id) < len(ms) && ms[id].Fn != nil { // registration holds a conversion entry pure with ([default])
 				require.True(t, same(fr, ferr, mr, merr), "%s: free %s, member %s", label, render(fr, ferr), render(mr, merr))
 				agreed++
 			} else {
@@ -13027,16 +13033,39 @@ func TestFreeConversionFollowsMember(t *testing.T) {
 	expectError(t, `int({a: 1})`, nil, "conversion")
 }
 
-// TestMemberArity is the count probe — the dispatcher checks the floor, bodies keep bounds and gaps: every entry of
-// every Methods table — each builtin type's, each module-owned type's, each module's — and every slot of
-// core.BuiltinFunctions (free builtins and module functions) is called THROUGH THE DISPATCHER with every argument count
-// 0 … max+1 (max from Signature.Max; for an open set, one past the start of its open run). The call must answer
-// wrong_num_arguments exactly where Signature.Accepts refuses the count: a refusal for an accepted count is a gap bug
-// in the body, an acceptance of a refused count a forgotten bound. Arguments are undefined, so an accepted count fails,
-// if at all, on its argument types. Accepted counts run only where that is harmless: the sample receivers below (world
-// handles built to fail safely), and every function except those of the world modules (fs, exec, os, io, clock), which
-// see their refused counts only.
-func TestMemberArity(t *testing.T) {
+// callableEntry is one callable of the runtime tables, as walkCallables finds it.
+type callableEntry struct {
+	label string              // the name TestMemberArity reports: type.member, module.member, a builtin's qualified name
+	key   string              // owner.name — the row key of TestMultiFormCoverage without its "/count"
+	owner string              // the type name, the module name, or "builtin" for a free builtin
+	kind  reference.OwnerKind // what owner is: a type, a module, or the builtins block
+	typ   uint8               // a type's member: the receiver's type id
+	sig   core.Signature      // what the dispatcher checks
+	pure  bool                // the entry's purity claim
+	world bool                // a world module's function (fs, exec, os, io, clock): its accepted counts must not run
+	call  func(args []core.Value) error
+}
+
+// shapeOf answers the count set a callable's Signature declares: its template parsed by package signature, or — for an
+// entry built by core.SignatureOf, which has no template — the bare pair (exactly the arity, or any count from it
+// when variadic).
+func shapeOf(t *testing.T, sig core.Signature) signature.Shape {
+	t.Helper()
+	if sig.Template() == "" {
+		return signature.Shape{Arity: sig.Arity(), Variadic: sig.IsVariadic(), HasRest: sig.IsVariadic(), RestFrom: sig.Arity()}
+	}
+	sh, err := signature.Parse(sig.Template())
+	require.NoError(t, err, sig.Template())
+	return sh
+}
+
+// walkCallables answers every callable the runtime tables hold, each with a call through the dispatcher: every entry
+// of every Methods table — each builtin type's (on a sample receiver, a fresh mutable deep copy per call), each
+// module-owned type's, each module's — and every slot of core.BuiltinFunctions (free builtins and module functions).
+// TestMemberArity and TestMultiFormCoverage share it, so the two cannot disagree on what callables exist. The sample
+// receivers include the world-handle types, built so that calling any member with probe arguments is harmless; a type
+// with a Methods table and no sample fails the walk.
+func walkCallables(t *testing.T) []callableEntry {
 	src := `
 fin := import("fin")
 out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T03:04:05Z"), d"2026-01-02", error("x"),
@@ -13053,62 +13082,39 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	out, _ := c.Get("out")
 	samples, _ := out.AsArray()
 	samples = append(samples, core.NewBuiltinClosureValue("f", core.SignatureOf(0, false), func(core.VM, []core.Value) (core.Value, error) { return core.Undefined, nil }))
-	// the world-handle types, built so that calling any member with probe arguments is harmless: a regular temp file
-	// (chdir into it fails), a command for a program that does not exist (run fails), a RELEASED process (kill and
-	// signal answer "already released" instead of reaching a real pid)
+	// the world-handle types: a regular temp file (chdir into it fails), a command for a program that does not exist
+	// (run fails), a RELEASED process (kill and signal answer "already released" instead of reaching a real pid)
 	file, err := os.CreateTemp(t.TempDir(), "arity")
 	require.NoError(t, err)
-	defer file.Close()
+	t.Cleanup(func() { file.Close() })
 	proc, err := os.FindProcess(1 << 30)
 	require.NoError(t, err)
 	require.NoError(t, proc.Release())
 	samples = append(samples, fs.NewFileValue(file), exec.NewCommandValue(osexec.Command("kavun-no-such-program")),
 		exec.NewProcessValue(proc))
-
-	// probe calls one entry with every count 0 … max+1 and checks the refusals against sig.Accepts; runAccepted
-	// false calls only the refused counts.
-	probe := func(label string, sig core.Signature, runAccepted bool, call func(args []core.Value) error) {
-		limit, _ := sig.Max()
-		for k := 0; k <= limit+1; k++ {
-			accepts := sig.Accepts(k)
-			if accepts && !runAccepted {
-				continue
-			}
-			err := call(make([]core.Value, k))
-			ee := errs.AsError(err)
-			refused := ee != nil && ee.Kind == errs.KindWrongNumArguments
-			switch {
-			case errors.Is(err, core.ErrArgCount):
-				t.Errorf("%s with %d arguments: ErrArgCount escaped the dispatcher", label, k)
-			case accepts && refused:
-				t.Errorf("%s %s: %d arguments refused although the template accepts them: %v", label, sig.Template(), k, err)
-			case !accepts && !refused:
-				t.Errorf("%s %s: %d arguments not refused: %v", label, sig.Template(), k, err)
-			}
-		}
-	}
 	worldModules := map[string]bool{"fs": true, "exec": true, "os": true, "io": true, "clock": true}
+
+	var entries []callableEntry
 
 	// the Methods tables of the builtin and module-owned types, through Value.CallMember
 	covered := map[uint8]bool{}
 	for _, recv := range samples {
 		covered[recv.Type] = true
-		entries := 0
 		for id, e := range core.ValueTypes[recv.Type].Methods {
 			if e.Fn == nil {
 				continue
 			}
-			entries++
 			mid := member.ID(id)
-			probe(recv.TypeName()+"."+mid.String(), e.Sig, true, func(args []core.Value) error {
-				r, err := recv.Copy(true)
-				require.NoError(t, err)
-				r.Immutable = false
-				_, err = r.CallMember(machine, mid, mid.String(), args)
-				return err
-			})
+			label := recv.TypeName() + "." + mid.String()
+			entries = append(entries, callableEntry{label: label, key: label, owner: recv.TypeName(), kind: reference.OwnerType, typ: recv.Type, sig: e.Sig, pure: e.Pure,
+				call: func(args []core.Value) error {
+					r, err := recv.Copy(true)
+					require.NoError(t, err)
+					r.Immutable = false
+					_, err = r.CallMember(machine, mid, mid.String(), args)
+					return err
+				}})
 		}
-		t.Logf("type %s: %d entries", recv.TypeName(), entries)
 	}
 	for id := range int(value.FirstUserDefinedType) {
 		if core.ValueTypes[id].Methods != nil && core.ModuleByType(uint8(id)) == nil {
@@ -13117,7 +13123,6 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 	}
 
 	// every module's own table (its functions and the universal members), through Value.CallMember on the module
-	modules := 0
 	for _, name := range core.ModuleNames() {
 		def, _ := core.LookupModule(name)
 		mod := def.New()
@@ -13126,36 +13131,440 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 				continue
 			}
 			mid := member.ID(id)
-			modules++
-			probe(name+"."+mid.String(), e.Sig, !worldModules[name], func(args []core.Value) error {
-				_, err := mod.CallMember(machine, mid, mid.String(), args)
-				return err
-			})
+			label := name + "." + mid.String()
+			entries = append(entries, callableEntry{label: label, key: label, owner: name, kind: reference.OwnerModule, sig: e.Sig, pure: e.Pure, world: worldModules[name],
+				call: func(args []core.Value) error {
+					_, err := mod.CallMember(machine, mid, mid.String(), args)
+					return err
+				}})
 		}
 	}
-	t.Logf("module tables: %d entries", modules)
 
 	// every builtin-function slot (free builtins and module functions), through the builtin value's Call
-	builtins := 0
 	for slot, f := range core.BuiltinFunctions {
 		if f == nil {
 			continue
 		}
-		builtins++
 		fn := core.BuiltinFunctionValue(uint64(slot))
-		probe(f.QualifiedName(), f.Sig, !worldModules[f.Module], func(args []core.Value) error {
-			_, err := fn.Call(machine, args)
-			return err
-		})
+		owner, kind := f.Module, reference.OwnerModule
+		if owner == "" {
+			owner, kind = "builtin", reference.OwnerBuiltins
+		}
+		entries = append(entries, callableEntry{label: f.QualifiedName(), key: owner + "." + f.Name, owner: owner, kind: kind,
+			sig: f.Sig, pure: f.Pure, world: worldModules[f.Module],
+			call: func(args []core.Value) error {
+				_, err := fn.Call(machine, args)
+				return err
+			}})
 	}
-	t.Logf("builtin-function slots: %d entries", builtins)
+	return entries
 }
 
-// docs/reference/function_matrix.md needs no test of its own: kavun-gen generates it from the same //kavun:member
-// directives it generates every Methods table from, and TestGeneratedInSync (internal/kavungen) fails when either
-// the tables or the page drift from those directives.
+// TestMemberArity is the count probe — the dispatcher checks the floor, bodies keep bounds and gaps: every callable
+// walkCallables finds (every entry of every Methods table — each builtin type's, each module-owned type's, each
+// module's — and every slot of core.BuiltinFunctions) is called THROUGH THE DISPATCHER with every argument count
+// 0 … max+1 (max from the template's signature.Shape.Max; for an open set, one past the start of its open run). The
+// call must answer wrong_num_arguments exactly where Shape.Accepts refuses the count: a refusal for an accepted count is a gap bug
+// in the body, an acceptance of a refused count a forgotten bound. Arguments are undefined, so an accepted count fails,
+// if at all, on its argument types. Accepted counts run only where that is harmless: the sample receivers (world
+// handles built to fail safely), and every function except those of the world modules (fs, exec, os, io, clock), which
+// see their refused counts only.
+func TestMemberArity(t *testing.T) {
+	entries := walkCallables(t)
+	perOwner := map[string]int{}
+	for _, c := range entries {
+		perOwner[c.owner]++
+		sh := shapeOf(t, c.sig)
+		limit, _ := sh.Max()
+		for k := 0; k <= limit+1; k++ {
+			accepts := sh.Accepts(k)
+			if accepts && c.world {
+				continue
+			}
+			err := c.call(make([]core.Value, k))
+			ee := errs.AsError(err)
+			refused := ee != nil && ee.Kind == errs.KindWrongNumArguments
+			switch {
+			case errors.Is(err, core.ErrArgCount):
+				t.Errorf("%s with %d arguments: ErrArgCount escaped the dispatcher", c.label, k)
+			case accepts && refused:
+				t.Errorf("%s %s: %d arguments refused although the template accepts them: %v", c.label, c.sig.Template(), k, err)
+			case !accepts && !refused:
+				t.Errorf("%s %s: %d arguments not refused: %v", c.label, c.sig.Template(), k, err)
+			}
+		}
+	}
+	for _, owner := range slices.Sorted(maps.Keys(perOwner)) {
+		t.Logf("%s: %d entries", owner, perOwner[owner])
+	}
+	t.Logf("%d callables", len(entries))
+}
 
-// TestDocExamples runs every fenced ```go example of the //kavun: doc blocks — the source of docs/reference/ — as a
+// multiFormRows are TestMultiFormCoverage's rows: key "owner.name/count" → a script (after `fin` and `rand` are
+// imported) that assigns `out` by calling that callable with that many VALID arguments, and the expected render of
+// `out` (format([out]) without its brackets, as TestDocExamples spells a `// =>` render). The owner is the receiver's
+// type name for a member (`array`, `fin.dated_rates`, `rand.generator`), the module name for a module function
+// (`fin`), and `builtin` for a free builtin. Where a form can only be told from another by its result, the row picks
+// arguments the other form cannot answer the same way (a solver bracket past the default one, a narrow draw range),
+// so the row proves the count reached its own branch.
+var multiFormRows = []struct{ key, src, want string }{
+	// builtins: range() | (components) | (start, stop[, step])
+	{"builtin.range/0", `out = range()`, `range(0, 0)`},
+	{"builtin.range/1", `out = range({start: 1, stop: 4})`, `range(1, 4)`},
+	{"builtin.range/2", `out = range(1, 4)`, `range(1, 4)`},
+	{"builtin.range/3", `out = range(1, 10, 3)`, `range(1, 10, 3)`},
+	// format(x) | (template, args)
+	{"builtin.format/1", `out = format(42)`, `"42"`},
+	{"builtin.format/2", `out = format("{0} and {1}", [1, 2])`, `"1 and 2"`},
+	// time([x]) | (text, layout); date likewise
+	{"builtin.time/0", `out = time()`, `time("1970-01-01T00:00:00Z")`},
+	{"builtin.time/1", `out = time("2026-01-02T03:04:05Z")`, `time("2026-01-02T03:04:05Z")`},
+	{"builtin.time/2", `out = time("02.01.2026 03:04", "%d.%m.%Y %H:%M")`, `time("2026-01-02T03:04:00Z")`},
+	{"builtin.date/0", `out = date()`, `date("1970-01-01")`},
+	{"builtin.date/1", `out = date("2026-01-02")`, `date("2026-01-02")`},
+	{"builtin.date/2", `out = date("02.01.2026", "%d.%m.%Y")`, `date("2026-01-02")`},
+
+	// splice([start[, delete_count]]) | (start, delete_count, ...items), on every sequence
+	{"array.splice/0", `out = [1, 2, 3, 4].splice()`, `[]`},
+	{"array.splice/1", `out = [1, 2, 3, 4].splice(1)`, `[1]`},
+	{"array.splice/2", `out = [1, 2, 3, 4].splice(1, 2)`, `[1, 4]`},
+	{"array.splice/3", `out = [1, 2, 3, 4].splice(1, 2, 9)`, `[1, 9, 4]`},
+	{"array.splice/4", `out = [1, 2, 3, 4].splice(1, 2, 9, 8)`, `[1, 9, 8, 4]`},
+	{"string.splice/0", `out = "abcd".splice()`, `""`},
+	{"string.splice/1", `out = "abcd".splice(1)`, `"a"`},
+	{"string.splice/2", `out = "abcd".splice(1, 2)`, `"ad"`},
+	{"string.splice/3", `out = "abcd".splice(1, 2, "X")`, `"aXd"`},
+	{"string.splice/4", `out = "abcd".splice(1, 2, "X", "Y")`, `"aXYd"`},
+	{"runes.splice/0", `out = runes("abcd").splice()`, `u""`},
+	{"runes.splice/1", `out = runes("abcd").splice(1)`, `u"a"`},
+	{"runes.splice/2", `out = runes("abcd").splice(1, 2)`, `u"ad"`},
+	{"runes.splice/3", `out = runes("abcd").splice(1, 2, runes("X"))`, `u"aXd"`},
+	{"runes.splice/4", `out = runes("abcd").splice(1, 2, runes("X"), runes("Y"))`, `u"aXYd"`},
+	{"bytes.splice/0", `out = bytes("abcd").splice()`, `bytes([])`},
+	{"bytes.splice/1", `out = bytes("abcd").splice(1)`, `bytes([97])`},
+	{"bytes.splice/2", `out = bytes("abcd").splice(1, 2)`, `bytes([97, 100])`},
+	{"bytes.splice/3", `out = bytes("abcd").splice(1, 2, bytes("X"))`, `bytes([97, 88, 100])`},
+	{"bytes.splice/4", `out = bytes("abcd").splice(1, 2, bytes("X"), bytes("Y"))`, `bytes([97, 88, 89, 100])`},
+	// splice_in_place: the receiver itself is the result
+	{"array.splice_in_place/0", `a := [1, 2, 3, 4]; a.splice_in_place(); out = a`, `[]`},
+	{"array.splice_in_place/1", `a := [1, 2, 3, 4]; a.splice_in_place(1); out = a`, `[1]`},
+	{"array.splice_in_place/2", `a := [1, 2, 3, 4]; a.splice_in_place(1, 2); out = a`, `[1, 4]`},
+	{"array.splice_in_place/3", `a := [1, 2, 3, 4]; a.splice_in_place(1, 2, 9); out = a`, `[1, 9, 4]`},
+	{"array.splice_in_place/4", `a := [1, 2, 3, 4]; a.splice_in_place(1, 2, 9, 8); out = a`, `[1, 9, 8, 4]`},
+	{"runes.splice_in_place/0", `a := runes("abcd"); a.splice_in_place(); out = a`, `u""`},
+	{"runes.splice_in_place/1", `a := runes("abcd"); a.splice_in_place(1); out = a`, `u"a"`},
+	{"runes.splice_in_place/2", `a := runes("abcd"); a.splice_in_place(1, 2); out = a`, `u"ad"`},
+	{"runes.splice_in_place/3", `a := runes("abcd"); a.splice_in_place(1, 2, runes("X")); out = a`, `u"aXd"`},
+	{"runes.splice_in_place/4", `a := runes("abcd"); a.splice_in_place(1, 2, runes("X"), runes("Y")); out = a`, `u"aXYd"`},
+	{"bytes.splice_in_place/0", `a := bytes("abcd"); a.splice_in_place(); out = a`, `bytes([])`},
+	{"bytes.splice_in_place/1", `a := bytes("abcd"); a.splice_in_place(1); out = a`, `bytes([97])`},
+	{"bytes.splice_in_place/2", `a := bytes("abcd"); a.splice_in_place(1, 2); out = a`, `bytes([97, 100])`},
+	{"bytes.splice_in_place/3", `a := bytes("abcd"); a.splice_in_place(1, 2, bytes("X")); out = a`, `bytes([97, 88, 100])`},
+	{"bytes.splice_in_place/4", `a := bytes("abcd"); a.splice_in_place(1, 2, bytes("X"), bytes("Y")); out = a`, `bytes([97, 88, 89, 100])`},
+
+	// fin: the solver forms take a bracket past the default hi (9), which the plain form cannot reach
+	{"fin.rate/7", `out = fin.rate(60, -483.32d, 25000, 0, "arrears", 10, "half_even")`, `0.0049999973d`},
+	{"fin.rate/8", `out = fin.rate(1, 0, 1, -20, "arrears", {hi: 50}, 10, "half_even")`, `19.0000000000d`},
+	{"fin.irr/3", `out = fin.irr([-1000, 300, 400, 500], 10, "half_even")`, `0.0889633947d`},
+	{"fin.irr/4", `out = fin.irr([-1, 20], {hi: 50}, 10, "half_even")`, `19.0000000000d`},
+	{"fin.xirr/4", `out = fin.xirr([{date: d"2026-01-01", amount: -1000}, {date: d"2026-07-01", amount: 300},
+		{date: d"2027-01-01", amount: 800}], "ACT/365", 10, "half_even")`, `0.1172437628d`},
+	{"fin.xirr/5", `out = fin.xirr([{date: d"2026-01-01", amount: -1}, {date: d"2027-01-01", amount: 20}], "ACT/365",
+		{hi: 50}, 10, "half_even")`, `19.0000000000d`},
+	{"fin.root/3", `out = fin.root(x => x * x - 2, 10, "half_even")`, `1.4142135624d`},
+	{"fin.root/4", `out = fin.root(x => x - 20, {hi: 50}, 10, "half_even")`, `20.0000000000d`},
+	// year_fraction() | (n1, d1[, n2, d2])
+	{"fin.year_fraction/0", `out = fin.year_fraction()`, `fin.year_fraction(0, 1)`},
+	{"fin.year_fraction/2", `out = fin.year_fraction(31, 365)`, `fin.year_fraction(31, 365)`},
+	{"fin.year_fraction/4", `out = fin.year_fraction(31, 365, 10, 366)`, `fin.year_fraction(31, 365, 10, 366)`},
+	// tiered_charges() | (text) | (bands, min, max)
+	{"fin.tiered_charges/0", `out = fin.tiered_charges()`, `fin.tiered_charges("0:0")`},
+	{"fin.tiered_charges/1", `out = fin.tiered_charges("0:0.01+2")`, `fin.tiered_charges("0:0.01+2")`},
+	{"fin.tiered_charges/3", `out = fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0)`, `fin.tiered_charges("0:0.01+2")`},
+	// dated_rates.apply(amount, on, scale, mode) | (amount, on, fallback, scale, mode): the fallback form answers
+	// before the first band, where the plain form raises
+	{"fin.dated_rates.apply/4", `out = fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02").apply(1000, d"2026-08-01", 2, "half_even")`, `20.00d`},
+	{"fin.dated_rates.apply/5", `out = fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02").apply(1000, d"2025-08-01", 0.05d, 2, "half_even")`, `50.00d`},
+	// rand.generator draws () | (hi) | (lo, hi): a seeded generator is deterministic: the floats are one draw
+	// scaled to each form's range, and the one-wide int ranges force the bound each form reads
+	{"rand.generator.draw_int/0", `out = rand.generator(1).draw_int()`, `5517983306122433665`},
+	{"rand.generator.draw_int/1", `out = rand.generator(1).draw_int(1)`, `0`},
+	{"rand.generator.draw_int/2", `out = rand.generator(1).draw_int(7, 8)`, `7`},
+	{"rand.generator.draw_float/0", `out = rand.generator(1).draw_float()`, `0.5982609488236689`},
+	{"rand.generator.draw_float/1", `out = rand.generator(1).draw_float(10.0)`, `5.9826094882366885`},
+	{"rand.generator.draw_float/2", `out = rand.generator(1).draw_float(5.0, 10.0)`, `7.991304744118344`},
+}
+
+// TestMultiFormCoverage pins that every form of a multi-form callable reaches its own branch (a body that dispatches
+// on the argument count can route a count to the wrong reading, and TestMemberArity, which only checks refusals,
+// would not see it). Every callable walkCallables finds whose template has more than one reading
+// (signature.Parse(template).Readings) needs a row in multiFormRows for every count the template accepts — for an
+// open rest, its first count and one more; extra accepted counts may have rows. A missing row fails (naming its key),
+// and so does a row whose key names no multi-form callable or a count it does not accept. Each row runs at O0 (the
+// harness default), every module granted, and its `out` must render as the row says.
+func TestMultiFormCoverage(t *testing.T) {
+	multi := map[string]signature.Shape{} // owner.name → its parsed template; a module function is found twice (table and slot)
+	for _, c := range walkCallables(t) {
+		if sh := shapeOf(t, c.sig); len(sh.Readings) > 1 {
+			multi[c.key] = sh
+		}
+	}
+
+	rows := map[string]string{} // key → src
+	wants := map[string]string{}
+	for _, r := range multiFormRows {
+		if _, dup := rows[r.key]; dup {
+			t.Errorf("row %s: duplicate", r.key)
+		}
+		rows[r.key], wants[r.key] = r.src, r.want
+		i := strings.LastIndexByte(r.key, '/')
+		k, err := strconv.Atoi(r.key[i+1:])
+		sh, ok := multi[r.key[:max(i, 0)]]
+		if i < 0 || err != nil || !ok || !sh.Accepts(k) {
+			t.Errorf("row %s: matches no multi-form callable and accepted count", r.key)
+		}
+	}
+
+	required := 0
+	for _, base := range slices.Sorted(maps.Keys(multi)) {
+		sh := multi[base]
+		counts := append([]int{sh.Arity}, sh.Counts...)
+		if sh.HasRest {
+			counts = append(counts, sh.RestFrom, sh.RestFrom+1)
+		}
+		slices.Sort(counts)
+		for _, k := range slices.Compact(counts) {
+			required++
+			if key := fmt.Sprintf("%s/%d", base, k); rows[key] == "" {
+				t.Errorf("no row %s (template %s)", key, sh.Template)
+			}
+		}
+	}
+	t.Logf("%d multi-form callables, %d required counts, %d rows", len(multi), required, len(multiFormRows))
+
+	for _, r := range multiFormRows {
+		script := kavun.NewScript([]byte("fin := import(\"fin\"); rand := import(\"rand\")\n"+r.src+"\nout = format([out])"), "out")
+		script.SetOptimizationConfig(testOptimization(nil))
+		script.AllowAllModules()
+		compiled, err := script.Compile()
+		if err != nil {
+			t.Errorf("row %s: does not compile: %v", r.key, err)
+			continue
+		}
+		machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+		machine.AllowAllModules()
+		if err := compiled.Run(machine); err != nil {
+			t.Errorf("row %s: %v", r.key, err)
+			continue
+		}
+		out, _ := compiled.Get("out")
+		render, _ := out.AsString()
+		render = strings.TrimSuffix(strings.TrimPrefix(render, "["), "]")
+		if render != r.want {
+			t.Errorf("row %s: `%s`\n\texpected: %s\n\tactual:   %s", r.key, r.src, r.want, render)
+		}
+	}
+}
+
+// docs/reference/function_matrix.md needs no test of its own: kavun-docs renders it from kavun_reference.json,
+// which kavun-gen generates from the same //kavun:member directives it generates every Methods table from, and
+// TestGeneratedInSync (internal/kavungen) fails when the tables, the reference or the page drift from them.
+
+// TestReferenceMatchesRuntime holds kavun_reference.json against the runtime registries, in both directions: every
+// callable walkCallables finds (each Methods entry of every builtin and module-owned type, each module's functions
+// — through its Methods table and its builtin-function slots —, every free builtin) and every module constant (a
+// module Properties entry with no function behind it) must be in the reference with the same template and purity
+// (a constant: the same type name); every member, builtin, module function and constant of the reference must exist
+// at runtime the same way, and every module with the same grant. The reference is generated from the //kavun:
+// directives, the tables mostly too; this catches what is registered by hand beside them (an m.Const or a Methods
+// entry without a directive) and a reference that is stale against the binary. The owners are checked both ways
+// too: the types (by name, with the module that owns a module-owned type) and the modules.
+//
+// The exceptions are the hand tables no directive declares (docs/conventions.md; the reference has no `function`
+// type): every member of the callable kinds (refMatchCallableKinds) and the universal members every module answers
+// (refMatchUniversal).
+func TestReferenceMatchesRuntime(t *testing.T) {
+	_, self, _, ok := runtime.Caller(0)
+	require.True(t, ok, "locating kavun_test.go")
+	ref, err := reference.ReadFile(filepath.Join(filepath.Dir(self), reference.FileName))
+	require.NoError(t, err)
+	set, err := reference.Merge(ref)
+	require.NoError(t, err)
+
+	// what the reference says of a runtime callable, by kind and owner.name
+	lookup := func(kind reference.OwnerKind, owner, name string) (*reference.Callable, bool) {
+		switch kind {
+		case reference.OwnerType:
+			return set.Member(owner, name)
+		case reference.OwnerModule:
+			return set.Function(owner, name)
+		}
+		return set.Builtin(name)
+	}
+	kavunModule := func(name string) bool {
+		def, ok := core.LookupModule(name)
+		return ok && def.Type < value.FirstUserDefinedType // an embedder module a test registered is not Kavun's
+	}
+
+	// runtime → reference: the callables
+	seen := map[string]bool{} // kind:owner.name of every runtime callable checked
+	checked := 0
+	for _, c := range walkCallables(t) {
+		name := strings.TrimPrefix(c.key, c.owner+".")
+		switch {
+		case c.kind == reference.OwnerType && refMatchCallableKinds[c.typ]:
+			continue
+		case c.kind == reference.OwnerModule && refMatchUniversal[name]:
+			continue
+		case c.kind == reference.OwnerModule && !kavunModule(c.owner):
+			continue
+		}
+		if seen[string(c.kind)+":"+c.key] {
+			continue // a module function: its Methods entry and its builtin-function slot, checked once
+		}
+		seen[string(c.kind)+":"+c.key] = true
+		checked++
+		r, ok := lookup(c.kind, c.owner, name)
+		switch {
+		case !ok:
+			t.Errorf("%s %s: registered at runtime, not in the reference (no //kavun: directive?)", c.kind, c.label)
+		case r.Signature.Template != c.sig.Template():
+			t.Errorf("%s %s: template %s at runtime, %s in the reference", c.kind, c.label, c.sig.Template(), r.Signature.Template)
+		case r.Pure != c.pure:
+			t.Errorf("%s %s: pure=%v at runtime, pure=%v in the reference", c.kind, c.label, c.pure, r.Pure)
+		}
+	}
+
+	// runtime → reference: the constants (a Properties entry of a module with no function behind it)
+	constants := map[string]core.Value{} // module.name → value
+	for _, modName := range core.ModuleNames() {
+		if !kavunModule(modName) {
+			continue
+		}
+		def, _ := core.LookupModule(modName)
+		descr := core.ValueTypes[def.Type]
+		for id, p := range descr.Properties {
+			if p.Get == nil || id < len(descr.Methods) && descr.Methods[id].Fn != nil {
+				continue
+			}
+			mid := member.ID(id)
+			v, err := p.Get(nil, def.New(), mid)
+			require.NoError(t, err)
+			key := modName + "." + mid.String()
+			constants[key] = v
+			checked++
+			r, ok := set.Constant(modName, mid.String())
+			switch {
+			case !ok:
+				t.Errorf("constant %s: registered at runtime, not in the reference (no //kavun:const directive?)", key)
+			case r.Type != v.TypeName():
+				t.Errorf("constant %s: a %s at runtime, declared %s in the reference", key, v.TypeName(), r.Type)
+			}
+		}
+	}
+
+	// reference → runtime
+	refEntries := 0
+	for e := range set.Callables() {
+		refEntries++
+		owner := e.Owner
+		if e.Kind == reference.OwnerBuiltins {
+			owner = "builtin"
+		}
+		if !seen[string(e.Kind)+":"+owner+"."+e.Callable.Name] {
+			t.Errorf("%s %s.%s: in the reference, not registered at runtime", e.Kind, owner, e.Callable.Name)
+		}
+	}
+	for _, mod := range ref.Modules {
+		def, ok := core.LookupModule(mod.Name)
+		if !ok {
+			t.Errorf("module %s: in the reference, not registered at runtime", mod.Name)
+			continue
+		}
+		if def.Pure != mod.Pure {
+			t.Errorf("module %s: pure=%v at runtime, pure=%v in the reference", mod.Name, def.Pure, mod.Pure)
+		}
+		for _, c := range mod.Constants {
+			refEntries++
+			if _, ok := constants[mod.Name+"."+c.Name]; !ok {
+				t.Errorf("constant %s.%s: in the reference, not registered at runtime", mod.Name, c.Name)
+			}
+		}
+	}
+
+	// the owners, both ways: every Kavun type with a page is a reference type with the owning module its name
+	// prefix names (a module-owned type, 144–191, is registered by that module), and every Kavun module (112–143) is
+	// a reference module
+	runtimeTypes := map[string]uint8{}
+	for id := range int(value.FirstUserDefinedType) {
+		tid := uint8(id)
+		if refMatchCallableKinds[tid] || refMatchNoPage[tid] || core.ModuleByType(tid) != nil {
+			continue // no page (TODO.md potential problem 23, or by design); a module is the reference type `module`
+		}
+		name := core.ValueTypes[tid].Name(core.Value{Type: tid})
+		if name == fmt.Sprintf("<unknown:%d>", tid) {
+			continue // not registered
+		}
+		runtimeTypes[name] = tid
+		typ, ok := set.Type(name)
+		if !ok {
+			t.Errorf("type %s (id %d): registered at runtime, not in the reference", name, tid)
+			continue
+		}
+		owner, _, owned := strings.Cut(name, ".")
+		if !owned {
+			owner = ""
+		}
+		if typ.Module != owner {
+			t.Errorf("type %s: owned by module %q at runtime, by %q in the reference", name, owner, typ.Module)
+		}
+		if owned {
+			if def, ok := core.LookupModule(owner); !ok || def.Type > value.Reserved143 || tid < value.ExecProcess || tid > value.Reserved191 {
+				t.Errorf("type %s (id %d): not a module-owned type of a registered Kavun module %q", name, tid, owner)
+			}
+		}
+	}
+	for _, typ := range ref.Types {
+		if typ.Name == refMatchModuleType {
+			if len(core.ModuleNames()) == 0 {
+				t.Errorf("type %s: in the reference, no module registered at runtime", typ.Name)
+			}
+			continue
+		}
+		if _, ok := runtimeTypes[typ.Name]; !ok {
+			t.Errorf("type %s: in the reference, not registered at runtime", typ.Name)
+		}
+	}
+	for id := value.ModuleBase64; id <= value.Reserved143; id++ {
+		if def := core.ModuleByType(id); def != nil {
+			if _, ok := set.Module(def.Name); !ok {
+				t.Errorf("module %s (id %d): registered at runtime, not in the reference", def.Name, id)
+			}
+		}
+	}
+
+	t.Logf("%d runtime entries checked against %d reference entries", checked, refEntries)
+	require.True(t, refEntries >= 1000, "only %d reference entries", refEntries)
+}
+
+// The exceptions of TestReferenceMatchesRuntime: the hand tables no //kavun: directive declares.
+var (
+	// refMatchCallableKinds are the callable kinds — builtin functions, builtin closures, compiled functions, bound
+	// members —, whose small hand tables hold the universal members only.
+	refMatchCallableKinds = map[uint8]bool{value.BuiltinFunction: true, value.BuiltinClosure: true, value.CompiledFunction: true, value.BoundMember: true}
+	// refMatchUniversal are the members every module answers itself (core.NewModule), beside its functions.
+	refMatchUniversal = map[string]bool{"is_true": true, "format": true, "copy": true, "freeze": true, "array": true}
+	// refMatchNoPage are the runtime types with no page by design: the iterators, the parsed format spec and the
+	// value pointer are internal values a script never names.
+	refMatchNoPage = map[uint8]bool{value.ArrayIterator: true, value.BytesIterator: true, value.DictIterator: true,
+		value.IntRangeIterator: true, value.RunesIterator: true, value.FormatSpec: true, value.ValuePtr: true}
+)
+
+// refMatchModuleType is the reference type of every module value: the runtime registers one type per module.
+const refMatchModuleType = "module"
+
+// TestDocExamples runs every example block of kavun_reference.json — the fenced ```go examples of the //kavun: doc
+// blocks, read through package reference — as a
 // standalone script, every module granted (as the CLI does), and checks what its comments claim
 // (docs/conventions.md § "Declaring native functions"):
 //
@@ -13171,14 +13580,14 @@ out = [undefined, true, byte(1), 'a', 1, 1.5, decimal("1.5"), time("2026-01-02T0
 func TestDocExamples(t *testing.T) {
 	_, self, _, ok := runtime.Caller(0)
 	require.True(t, ok, "locating kavun_test.go")
-	examples, err := kavungen.Examples(docPackageDirs(t, filepath.Dir(self)))
+	ref, err := reference.ReadFile(filepath.Join(filepath.Dir(self), reference.FileName))
 	require.NoError(t, err)
 
 	t.Chdir(t.TempDir()) // a world-module example touches only a scratch directory
 
 	var blocks, skipped, checks int
-	for _, ex := range examples {
-		if ex.NoRun {
+	for _, ex := range docExamples(ref) {
+		if ex.block.NoRun {
 			skipped++
 			continue
 		}
@@ -13190,41 +13599,80 @@ func TestDocExamples(t *testing.T) {
 		}
 	}
 	t.Logf("doc examples: %d blocks run, %d checks, %d norun", blocks, checks, skipped)
-	// a guard against the parser silently finding nothing
+	// a guard against the reference silently carrying nothing
 	require.True(t, blocks >= 500, "only %d doc example blocks ran", blocks)
 	require.True(t, checks >= 500, "only %d doc example checks ran", checks)
 }
 
-// docPackageDirs answers the directories under root holding Go files, relative to root (the tests' working
-// directory, so messages name short paths), scratch (tmp/), fixtures (testdata/) and hidden directories skipped —
-// the packages kavun-gen reads.
-func docPackageDirs(t *testing.T, root string) []string {
-	var dirs []string
-	err := filepath.WalkDir(root, func(p string, d iofs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
-			return err
+// docExample is one example block of the reference with the declaration it belongs to: owner names it for
+// messages ("member array.pad_start", "fn fin.irr"), file is its source file relative to the module root.
+type docExample struct {
+	owner string
+	file  string
+	block reference.Block
+}
+
+// lines answers the example's code lines with their source positions: the block's first code line is at
+// block.Line, the following ones map one to one.
+func (e docExample) lines() []docLine {
+	if e.block.Code == "" {
+		return nil
+	}
+	var out []docLine
+	for i, text := range strings.Split(e.block.Code, "\n") {
+		out = append(out, docLine{text: text, pos: gotoken.Position{Filename: e.file, Line: e.block.Line + i}})
+	}
+	return out
+}
+
+// String renders an example's place for messages: file:line (owner), the line its code starts on.
+func (e docExample) String() string {
+	return fmt.Sprintf("%s:%d (%s)", e.file, e.block.Line, e.owner)
+}
+
+// docLine is one line of an example with its source position.
+type docLine struct {
+	text string
+	pos  gotoken.Position
+}
+
+// docExamples answers every example block of the reference: each type's root block and members, the builtins block
+// and functions, each module's root block, functions and constants.
+func docExamples(ref *reference.Reference) []docExample {
+	var out []docExample
+	add := func(owner string, pos reference.Pos, doc reference.Doc) {
+		for _, b := range doc.Examples() {
+			out = append(out, docExample{owner: owner, file: pos.File, block: b})
 		}
-		if n := d.Name(); p != root && (n == "tmp" || n == "testdata" || strings.HasPrefix(n, ".")) {
-			return filepath.SkipDir
+	}
+	for _, typ := range ref.Types {
+		add("type "+typ.Name, typ.Pos, typ.Doc)
+		for _, m := range typ.Members {
+			add("member "+typ.Name+"."+m.Name, m.Pos, m.Doc)
 		}
-		matches, err := filepath.Glob(filepath.Join(p, "*.go"))
-		if len(matches) > 0 {
-			rel, relErr := filepath.Rel(root, p)
-			if relErr != nil {
-				return relErr
-			}
-			dirs = append(dirs, rel)
+	}
+	if b := ref.Builtins; b != nil {
+		add("builtins", b.Pos, b.Doc)
+		for _, f := range b.Functions {
+			add("builtin "+f.Name, f.Pos, f.Doc)
 		}
-		return err
-	})
-	require.NoError(t, err)
-	return dirs
+	}
+	for _, mod := range ref.Modules {
+		add("module "+mod.Name, mod.Pos, mod.Doc)
+		for _, f := range mod.Functions {
+			add("fn "+mod.Name+"."+f.Name, f.Pos, f.Doc)
+		}
+		for _, c := range mod.Constants {
+			add("const "+mod.Name+"."+c.Name, c.Pos, c.Doc)
+		}
+	}
+	return out
 }
 
 // docStmt is one statement of an example: its lines (brackets balanced), their code parts, and its check — the
 // reading of its last line's comment, or of a comment-only check line right after it — with that comment's position.
 type docStmt struct {
-	lines    []kavungen.ExampleLine
+	lines    []docLine
 	codes    []string
 	check    kavungen.LineCheck
 	checkPos gotoken.Position
@@ -13233,31 +13681,31 @@ type docStmt struct {
 // splitDocStmts groups an example's lines into statements: a line opening more brackets than it closes continues
 // on the next lines until they balance. A check comment goes on the line that ends its statement, or alone on the
 // line right after it (for a statement too long to share its line); one anywhere else is a problem.
-func splitDocStmts(ex kavungen.Example) ([]docStmt, []string) {
+func splitDocStmts(ex docExample) ([]docStmt, []string) {
 	var out []docStmt
 	var problems []string
 	var cur docStmt
 	depth := 0
-	for _, l := range ex.Lines {
-		c := kavungen.ClassifyLine(l.Text)
+	for _, l := range ex.lines() {
+		c := kavungen.ClassifyLine(l.text)
 		cur.lines = append(cur.lines, l)
 		cur.codes = append(cur.codes, c.Code)
 		depth += bracketDepth(c.Code)
 		if depth > 0 {
 			if c.Kind != kavungen.LineCode {
-				problems = append(problems, fmt.Sprintf("%s: a check comment inside a multi-line statement: put it on the line that ends the statement", docWhere(l.Pos)))
+				problems = append(problems, fmt.Sprintf("%s: a check comment inside a multi-line statement: put it on the line that ends the statement", docWhere(l.pos)))
 			}
 			continue
 		}
-		cur.check, cur.checkPos = c, l.Pos
+		cur.check, cur.checkPos = c, l.pos
 		if c.Kind != kavungen.LineCode && strings.TrimSpace(c.Code) == "" && len(cur.lines) == 1 {
 			// a comment-only check line: it checks the statement above it, which must have none of its own
 			if n := len(out); n > 0 && out[n-1].check.Kind == kavungen.LineCode && strings.TrimSpace(strings.Join(out[n-1].codes, "")) != "" {
 				prev := &out[n-1]
-				prev.check, prev.checkPos = c, l.Pos
+				prev.check, prev.checkPos = c, l.pos
 				prev.check.Code = strings.TrimSpace(prev.codes[len(prev.codes)-1])
 			} else {
-				problems = append(problems, fmt.Sprintf("%s: a check comment with no statement to check: put it on the statement's last line, or alone right after it", docWhere(l.Pos)))
+				problems = append(problems, fmt.Sprintf("%s: a check comment with no statement to check: put it on the statement's last line, or alone right after it", docWhere(l.pos)))
 			}
 			cur.check.Kind = kavungen.LineCode
 		}
@@ -13265,7 +13713,7 @@ func splitDocStmts(ex kavungen.Example) ([]docStmt, []string) {
 		cur, depth = docStmt{}, 0
 	}
 	if len(cur.lines) > 0 {
-		problems = append(problems, fmt.Sprintf("%s: the example ends inside a statement (unbalanced brackets)", docWhere(cur.lines[0].Pos)))
+		problems = append(problems, fmt.Sprintf("%s: the example ends inside a statement (unbalanced brackets)", docWhere(cur.lines[0].pos)))
 	}
 	return out, problems
 }
@@ -13304,14 +13752,14 @@ const (
 // problem found. The script is the example with each `// =>` statement's value recorded into __doc_got and each
 // `// Error:` statement run under __doc_try into __doc_err — one script line per example line (plus the harness
 // line on top), so a compile or run error maps back to the example's file:line.
-func runDocExample(ex kavungen.Example) (int, []string) {
+func runDocExample(ex docExample) (int, []string) {
 	stmts, problems := splitDocStmts(ex)
 	if len(problems) > 0 {
 		return 0, problems
 	}
 
 	src := []string{docTry}
-	srcPos := []gotoken.Position{ex.Pos}
+	srcPos := []gotoken.Position{{Filename: ex.file, Line: ex.block.Line}}
 	for k, s := range stmts {
 		codes := slices.Clone(s.codes)
 		last := len(codes) - 1
@@ -13320,7 +13768,7 @@ func runDocExample(ex kavungen.Example) (int, []string) {
 		case kavungen.LineResult:
 			lhs, isExpr, err := docResultTarget(strings.Join(codes, "\n"))
 			if err != nil {
-				problems = append(problems, fmt.Sprintf("%s: `%s // => …`: %v", docWhere(s.lines[last].Pos), s.check.Code, err))
+				problems = append(problems, fmt.Sprintf("%s: `%s // => …`: %v", docWhere(s.lines[last].pos), s.check.Code, err))
 				continue
 			}
 			if isExpr {
@@ -13335,7 +13783,7 @@ func runDocExample(ex kavungen.Example) (int, []string) {
 		}
 		src = append(src, codes...)
 		for _, l := range s.lines {
-			srcPos = append(srcPos, l.Pos)
+			srcPos = append(srcPos, l.pos)
 		}
 	}
 	if len(problems) > 0 {

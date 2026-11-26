@@ -6,8 +6,18 @@ export BINARYCG := justfile_directory() + "/cmd/binary"
 default:
     @just --list
 
+# the -docs-url of gen.go's //go:generate line: the docs field of kavun_reference.json
+docs_url := "https://github.com/jokruger/kavun/blob/main/docs"
+
+# gen.go's two //go:generate lines: kavun-gen (every kavun_gen.go + kavun_reference.json), then kavun-docs
+# (docs/reference/ rendered from kavun_reference.json)
 generate:
     @go generate ./...
+
+# the same two stages, comparing instead of writing (clean = in sync)
+generate-check:
+    @go run ./cmd/kavun-gen -check -docs-url {{docs_url}} ./...
+    @go run ./cmd/kavun-docs -check -out docs/reference kavun_reference.json
 
 build: generate
     @mkdir -p ./build
@@ -20,7 +30,7 @@ test: generate
     @go test -race -timeout 60s ./...
     @go run ./cmd/kavun -resolve ./testdata/cli/test.kvn
 
-# the harness scripts again at an optimization level (default O0): the optimizer must not change a result
+# the harness scripts again at an optimization level (default O3): the optimizer must not change a result
 test-opt level="O3": generate
     @KAVUN_TEST_OPT={{level}} go test -race -timeout 120s .
 

@@ -12,7 +12,7 @@ import (
 
 // Path TEXT with the host's separator — joining, splitting, cleaning.
 //
-// It never touches the file system (that is [`fs`](fs.md)), so it is pure and importable by default.
+// It never touches the file system (that is [`fs`](kavun:module/fs)), so it is pure and importable by default.
 //
 // ```go
 // path := import("path")
@@ -22,7 +22,7 @@ import (
 //
 // Failures: `invalid_value` (`rel`, `match`), `invalid_argument_type` (a non-string), `wrong_num_arguments`.
 //
-//kavun:module path pure
+//kavun:module path id=value.ModulePath pure
 
 // pathArgs reads the string arguments of a fixed-count path function (one or two: the dispatcher has checked the
 // count against the template).

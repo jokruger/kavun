@@ -2,7 +2,7 @@
 
 A one-page, skimmable reference to the Kavun language. For full semantics see
 [Language Reference](language.md), [Type Reference](types.md), and [Standard Library](stdlib.md); the generated
-reference has a page per [builtin function](reference/builtins.md), per [module](reference/stdlib.md) and per type
+reference has a page per [builtin function](reference/builtins.md), per [module](reference/modules.md) and per type
 (`reference/types/<type>.md`, e.g. [array](reference/types/array.md)), and the [function
 matrix](reference/function_matrix.md).
 

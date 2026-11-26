@@ -9,7 +9,7 @@ import (
 // Pseudo-random numbers as a value.
 //
 // The module's one function is the constructor of the type it owns: `rand.generator(seed)` answers a
-// [`rand.generator`](../types/rand_generator.md) whose draws are its own state. Pure — it reads nothing from the world,
+// [`rand.generator`](kavun:type/rand.generator) whose draws are its own state. Pure — it reads nothing from the world,
 // so it is importable by default; entropy comes from `os.rand_generator()`, which answers the same type over
 // `crypto/rand`.
 //
@@ -23,15 +23,15 @@ import (
 // d := os.rand_generator()    // the same type, unpredictable
 // ```
 //
-// The generator's members (see [types/rand_generator.md](../types/rand_generator.md)): `draw_int([lo,] hi)`,
+// The generator's members (see [types/rand_generator.md](kavun:type/rand.generator)): `draw_int([lo,] hi)`,
 // `draw_float([lo,] hi)`, `draw_bytes(n)`, `draw_perm(n)`, `draw_norm()`, `draw_exp()`, `copy()`. Ranges are
 // half-open, like `range(lo, hi)`.
 //
 // **Failures.** A bound that leaves no value (`g.draw_int(5, 5)`) or a bad count (`g.draw_bytes(0)`) raises `invalid_value`.
 //
-//kavun:module rand pure
+//kavun:module rand id=value.ModuleRand pure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+// moduleExtras declares what the directives do not: the module's owned type.
 func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.RandGenerator, TypeGenerator)
 }

@@ -71,7 +71,7 @@ func yearFractionResult(op string, f daycount.Fraction) (core.Value, error) {
 // A year fraction is the days a day-count convention counts over the year length it takes. It is the `f` the interest
 // functions take, kept exact so an accrual never rounds the period before it multiplies. The type is named after its
 // constructor (`type_name(f)` is `"fin.year_fraction"`) because it exists only for this module. It is owned by the
-// [`fin`](../stdlib/fin.md) module.
+// [`fin`](kavun:module/fin) module.
 //
 // ```go
 // fin := import("fin")

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [
+    {
+      "name": "thing",
+      "summary": "A thing: a package whose only declaration is a members-less type — a page, and no kavun_gen.go.",
+      "doc": [],
+      "pos": {
+        "file": "thing.go",
+        "line": 5
+      },
+      "members": []
+    }
+  ],
+  "modules": []
+}

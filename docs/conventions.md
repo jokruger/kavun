@@ -86,8 +86,8 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
   `invalid_argument_type`. `errs.NewWrongNumArgumentsError` is called only by `core.ArgCountError` — the VM's
   script-function paths reach it through `CompiledFunction.ArgCountError` (`TestArgCountSingleSource`); a host hook with no declaration (`CallNamedMethod`, a host
   type's `Call`) reports through `core.ArgCountError` with `core.SignatureOf`. `TestMemberArity` calls every entry
-  of every table through the dispatcher with every count `0 … max+1` and fails wherever the refusals and
-  `Signature.Accepts` disagree.
+  of every table through the dispatcher with every count `0 … max+1` and fails wherever the refusals and the
+  template's count set (`signature.Parse(sig.Template())`, `Shape.Accepts`) disagree.
 - **One function per member, `_in_place` twins included.** `arrayKeep` and `arrayKeepInPlace` are separate
   functions with the member shape. When twins share a body, it is a lowercase helper taking what differs as a
   parameter (`arrayTypeAppend(v, args, mutate)`, `decimalRoundFixed(v, id, args, mode)`), never the member name.
@@ -140,23 +140,107 @@ The directive kinds:
 | `//kavun:member <name> pure\|impure <template> -> <result>` | on the member body, in `<stem>_members.go` (or `<stem>.go`) | one `Methods` entry |
 | `//kavun:builtins` | free-standing, in `vm/builtins.go` | the head of the builtins page |
 | `//kavun:builtin <name> slot=<n> pure\|impure <template> -> <result>` | on the builtin body | one free builtin function |
-| `//kavun:module <name> pure\|impure` | free-standing, in the module package | the module and its default grant; its doc block heads the module page |
+| `//kavun:module <name> id=<go ident> pure\|impure` | free-standing, in the module package | the module, its type id and its default grant; its doc block heads the module page |
 | `//kavun:fn <name> slot=<n> pure\|impure <template> -> <result>` | on the module function body | one module function |
+| `//kavun:const <name> -> <type>` | on the package-level `var` holding the value, in the module package | one module constant |
+| `//kavun:names` | on a package-level `var` holding a `map[member.ID]string{Key: "name", …}` literal | an embedder's member names |
 
 `pure`/`impure` is the purity claim (the optimizer may fold a `pure` entry — [purity.md](purity.md)); `->
-<result>` is free text for the page only. `go generate ./...` runs `cmd/kavun-gen`, which writes **one
-`kavun_gen.go` per body-owning package** — `core` (every type's table), `vm` (the builtin function table), each
-`stdlib/<module>` (the module's `init()` registration; a package with constants or owned types adds
-`func moduleExtras(m *core.ModuleBuilder)`) — and the whole of `docs/reference/` (one page per type, per module,
-the builtins page, the stdlib index and the function matrix). Both are committed and never edited by hand;
-`TestGeneratedInSync` regenerates them in memory and fails on any difference, and `go run ./cmd/kavun-gen -check
-./...` does the same from the command line.
+<result>` is free text for the page only. `go generate ./...` runs two tools in turn (`gen.go`):
 
-Generation is strict and stops on: an unknown directive kind or key, a malformed line or template, a member or
-`fn` name that is not a bound member name (`member.Lookup`), a duplicate member or slot, a missing or two-sentence
-summary, a `#`/`##` heading outside a type, module or builtins block, an indented line outside a fenced block, a
-`~~~` fence, a `go` fence with anything after the language but the `norun` marker, and a members file that declares
-no member.
+1. **`cmd/kavun-gen`** reads the directives and writes **one `kavun_gen.go` per body-owning package** — `core`
+   (every type's table), `vm` (the builtin function table), each `stdlib/<module>` (the module's `init()`
+   registration — functions, then constants; a package with owned types adds `func moduleExtras(m
+   *core.ModuleBuilder)`, which the `init()` calls last to register them) — and **`kavun_reference.json`**, the
+   language reference as data (package `reference`: every type, member, builtin, module, function and constant with
+   its signature, purity and doc blocks — examples included);
+2. **`cmd/kavun-docs`** renders `docs/reference/` from `kavun_reference.json` alone (one page per type, per module
+   under `modules/`, the builtins page, the module index `modules.md` and the function matrix).
+
+All of it is committed and never edited by hand; `TestGeneratedInSync` regenerates both stages in memory and fails
+on any difference, and `just generate-check` does the same from the command line (a bare `go run ./cmd/kavun-gen
+-check ./...` lacks `gen.go`'s `-docs-url` and so reports the reference as different).
+
+A module constant is a package-level `var` holding its value, its doc comment the same summary, body and directive
+(one `var`, one name; a Go `const` cannot hold a `core.Value` and is refused). Its name is a bound member name not
+taken by a function of the same module; `-> <type>` is free text for the page, like a result. The module's `init()`
+calls `m.Const(members.<Name>, <var>)` for each; the module page lists them under `## Constants`, after the
+functions.
+
+```go
+// The ratio of a circle's circumference to its diameter.
+//
+//kavun:const pi -> float
+var constPi = core.FloatValue(math.Pi)
+```
+
+`id=` names the module's type id as a Go expression the generated `init()` passes to `core.NewModule`: an
+identifier of the package (a constant or variable — an embedder's own id), or a `core/value` constant
+(`id=value.ModuleMath` for Kavun's modules).
+
+A member, `fn` or constant name is a builtin member name (`core/member/builtin.go`) or one an embedder declares
+with `//kavun:names` on a package-level `map[member.ID]string` literal: every key a `member.ID` constant of the
+package (the generated tables are indexed by it), every value a string literal. The generated `kavun_gen.go` of
+that package binds each name with `member.Define(key, "name")` while the package's variables are initialized —
+before any `init()` of the package, so a type the package registers in an `init()` finds its members' names bound
+(register types in `init()`: a package-level variable initializer that registers one is not ordered after the
+binding) — and the tables name the key: bare in its own package, qualified (`names.MemberDouble`, so exported) from
+another package of the same run, which the generated file then imports (two packages using each other's names are
+refused: the imports would form a cycle). The names of every package of the run are collected before any table is
+checked.
+
+```go
+const (
+	MemberDouble member.ID = member.FirstUserDefined + iota
+	MemberLabel
+)
+
+//kavun:names
+var memberNames = map[member.ID]string{
+	MemberDouble: "double",
+	MemberLabel:  "label",
+}
+```
+
+Generation is strict and stops on: an unknown directive kind or key, a malformed line or template, a `//kavun:module`
+without `id=` or whose bare `id=` the package does not declare, a member, `fn` or constant name that is neither a
+builtin member name nor declared by a `//kavun:names` of the run (nor, from another package, under an exported key),
+a `//kavun:names` that is not a `map[member.ID]string` literal of constant keys and string-literal member names, or
+that declares a builtin member name or a name or key twice, a duplicate member, slot or constant, a constant named
+like a function of its module, a `//kavun:const` that is not on a package-level `var` of one name in a module
+package, a missing or two-sentence summary, a `#`/`##` heading outside a type, module or builtins block, a root
+block's `##` heading named like the entry list the docs tool adds to that page (`## Members` on a type with
+members, `## Functions` on a module or the builtins, `## Constants` on a module with constants; any letter case),
+an indented line outside a fenced block, a `~~~` fence, a `go` fence with anything after the language but the
+`norun` marker, a members file that declares no member, a `pure` member named `_in_place`, and a member named after a conversion (`member.IsConversion`: `array`,
+`bool`, `byte`, `bytes`, `date`, `decimal`, `dict`, `float`, `int`, `record`, `rune`, `runes`, `string`, `time`)
+that is not `pure` with the template `([default])`; and on links (below): a relative link, a `kavun:` link that names
+nothing the run declares, and a root-block heading whose anchor is an entry's name on the same page.
+
+Lists are single-level, and a list must be followed by a blank line: an unindented line right after a list item
+continues that item (CommonMark lazy continuation), which the generator cannot tell from intent and does not refuse.
+
+#### Links
+
+A doc block links by **what** it names, never by a page path — the pages are laid out by the docs tool, and an
+embedder's docs link into Kavun's with the same links. A link is an ordinary Markdown link with a `kavun:` target:
+
+| target | link |
+| --- | --- |
+| a type · its member · a heading of its block | `kavun:type/array` · `kavun:type/array/splice` · `kavun:type/string#undecodable-octets` |
+| a module · its function or constant · a heading of its block | `kavun:module/fin` · `kavun:module/fin/irr` · `kavun:module/math/pi` · `kavun:module/fin#rate-and-charge-tables` |
+| the builtins · a builtin | `kavun:builtins` · `kavun:builtin/range` |
+| a hand-written page under `docs/` | `kavun:doc/embedding#handling-errors` |
+
+Within a page, `#x` is the shorthand for the entry `x` of the same type, module or builtins (a member, a function,
+a constant), else for the heading of its block whose anchor is `x`. A heading is named by its anchor, GitHub's slug
+of its text (`## Rate and charge tables` → `#rate-and-charge-tables`); a heading of the block may not take an
+entry's anchor. A relative target (`string.md`, `../../embedding.md`) is refused; an absolute URL (`https://…`) is left as it is.
+`kavun-gen` checks every `kavun:` target against the declarations (except `kavun:doc/`, a file the docs tool checks
+when it renders) — the run's own, plus, when the main module is not Kavun, Kavun's `kavun_reference.json` from the
+Kavun module the run builds against, and each `-with <kavun_reference.json>` given (a name declared twice among them
+is refused) — writes the shorthand in its `kavun:` form into the reference, and the docs tool renders each link
+as a path relative to its page, or under the docs URL of a `-with` origin.
 
 #### Examples are tests
 
@@ -181,8 +265,10 @@ next). A `// =>` checks an expression or an assignment only: a `defer`, `for` or
 value the block leaves behind instead), and a `defer` on an `// Error:` line would run when its closure returns.
 After an unexpected raise the rest of the block is not checked: the first failure is the one reported.
 
-`TestDocExamples` (`kavun_test.go`) enforces all of it: it reads every doc block through `internal/kavungen`
-(`kavungen.Examples`), runs each block that is not `norun` as one script — every module granted, an empty standard
+`TestDocExamples` (`kavun_test.go`) enforces all of it: it reads every example block of `kavun_reference.json`
+through package `reference` (a block carries the line of its first code line, its declaration's `pos` the file; an
+edited example is checked once `go generate ./...` has regenerated the reference, and `TestGeneratedInSync` fails
+until then), runs each block that is not `norun` as one script — every module granted, an empty standard
 input, output discarded, a temporary working directory — and fails, naming the example's file:line, on a block that
 does not compile, a line that raises unexpectedly, a render that differs, and an `Error:` line that does not raise
 that kind. The render is the binary's truth: a page that spells a value differently is the page to fix.
@@ -399,9 +485,12 @@ exception table (name, types, reason) is the record of every deliberate divergen
   — the last answers a `decimal`, since the exact type cannot hold a rounded result.
 
 The free conversion builtins (`vm/builtins.go`) do not implement the conversions a second time: `T(x)` calls
-`x`'s `T` entry through the dispatcher when that entry is pure and has the conversion template `([default])`, so
-the two spellings cannot drift ([purity.md](purity.md#method-purity)); an entry without that template is never
-reached by the free form. The free builtin keeps only what has no member: the zero value, the construction
+`x`'s `T` entry through the dispatcher whenever the type has one, so the two spellings cannot drift. **The name is
+the contract**: a member named after a conversion (`member.IsConversion`) is that conversion, so it is `pure` with
+the template `([default])` — `kavun-gen` refuses any other declaration of it with file:line, and type registration
+(`SetValueType`, a builtin or module-owned type's descriptor) refuses such a `Methods` entry
+([purity.md](purity.md#method-purity)). A module's own functions are not held to it: they are never conversions. The
+free builtin keeps only what has no member: the zero value, the construction
 parameters of its second argument, `undefined`, `record`, and an embedder type's hook fallback.
 `TestFreeConversionParity` pins it.
 

@@ -220,6 +220,10 @@ func TestMemberTablesValidation(t *testing.T) {
 		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.Method{tblWrite: core.NewPureMethod("()", noop)}}},
 		{"Methods longer than member.Max", core.ValueTypeDescr{Methods: make([]core.Method, int(member.Max)+1)}},
 		{"Properties longer than member.Max", core.ValueTypeDescr{Properties: make([]core.Property, int(member.Max)+1)}},
+		// a member named after a conversion is the conversion: pure, with the template ([default])
+		{"impure conversion member", core.ValueTypeDescr{Methods: []core.Method{members.Int: core.NewMethod("([default])", noop)}}},
+		{"conversion member with another template", core.ValueTypeDescr{Methods: []core.Method{members.Int: core.NewPureMethod("(x)", noop)}}},
+		{"conversion member with no template", core.ValueTypeDescr{Methods: []core.Method{members.String: {Fn: noop, Pure: true, Sig: core.SignatureOf(0, true)}}}},
 	}
 	for _, c := range cases {
 		err := core.SetValueType(201, c.d)
@@ -227,7 +231,12 @@ func TestMemberTablesValidation(t *testing.T) {
 		e, ok := err.(*errs.Error)
 		require.True(t, ok, c.name)
 		require.Equal(t, errs.KindHost, e.Kind, c.name)
+		require.True(t, core.ValueTypes[201].Methods == nil, c.name+": a refused type is not registered")
 	}
+
+	err := core.SetValueType(201, core.ValueTypeDescr{Methods: []core.Method{members.Time: core.NewMethod("(zone)", noop)}})
+	require.Error(t, err)
+	require.Equal(t, "host: (SetValueType) type 201: Methods[109] (time) is a conversion: it must be pure with the template ([default])", err.Error())
 }
 
 // builtinTypeIDs is the registry as core's init left it: test-package variables initialise before any test runs, so

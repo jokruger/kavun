@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [],
+  "modules": [
+    {
+      "name": "os",
+      "pure": false,
+      "summary": "The operating system: a world module.",
+      "doc": [],
+      "pos": {
+        "file": "os.go",
+        "line": 7
+      },
+      "functions": [
+        {
+          "name": "get_env",
+          "pure": false,
+          "signature": {
+            "template": "(name)",
+            "arity": 1,
+            "variadic": false,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "name"
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "string",
+          "summary": "Answer an environment variable.",
+          "doc": [],
+          "pos": {
+            "file": "os.go",
+            "line": 11
+          }
+        }
+      ],
+      "constants": []
+    }
+  ]
+}

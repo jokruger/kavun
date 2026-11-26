@@ -28,7 +28,7 @@ func ProcessOf(v core.Value) *os.Process {
 //
 // ## Overview
 //
-// `exec.process` is owned by the [`exec`](../stdlib/exec.md) module. Every member reaches the operating system; a
+// `exec.process` is owned by the [`exec`](kavun:module/exec) module. Every member reaches the operating system; a
 // refusal raises `io` naming the member. It renders as `<exec.process:PID>`; no `string()`.
 //
 // ```go

@@ -27,12 +27,12 @@ import (
 //
 // A source module (`import("./helpers")`, or one added with `Script.AddCustomModule`) is not a `module` value: it
 // answers whatever it `export`s, frozen — a record keeps record rules. See
-// [language.md § Modules](../../language.md#modules).
+// [language.md § Modules](kavun:doc/language#modules).
 //
 // Which builtin modules a script may import is the host's decision. By default only the **pure** ones (they only
 // compute) are importable; a world-touching module (`clock`, `exec`, `fs`, `io`, `os`) needs a grant, checked at
 // compile time and again by the VM before the bytecode runs (`module_not_allowed`). See [embedding.md § The module
-// grant](../../embedding.md#the-module-grant).
+// grant](kavun:doc/embedding#the-module-grant).
 //
 // ## Operators
 //

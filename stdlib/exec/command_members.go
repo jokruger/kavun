@@ -24,7 +24,7 @@ func commandIsTrue(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.V
 	return core.BoolValue(t), nil
 }
 
-// Render the command per the [format mini-language](../../format_mini_language.md).
+// Render the command per the [format mini-language](kavun:doc/format_mini_language).
 //
 //kavun:member format pure ([spec]) -> string
 func commandFormat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
@@ -149,7 +149,7 @@ func commandSetEnv(_ core.VM, v core.Value, id member.ID, args []core.Value) (co
 	return core.Undefined, nil
 }
 
-// Answer the started command's [`exec.process`](exec_process.md); before `start()` it raises `invalid_value`.
+// Answer the started command's [`exec.process`](kavun:type/exec.process); before `start()` it raises `invalid_value`.
 //
 //kavun:member process impure () -> exec.process
 func commandProcess(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {

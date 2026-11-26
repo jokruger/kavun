@@ -12,7 +12,7 @@ import (
 // Regular expressions.
 //
 // The module's one function is the constructor of the type it owns: `re.pattern(src)` compiles the expression once, and
-// the [`re.pattern`](../types/re_pattern.md) answers `match`, `find`, `replace` and `split`. Pure: importable by
+// the [`re.pattern`](kavun:type/re.pattern) answers `match`, `find`, `replace` and `split`. Pure: importable by
 // default.
 //
 // ```go
@@ -26,7 +26,7 @@ import (
 // re.pattern(",\\s*").split("a, b,c")  // => ["a", "b", "c"]
 // ```
 //
-// The pattern's members (see [types/re_pattern.md](../types/re_pattern.md)):
+// The pattern's members (see [types/re_pattern.md](kavun:type/re.pattern)):
 //
 // - `p.match(s) -> bool`: Whether the expression matches anywhere in `s`.
 // - `p.find(s, count?) -> [match]`: The first match (or up to `count`; `-1` for all), each an array of frozen
@@ -39,9 +39,9 @@ import (
 // **Failures.** An invalid expression raises kind `invalid_value` — a bad pattern is a bad argument:
 // `(re.pattern) error parsing regexp: missing closing ): `(``.
 //
-//kavun:module re pure
+//kavun:module re id=value.ModuleRe pure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+// moduleExtras declares what the directives do not: the module's owned type.
 func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.RePattern, TypePattern)
 }

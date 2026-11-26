@@ -73,7 +73,7 @@ func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, messa
 //
 // A system error is always fatal, so it bypasses every `recover()` and only ever reaches the host — which is why
 // there is no `is_system()` to call. The host reads the category from `RuntimeError.Category` (see
-// [embedding](../../embedding.md#handling-errors)).
+// [embedding](kavun:doc/embedding#handling-errors)).
 //
 // ## Construction
 //
@@ -147,7 +147,7 @@ func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, messa
 // Note the **named result** (`res`): a plain local assigned inside the deferred function would be lost — the
 // named result is how a handler substitutes a value. In a script's own body, which has no named result, a
 // top-level `defer` assigns a variable instead (see [`defer` at the top
-// level](../../language.md#defer-at-the-top-level-of-a-script)).
+// level](kavun:doc/language#defer-at-the-top-level-of-a-script)).
 //
 // ### `require(cond, payload)`
 //
@@ -278,7 +278,7 @@ func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, messa
 // | anything else | most likely a defect in the script itself |
 //
 // A host that wants to distinguish "the caller sent bad data" from "the rules have a bug" should branch on that,
-// not on the message text. See [embedding](../../embedding.md#handling-errors).
+// not on the message text. See [embedding](kavun:doc/embedding#handling-errors).
 //
 //kavun:type error
 

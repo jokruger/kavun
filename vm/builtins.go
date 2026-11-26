@@ -25,7 +25,7 @@ var BuiltinFunctionNames []string
 // `import(...)`).
 //
 // For the full list of *member* functions on each type (e.g. `[1,2,3].sort()`), see
-// [Detailed type documentation](../language.md#detailed-type-documentation) — this page only covers top-level
+// [Detailed type documentation](kavun:doc/language#detailed-type-documentation) — this page only covers top-level
 // functions.
 //
 // ## Value constructors / conversions
@@ -58,7 +58,7 @@ var BuiltinFunctionNames []string
 // take one: the sequence constructors' **count** (`T(x, n)`, below) and `time`'s / `date`'s **layout** for text
 // (`time("29/08/2026", "%d/%m/%Y")`). The member conversion `s.time([default])` reads the canonical grammar like
 // `time(s)`; the layout reading has its own member, `s.parse_time(layout[, default])` (`s.parse_date` for a
-// date), whose default comes after the layout; see [time.md](types/time.md#text-layouts).
+// date), whose default comes after the layout; see [time.md](kavun:type/time#text-layouts).
 //
 // Parsing always raises on invalid input, for every type — there is no in-band NaN-on-failed-parse:
 // `decimal("bad")` raises exactly like `int("bad")` does (use the member form's default when a bad parse is
@@ -303,7 +303,7 @@ func builtinIsRange(vm core.VM, args []core.Value) (core.Value, error) {
 // the header, exceptionlessly, so `is_immutable(undefined)` is `true`. It is not a promise that the content
 // cannot change: a frozen header over a body something else still owns (a frozen view, or any
 // `freeze_shallow`ed sibling) refuses *your* writes while the other holder's writes remain visible through it —
-// see [container semantics: views](../container_semantics.md#views).
+// see [container semantics: views](kavun:doc/container_semantics#views).
 //
 //kavun:builtin is_immutable slot=19 pure (x) -> bool
 func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
@@ -685,9 +685,9 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 // ```
 //
 // `format(template, args)` is the runtime counterpart to f-strings. The template uses the same `{name}` / `{0}`
-// placeholder syntax and the same [Format Mini-Language](../format_mini_language.md) for `:fspec`. `args` must be an
+// placeholder syntax and the same [Format Mini-Language](kavun:doc/format_mini_language) for `:fspec`. `args` must be an
 // `array` (for indexed placeholders) or a `dict` / `record` (for named placeholders); the two modes cannot be mixed
-// in one template, and expressions are not allowed inside `{...}`. See [`format`](../format_function.md) for the full
+// in one template, and expressions are not allowed inside `{...}`. See [`format`](kavun:doc/format_function) for the full
 // reference.
 //
 //kavun:builtin format slot=29 pure (x) | (template, args) -> string
@@ -1150,20 +1150,16 @@ func convertBuiltin(vm core.VM, id member.ID, args []core.Value, zero core.Value
 	return core.Undefined, errs.NewConversionError(src.TypeName(), name, "")
 }
 
-// conversionTemplate is the one template every conversion member declares: x.T([default]).
-const conversionTemplate = "([default])"
-
-// hasConversionMember reports whether v's type answers the conversion member id: a pure entry with the conversion
-// template. A member of the same name with another template is a different operation under that name
-// (rand.generator's int(lo, hi)), never the conversion; an impure one cannot be what a pure builtin answers
-// (docs/purity.md). Either is treated as a missing member. A module's function members are never conversions,
-// whatever their template: of a module, only the universal array() is.
+// hasConversionMember reports whether v's type answers the conversion member id. The name is the contract: type
+// registration refuses a conversion-named entry that is not pure with the template `([default])`, so the entry's
+// existence is enough. A module's function members are never conversions, whatever their name (registration does
+// not hold a module's own type to the rule): of a module, only the universal array() is.
 func hasConversionMember(v core.Value, id member.ID) bool {
 	if id != members.Array && core.ModuleByType(v.Type) != nil {
 		return false
 	}
 	ms := core.ValueTypes[v.Type].Methods
-	return int(id) < len(ms) && ms[id].Fn != nil && ms[id].Pure && ms[id].Sig.Template() == conversionTemplate
+	return int(id) < len(ms) && ms[id].Fn != nil
 }
 
 // ctorSameType answers a constructor's same-type argument. A constructor CONSTRUCTS: `T(x)` where `x` is

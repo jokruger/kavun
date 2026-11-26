@@ -33,7 +33,7 @@ func decimalIsTrue(_ VM, v Value, _ member.ID, _ []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
-// Render the value per the [format mini-language](../../format_mini_language.md).
+// Render the value per the [format mini-language](kavun:doc/format_mini_language).
 //
 // Default rendering is the fixed-point form **at the value's own scale** — the same text `json.encode` emits. Verbs:
 // `f` / `F` (fixed, default precision 6, rounds half-away-from-zero), `s` (the explicit spelling of the default),

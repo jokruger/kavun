@@ -29,7 +29,7 @@ func CommandOf(v core.Value) *exec.Cmd {
 //
 // ## Overview
 //
-// `exec.command` is owned by the [`exec`](../stdlib/exec.md) module. Configure it (`set_dir`, `set_env`, `set_path`),
+// `exec.command` is owned by the [`exec`](kavun:module/exec) module. Configure it (`set_dir`, `set_env`, `set_path`),
 // then run it once — `run()`, `output()`, `combined_output()`, or `start()` followed by `wait()`. A refusal or a failed
 // run raises `io` naming the member. It renders as `<exec.command:NAME>`; no `string()`.
 //

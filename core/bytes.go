@@ -53,13 +53,13 @@ func NewBytesValue(b []byte, immutable bool) Value {
 // ## Overview
 //
 // `bytes` is the low-level member of the text family: a mutable sequence of **octets** with no symbol
-// interpretation. The element is the [`byte`](byte.md).
+// interpretation. The element is the [`byte`](kavun:type/byte).
 //
 // | type | representation | mutability | indexing |
 // | --- | --- | --- | --- |
 // | `bytes` | raw octets, no symbol interpretation | **mutable** | O(1) by octet |
-// | `string` | Unicode text in compact UTF-8 | immutable | O(n) by symbol — see [string](string.md) |
-// | `runes` | Unicode text as a symbol array | mutable | O(1) by symbol — see [runes](runes.md) |
+// | `string` | Unicode text in compact UTF-8 | immutable | O(n) by symbol — see [string](kavun:type/string) |
+// | `runes` | Unicode text as a symbol array | mutable | O(1) by symbol — see [runes](kavun:type/runes) |
 //
 // The line between `bytes` and the symbol types is **encoding**. Members that need symbol classes — `upper`,
 // `lower`, `case_fold`, the casing family — do not exist on `bytes`: interpreting an octet as a cased letter
@@ -172,7 +172,7 @@ func NewBytesValue(b []byte, immutable bool) Value {
 // | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an in-range int |
 // | `bool` / `float` / `decimal` | raises — ambiguous as text |
 // | `int` (`*` only) | a repeat **count** — `b * n` is exactly `b.repeat(n)`; there is no reflected `n * b` |
-// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `bytes("ab") + [1, 2]` → `[bytes([97, 98]), 1, 2]` is not an exception to that: `bytes` declines and the array answers `+` by prepending it (see [array](array.md)) |
+// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `bytes("ab") + [1, 2]` → `[bytes([97, 98]), 1, 2]` is not an exception to that: `bytes` declines and the array answers `+` by prepending it (see [array](kavun:type/array)) |
 //
 // ```go
 // bytes("ab") + "cd"          // => bytes([97, 98, 99, 100]) — bytes receiver → bytes
@@ -243,7 +243,7 @@ func NewBytesValue(b []byte, immutable bool) Value {
 // b.string().is_valid()           // => false — ask the type that can answer it
 // ```
 //
-// See [string: Undecodable octets](string.md#undecodable-octets) for the model, and note the one boundary that
+// See [string: Undecodable octets](kavun:type/string#undecodable-octets) for the model, and note the one boundary that
 // is **not** total: `json.encode` on text holding escapes raises, while `json.encode(b)` on the bytes
 // themselves is always fine (base64).
 //

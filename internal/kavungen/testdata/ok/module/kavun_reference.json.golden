@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "origin": "example.com/fixture",
+  "core_version": "0.0",
+  "types": [
+    {
+      "name": "path.segment",
+      "module": "path",
+      "summary": "A path segment: a module-owned type, its descriptor and member bodies in one root file.",
+      "doc": [
+        {
+          "kind": "text",
+          "markdown": "## Overview\n\nThe page file is `types/path_segment.md`: the dot of the Kavun name becomes an underscore."
+        }
+      ],
+      "pos": {
+        "file": "segment.go",
+        "line": 14
+      },
+      "members": [
+        {
+          "name": "len",
+          "pure": true,
+          "signature": {
+            "template": "()",
+            "arity": 0,
+            "variadic": false,
+            "readings": [
+              {
+                "params": []
+              }
+            ]
+          },
+          "result": "int",
+          "summary": "Answer the number of octets in the segment.",
+          "doc": [],
+          "pos": {
+            "file": "segment.go",
+            "line": 23
+          }
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "path",
+      "pure": true,
+      "summary": "Path text: joining and splitting file paths.",
+      "doc": [
+        {
+          "kind": "text",
+          "markdown": "A module page lists its functions alphabetically, whatever their source order, then its constants, alphabetically\ntoo: [`path_separator`](kavun:module/path/path_separator) joins the parts."
+        }
+      ],
+      "pos": {
+        "file": "path.go",
+        "line": 10
+      },
+      "functions": [
+        {
+          "name": "base",
+          "pure": true,
+          "signature": {
+            "template": "(p)",
+            "arity": 1,
+            "variadic": false,
+            "readings": [
+              {
+                "params": [
+                  {
+                    "name": "p"
+                  }
+                ]
+              }
+            ]
+          },
+          "result": "string",
+          "summary": "Answer the last element.",
+          "doc": [],
+          "pos": {
+            "file": "path.go",
+            "line": 23
+          }
+        },
+        {
+          "name": "join",
+          "pure": true,
+          "signature": {
+            "template": "(...parts)",
+            "arity": 0,
+            "variadic": true,
+            "readings": [
+              {
+                "params": [],
+                "rest": "parts"
+              }
+            ]
+          },
+          "result": "string",
+          "summary": "Join the parts with the separator.",
+          "doc": [
+            {
+              "kind": "example",
+              "code": "path.join(\"a\", \"b\")   // \"a/b\"",
+              "line": 15
+            }
+          ],
+          "pos": {
+            "file": "path.go",
+            "line": 18
+          }
+        }
+      ],
+      "constants": [
+        {
+          "name": "path_list_separator",
+          "type": "rune",
+          "summary": "The separator of the paths in a list.",
+          "doc": [],
+          "pos": {
+            "file": "path.go",
+            "line": 43
+          }
+        },
+        {
+          "name": "path_separator",
+          "type": "rune",
+          "summary": "The separator of path elements, written by [`join`](kavun:module/path/join).",
+          "doc": [
+            {
+              "kind": "text",
+              "markdown": "The list separator is [`path_list_separator`](kavun:module/path/path_list_separator).\n"
+            },
+            {
+              "kind": "example",
+              "code": "path.path_separator   // => '/'",
+              "line": 34
+            }
+          ],
+          "pos": {
+            "file": "path.go",
+            "line": 37
+          }
+        }
+      ]
+    }
+  ]
+}

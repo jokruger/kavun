@@ -62,10 +62,10 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // | --- | --- | --- | --- |
 // | `string` | compact UTF-8 | immutable | O(n) by symbol |
 // | `runes` | one machine word per symbol | **mutable** | **O(1)** by symbol |
-// | `bytes` | raw octets, no symbol interpretation | mutable | O(1) by octet — see [bytes](bytes.md) |
+// | `bytes` | raw octets, no symbol interpretation | mutable | O(1) by octet — see [bytes](kavun:type/bytes) |
 //
 // Choose `runes` for heavy positional work (indexing/slicing in loops) or for in-place mutation; choose
-// `string` everywhere else. The element is the [`rune`](rune.md); every offset a member answers or
+// `string` everywhere else. The element is the [`rune`](kavun:type/rune); every offset a member answers or
 // accepts is a **symbol position**, never an octet position.
 //
 // Symbols are **code points, not grapheme clusters**. A combining sequence counts as several symbols — what a
@@ -92,7 +92,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 //
 // The parsing conversions (`int`, `float`, `decimal`, `bool`, `time`, `date`) **parse the text** and follow the
 // uniform failure policy: `x.T()` raises on failure, `x.T(d)` answers `d`; `time` and `date` read the canonical
-// grammar. Reading under a [layout](time.md#text-layouts) is `r.parse_time(layout[, default])` /
+// grammar. Reading under a [layout](kavun:type/time#text-layouts) is `r.parse_time(layout[, default])` /
 // `r.parse_date(layout[, default])`, and a malformed layout is the caller's error, which raises even with a default.
 // The re-representations `string()`, `bytes()` and `array()` are total: they take the default for interface
 // uniformity and never use it.
@@ -111,7 +111,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // ```
 //
 // Those escapes write octets, exactly as in a `string` literal, and each run of octets is read as one text: the
-// octets of a symbol read as that symbol, an octet that is not one as its [escape](string.md#undecodable-octets).
+// octets of a symbol read as that symbol, an octet that is not one as its [escape](kavun:type/string#undecodable-octets).
 // One more escape is accepted here and in a `rune` literal only: `\udcNN` (or `\U0000DCNN`), NN = `80`–`ff`, the
 // octet escape rune itself — inserted between the runs, never joined with the octets around it. The `v` render
 // writes every escape rune in that spelling, so a `runes` value always reads back from its render:
@@ -189,13 +189,13 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // | right operand | reading |
 // | --- | --- |
 // | `runes` / `string` | its text, verbatim |
-// | `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](string.md#undecodable-octets) |
+// | `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](kavun:type/string#undecodable-octets) |
 // | `rune` | one symbol |
-// | `byte` | one symbol: ASCII as itself, a higher octet as its [escape](string.md#undecodable-octets) — as `bytes([b])` decodes |
+// | `byte` | one symbol: ASCII as itself, a higher octet as its [escape](kavun:type/string#undecodable-octets) — as `bytes([b])` decodes |
 // | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
 // | `bool` / `float` / `decimal` | raises — ambiguous as text |
 // | `int` (`*` only) | a repeat **count** — `u * n` is exactly `u.repeat(n)`; there is no reflected `n * u` |
-// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `u"ab" + [1, 2]` → `[u"ab", 1, 2]` is not an exception to that: `runes` declines and the array answers `+` by prepending it (see [array](array.md)) |
+// | `array` / `range` / `dict` / callables | raises — the text types accept only text content. `u"ab" + [1, 2]` → `[u"ab", 1, 2]` is not an exception to that: `runes` declines and the array answers `+` by prepending it (see [array](kavun:type/array)) |
 //
 // ```go
 // u"ab" + "cd"            // => u"abcd" — runes receiver → runes
@@ -241,7 +241,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 // | --- | --- |
 // | absent | the **blank set** (below) |
 // | function | predicate — it gets the element, or `(index, element)` when it does not accept one argument ([callbacks](#callbacks)) |
-// | `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](string.md#undecodable-octets)) |
+// | `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](kavun:type/string#undecodable-octets)) |
 // | `rune` / `byte` / `int` | one **element** (a byte is its octet's symbol: ASCII as itself, above it its escape; int must be a valid code point — members only, operators refuse int) |
 // | several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
 // | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
@@ -258,7 +258,7 @@ func NewRunesValue(r []rune, immutable bool) Value {
 //
 // `runes` holds the same text `string` does, so it holds undecodable octets the same way: each becomes its
 // reserved escape rune (U+DC80–U+DCFF), `is_valid()` finds them, and `.bytes()` returns the original octets.
-// See [string: Undecodable octets](string.md#undecodable-octets) for the full model.
+// See [string: Undecodable octets](kavun:type/string#undecodable-octets) for the full model.
 //
 // ```go
 // u = bytes([0x61, 0xFF, 0x62]).runes()

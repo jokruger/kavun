@@ -33,12 +33,12 @@ func ByteValue(v byte) Value {
 // wraps modulo 256. Every other numeric type (`int`, `float`, `decimal`, `rune`) raises on overflow.
 // - **A symbol in ASCII, an octet above it.** As text content, an octet reads as a symbol in `0x00`–`0x7F`;
 // `0x80`–`0xFF` alone is not valid UTF-8, so its text is the **octet itself**, which reads back as that
-// octet's [escape](string.md#undecodable-octets) and converts back to this same byte. The conversion is
+// octet's [escape](kavun:type/string#undecodable-octets) and converts back to this same byte. The conversion is
 // total and lossless in both directions, and a `rune` reads the byte the same way (`rune(b'\xff')` is the escape
 // `'\udcff'`). The Latin-1 reading is never assumed — `b'\xFF' == "ÿ"` and `b'\xFF' == 'ÿ'` are both `false` —
 // and the Latin-1 value is reachable explicitly through `.int()`.
 //
-// `byte` values are immutable. The element type of [`bytes`](bytes.md).
+// `byte` values are immutable. The element type of [`bytes`](kavun:type/bytes).
 //
 // No sequence members (`len`, `repeat`, …) — a `byte` has no elements.
 //
@@ -74,7 +74,7 @@ func ByteValue(v byte) Value {
 //
 // `+` and `-` with a `byte` or a plain `int` on either side answer a `byte`, reduced mod 256 for *any* magnitude
 // of the `int` operand. With a `rune`, `-` is the code-point distance (an `int`) once the byte is read as text —
-// `.rune()`: ASCII as itself, a high octet as its [escape](string.md#undecodable-octets) — and `+` raises, as
+// `.rune()`: ASCII as itself, a high octet as its [escape](kavun:type/string#undecodable-octets) — and `+` raises, as
 // `rune + rune` does. Every other numeric type raises:
 //
 // ```go
@@ -134,7 +134,7 @@ func ByteValue(v byte) Value {
 //
 // Next to the text types, a `byte` is an **octet of text** — exactly what the one-element `bytes([b])` is. An
 // ASCII octet is its symbol; a higher one, alone never a symbol, is the octet itself in a `string` and its
-// [escape](string.md#undecodable-octets) in `runes`. A scalar on the left takes the sequence's type:
+// [escape](kavun:type/string#undecodable-octets) in `runes`. A scalar on the left takes the sequence's type:
 //
 // ```go
 // "abc" + b'a'         // => "abca"
@@ -190,7 +190,7 @@ func ByteValue(v byte) Value {
 // | `array()` | `[b]`, the byte as one element | total |
 //
 // Every conversion is total. `rune()` answers the symbol the one-octet text holding the byte reads as — the
-// ASCII symbol itself, or above `0x7F` the octet's [escape](string.md#undecodable-octets) `U+DC80`–`U+DCFF` — so
+// ASCII symbol itself, or above `0x7F` the octet's [escape](kavun:type/string#undecodable-octets) `U+DC80`–`U+DCFF` — so
 // it is the exact inverse of `rune.byte()`; the Latin-1 reading is `.int().rune()`. There is deliberately no `bool()`, `float()`
 // or `decimal()` member: `int` is the sole gateway to the numeric and boolean domains (`b.int().float()`,
 // `b'0'.int().bool()`).

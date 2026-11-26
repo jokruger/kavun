@@ -40,16 +40,16 @@ func FloatValue(f float64) Value {
 // (`float("inf")`), from the host, or from JSON, and they can be stored, compared, and sorted — only arithmetic
 // refuses them. `is_nan()` / `is_inf()` interrogate them without triggering the raise being avoided.
 //
-// `float` belongs to the numeric family alongside [`int`](int.md) and [`decimal`](decimal.md). Use `float` for
+// `float` belongs to the numeric family alongside [`int`](kavun:type/int) and [`decimal`](kavun:type/decimal). Use `float` for
 // measurements and physics-style computation where binary rounding is acceptable; use `decimal` for money and any
 // result that must be exact in base 10 (`0.1 + 0.2 == 0.3` is `false` on floats and `true` on decimals).
 //
-// A numeric operation is a `float` member exactly when [`decimal`](decimal.md) has it — same name, same reading
+// A numeric operation is a `float` member exactly when [`decimal`](kavun:type/decimal) has it — same name, same reading
 // (pinned by a parity test). Like the operators, no member produces NaN or ±Inf: such a result **raises**
 // `invalid_value` naming the member.
 //
 // The rest of float math — trigonometry, `cbrt`, `hypot`, the special functions — is in the
-// [`math`](../stdlib/math.md)
+// [`math`](kavun:module/math)
 // module.
 //
 // ## Literals
@@ -122,7 +122,7 @@ func FloatValue(f float64) Value {
 //
 // `float` pairs with `int` in arithmetic; the result is `float` under the same quarantine (`1 / 0.0` raises).
 // `float` **never pairs with `decimal` in arithmetic** — only in comparisons. Convert explicitly
-// (see [decimal](decimal.md)):
+// (see [decimal](kavun:type/decimal)):
 //
 // ```go
 // 1.5 + 1       // => 2.5
@@ -232,7 +232,7 @@ func FloatValue(f float64) Value {
 // ## Durations
 //
 // A float builds an int **duration in nanoseconds**, rounded to the nearest one — the same members as
-// [int](int.md#durations): `1.5.hours()` is `5400000000000`, `0.25.seconds()` is `250000000`. NaN, ±Inf and a
+// [int](kavun:type/int#durations): `1.5.hours()` is `5400000000000`, `0.25.seconds()` is `250000000`. NaN, ±Inf and a
 // result past int's range raise.
 //
 // ## Parsing text into float

@@ -23,7 +23,7 @@ func processIsTrue(_ core.VM, v core.Value, _ member.ID, _ []core.Value) (core.V
 	return core.BoolValue(t), nil
 }
 
-// Render the process per the [format mini-language](../../format_mini_language.md).
+// Render the process per the [format mini-language](kavun:doc/format_mini_language).
 //
 //kavun:member format pure ([spec]) -> string
 func processFormat(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {

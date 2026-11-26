@@ -5,7 +5,6 @@ import (
 	"runtime"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
 	"github.com/jokruger/kavun/stdlib/rand"
@@ -16,7 +15,7 @@ import (
 
 // The process and its environment: arguments, exit, environment variables, identity, the working directory.
 //
-// Files are [`fs`](fs.md)'s, other processes [`exec`](exec.md)'s, path text [`path`](path.md)'s.
+// Files are [`fs`](kavun:module/fs)'s, other processes [`exec`](kavun:module/exec)'s, path text [`path`](kavun:module/path)'s.
 //
 // ```go
 // os := import("os")
@@ -24,21 +23,35 @@ import (
 // os.platform              // "linux", "darwin", …
 // ```
 //
-// Constants: `platform`, `arch`, `dev_null`, `path_separator`, `path_list_separator`.
-//
 // **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
 // `(os.chdir) chdir /nope: no such file or directory`. A function whose success has no result answers `undefined`.
 //
-//kavun:module os impure
+//kavun:module os id=value.ModuleOs impure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
-func moduleExtras(m *core.ModuleBuilder) {
-	m.Const(members.Platform, core.NewStringValue(runtime.GOOS))
-	m.Const(members.Arch, core.NewStringValue(runtime.GOARCH))
-	m.Const(members.PathSeparator, core.RuneValue(os.PathSeparator))
-	m.Const(members.PathListSeparator, core.RuneValue(os.PathListSeparator))
-	m.Const(members.DevNull, core.NewStringValue(os.DevNull))
-}
+// The operating system the host runs on, as Go names it: `"linux"`, `"darwin"`, `"windows"`, ….
+//
+//kavun:const platform -> string
+var constPlatform = core.NewStringValue(runtime.GOOS)
+
+// The processor architecture the host runs on, as Go names it: `"amd64"`, `"arm64"`, ….
+//
+//kavun:const arch -> string
+var constArch = core.NewStringValue(runtime.GOARCH)
+
+// The platform's separator of path elements: `'/'`, or `'\\'` on Windows.
+//
+//kavun:const path_separator -> rune
+var constPathSeparator = core.RuneValue(os.PathSeparator)
+
+// The platform's separator of the paths in a list such as `PATH`: `':'`, or `';'` on Windows.
+//
+//kavun:const path_list_separator -> rune
+var constPathListSeparator = core.RuneValue(os.PathListSeparator)
+
+// The name of the platform's null device: `"/dev/null"`, or `"NUL"` on Windows.
+//
+//kavun:const dev_null -> string
+var constDevNull = core.NewStringValue(os.DevNull)
 
 // Answer the command-line arguments.
 //
@@ -261,7 +274,7 @@ func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	return core.IntValue(int64(os.Getpagesize())), nil
 }
 
-// Answer a [`rand.generator`](../types/rand_generator.md) over `crypto/rand` — the one entropy source.
+// Answer a [`rand.generator`](kavun:type/rand.generator) over `crypto/rand` — the one entropy source.
 //
 // `os.rand_generator().draw_int(1, 7)` rolls an unpredictable die.
 //

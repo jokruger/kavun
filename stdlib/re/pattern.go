@@ -29,7 +29,7 @@ func PatternOf(v core.Value) *regexp.Regexp {
 //
 // ## Overview
 //
-// `re.pattern` is owned by the [`re`](../stdlib/re.md) module and built only by its constructor. It is immutable,
+// `re.pattern` is owned by the [`re`](kavun:module/re) module and built only by its constructor. It is immutable,
 // its members are pure (the same pattern and text always answer the same result), and its text content is its
 // source — so unlike the world handles (`fs.file`, …) it has `string()`, and `string(p)` works too. It renders as the
 // expression that builds it.

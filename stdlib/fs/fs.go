@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/member/members"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/internal/modkit"
@@ -24,51 +23,146 @@ import (
 // fs.stat("./out.txt").size           // => 5
 // ```
 //
-// Constants:
+// The constants are the flags of [`open_file`](#open_file), combined with `|`; the whence of
+// [`fs.file.seek`](kavun:type/fs.file/seek); and the bits of a file mode, the `mode` of [`stat`](#stat).
 //
-// - Open flags: `o_rd`, `o_wr`, `o_rdwr`, `o_append`, `o_create`, `o_excl`, `o_sync`, `o_trunc`.
-// - Seek modes: `seek_set`, `seek_cur`, `seek_end`.
-// - File mode bits: `mode_dir`, `mode_append`, `mode_exclusive`, `mode_temporary`, `mode_symlink`, `mode_device`,
-// `mode_named_pipe`, `mode_socket`, `mode_set_uid`, `mode_set_gui`, `mode_char_device`, `mode_sticky`,
-// `mode_type`, `mode_perm`.
-//
-// An open file is an [`fs.file`](../types/fs_file.md): `name`, `read(buffer)`, `write(bytes)`, `write_string(s)`,
+// An open file is an [`fs.file`](kavun:type/fs.file): `name`, `read(buffer)`, `write(bytes)`, `write_string(s)`,
 // `seek(offset, whence)`, `stat`, `sync`, `chmod`, `chown`, `chdir`, `read_dir_names(n)`, `close`.
 //
 // **Failures.** Everything the world can refuse raises kind `io`, with the operation named in the message:
 // `(fs.remove) remove /nope: no such file or directory`. A function whose success has no result answers `undefined`.
 //
-//kavun:module fs impure
+//kavun:module fs id=value.ModuleFs impure
 
-// moduleExtras declares what the //kavun:fn directives do not: the module's constants and owned types.
+// moduleExtras declares what the directives do not: the module's owned type.
 func moduleExtras(m *core.ModuleBuilder) {
 	m.Type(value.FsFile, TypeFile)
-	m.Const(members.ORd, core.IntValue(int64(os.O_RDONLY)))
-	m.Const(members.OWr, core.IntValue(int64(os.O_WRONLY)))
-	m.Const(members.ORdwr, core.IntValue(int64(os.O_RDWR)))
-	m.Const(members.OAppend, core.IntValue(int64(os.O_APPEND)))
-	m.Const(members.OCreate, core.IntValue(int64(os.O_CREATE)))
-	m.Const(members.OExcl, core.IntValue(int64(os.O_EXCL)))
-	m.Const(members.OSync, core.IntValue(int64(os.O_SYNC)))
-	m.Const(members.OTrunc, core.IntValue(int64(os.O_TRUNC)))
-	m.Const(members.SeekSet, core.IntValue(int64(io.SeekStart)))
-	m.Const(members.SeekCur, core.IntValue(int64(io.SeekCurrent)))
-	m.Const(members.SeekEnd, core.IntValue(int64(io.SeekEnd)))
-	m.Const(members.ModeDir, core.IntValue(int64(os.ModeDir)))
-	m.Const(members.ModeAppend, core.IntValue(int64(os.ModeAppend)))
-	m.Const(members.ModeExclusive, core.IntValue(int64(os.ModeExclusive)))
-	m.Const(members.ModeTemporary, core.IntValue(int64(os.ModeTemporary)))
-	m.Const(members.ModeSymlink, core.IntValue(int64(os.ModeSymlink)))
-	m.Const(members.ModeDevice, core.IntValue(int64(os.ModeDevice)))
-	m.Const(members.ModeNamedPipe, core.IntValue(int64(os.ModeNamedPipe)))
-	m.Const(members.ModeSocket, core.IntValue(int64(os.ModeSocket)))
-	m.Const(members.ModeSetUID, core.IntValue(int64(os.ModeSetuid)))
-	m.Const(members.ModeSetGui, core.IntValue(int64(os.ModeSetgid)))
-	m.Const(members.ModeCharDevice, core.IntValue(int64(os.ModeCharDevice)))
-	m.Const(members.ModeSticky, core.IntValue(int64(os.ModeSticky)))
-	m.Const(members.ModeType, core.IntValue(int64(os.ModeType)))
-	m.Const(members.ModePerm, core.IntValue(int64(os.ModePerm)))
 }
+
+// The [`open_file`](#open_file) flag that opens the file read-only.
+//
+//kavun:const o_rd -> int
+var constORd = core.IntValue(int64(os.O_RDONLY))
+
+// The [`open_file`](#open_file) flag that opens the file write-only.
+//
+//kavun:const o_wr -> int
+var constOWr = core.IntValue(int64(os.O_WRONLY))
+
+// The [`open_file`](#open_file) flag that opens the file for reading and writing.
+//
+//kavun:const o_rdwr -> int
+var constORdwr = core.IntValue(int64(os.O_RDWR))
+
+// The [`open_file`](#open_file) flag that makes every write append to the end of the file.
+//
+//kavun:const o_append -> int
+var constOAppend = core.IntValue(int64(os.O_APPEND))
+
+// The [`open_file`](#open_file) flag that creates the file when it does not exist.
+//
+//kavun:const o_create -> int
+var constOCreate = core.IntValue(int64(os.O_CREATE))
+
+// The [`open_file`](#open_file) flag that, with [`o_create`](#o_create), refuses a file that already exists.
+//
+//kavun:const o_excl -> int
+var constOExcl = core.IntValue(int64(os.O_EXCL))
+
+// The [`open_file`](#open_file) flag that opens the file for synchronous I/O.
+//
+//kavun:const o_sync -> int
+var constOSync = core.IntValue(int64(os.O_SYNC))
+
+// The [`open_file`](#open_file) flag that truncates a regular writable file to zero length on opening.
+//
+//kavun:const o_trunc -> int
+var constOTrunc = core.IntValue(int64(os.O_TRUNC))
+
+// The [`fs.file.seek`](kavun:type/fs.file/seek) whence that counts the offset from the start of the file.
+//
+//kavun:const seek_set -> int
+var constSeekSet = core.IntValue(int64(io.SeekStart))
+
+// The [`fs.file.seek`](kavun:type/fs.file/seek) whence that counts the offset from the current position.
+//
+//kavun:const seek_cur -> int
+var constSeekCur = core.IntValue(int64(io.SeekCurrent))
+
+// The [`fs.file.seek`](kavun:type/fs.file/seek) whence that counts the offset from the end of the file.
+//
+//kavun:const seek_end -> int
+var constSeekEnd = core.IntValue(int64(io.SeekEnd))
+
+// The file mode bit of a directory.
+//
+//kavun:const mode_dir -> int
+var constModeDir = core.IntValue(int64(os.ModeDir))
+
+// The file mode bit of an append-only file.
+//
+//kavun:const mode_append -> int
+var constModeAppend = core.IntValue(int64(os.ModeAppend))
+
+// The file mode bit of an exclusive-use file.
+//
+//kavun:const mode_exclusive -> int
+var constModeExclusive = core.IntValue(int64(os.ModeExclusive))
+
+// The file mode bit of a temporary file (Plan 9 only).
+//
+//kavun:const mode_temporary -> int
+var constModeTemporary = core.IntValue(int64(os.ModeTemporary))
+
+// The file mode bit of a symbolic link.
+//
+//kavun:const mode_symlink -> int
+var constModeSymlink = core.IntValue(int64(os.ModeSymlink))
+
+// The file mode bit of a device file.
+//
+//kavun:const mode_device -> int
+var constModeDevice = core.IntValue(int64(os.ModeDevice))
+
+// The file mode bit of a named pipe (FIFO).
+//
+//kavun:const mode_named_pipe -> int
+var constModeNamedPipe = core.IntValue(int64(os.ModeNamedPipe))
+
+// The file mode bit of a Unix domain socket.
+//
+//kavun:const mode_socket -> int
+var constModeSocket = core.IntValue(int64(os.ModeSocket))
+
+// The set-user-ID file mode bit.
+//
+//kavun:const mode_set_uid -> int
+var constModeSetUID = core.IntValue(int64(os.ModeSetuid))
+
+// The set-group-ID file mode bit.
+//
+//kavun:const mode_set_gui -> int
+var constModeSetGui = core.IntValue(int64(os.ModeSetgid))
+
+// The file mode bit of a Unix character device, set together with [`mode_device`](#mode_device).
+//
+//kavun:const mode_char_device -> int
+var constModeCharDevice = core.IntValue(int64(os.ModeCharDevice))
+
+// The sticky file mode bit.
+//
+//kavun:const mode_sticky -> int
+var constModeSticky = core.IntValue(int64(os.ModeSticky))
+
+// The mask of a file mode's type bits: `mode & fs.mode_type` is 0 for a regular file.
+//
+//kavun:const mode_type -> int
+var constModeType = core.IntValue(int64(os.ModeType))
+
+// The mask of a file mode's Unix permission bits, octal 777.
+//
+//kavun:const mode_perm -> int
+var constModePerm = core.IntValue(int64(os.ModePerm))
 
 // Open a file for reading.
 //

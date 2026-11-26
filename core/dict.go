@@ -67,9 +67,9 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 // `d.values().sum()`, `d.keys().min()`.
 //
 // Dicts are reference-typed: `b = a` shares the underlying map, `copy()` makes an independent one — see
-// [container semantics](../../container_semantics.md). Keys are always strings. Values can be anything.
+// [container semantics](kavun:doc/container_semantics). Keys are always strings. Values can be anything.
 //
-// `dict` and [`record`](record.md) are the same map shape with two access grammars: on a `dict`, `d[k]` is
+// `dict` and [`record`](kavun:type/record) are the same map shape with two access grammars: on a `dict`, `d[k]` is
 // element access and `d.name(...)` is a member-function call; on a `record`, `r.k` is field access and there are no
 // member functions at all. Conversions between them are one call in either direction (see [`record()`](#record) and
 // [`dict()`](#dict)).
@@ -87,7 +87,7 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 //
 // ## Literals and construction
 //
-// There is no dict literal — `{a: 1}` is a [record](record.md) literal. A dict is built by the `dict()`
+// There is no dict literal — `{a: 1}` is a [record](kavun:type/record) literal. A dict is built by the `dict()`
 // constructor:
 //
 // ```go
@@ -176,7 +176,7 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 // Dot access on a dict is **not** element access — that namespace belongs to member functions, and it is refused
 // in **both directions**: `d.a` (read) and `d.a = 5` (write) each raise `invalid_selector`
 // (`type dict has no property a`). In a chain the refusal hits at the first dot — `d.x.y = 1` raises at `.x`.
-// Element access is always `d["a"]` / `d["a"] = 5`; the selector grammar is [`record`](record.md)'s
+// Element access is always `d["a"]` / `d["a"] = 5`; the selector grammar is [`record`](kavun:type/record)'s
 // feature.
 //
 // ## Operators

@@ -165,7 +165,7 @@ func NewStaticIntRangeValue(o *IntRange) Value {
 // A range is lazy, but some members need its elements one by one: `array()`, `join()`, `string()`/`runes()`/
 // `bytes()`, `for_each`, `reduce`, `index`/`index_last`, and the set/predicate/blank readings of
 // `contains`/`count`/`any`/`all`, as well as `chunk(n)`'s array of ranges. These hold to the same ceiling as
-// `repeat` (`4294967296` elements, see [vm.md](../../vm.md)) and raise `invalid_value` past it instead of
+// `repeat` (`4294967296` elements, see [vm.md](kavun:doc/vm)) and raise `invalid_value` past it instead of
 // allocating — `range(0, 1 << 62).array()` raises `(array) result would be 4611686018427387904 elements, past
 // the 4294967296 limit`. The free constructors `array(r)`/`string(r)`/`runes(r)` decline such a range as a
 // `conversion` error. `len()`, indexing, `in`, `contains(x)`, `first`/`last`/`min`/`max`/`sum`/`avg` and the
@@ -184,7 +184,7 @@ func NewStaticIntRangeValue(o *IntRange) Value {
 //
 // The bounds and the step can be any expression (`1..n+2`, `a..b:s`); `..` binds looser than `+`. The literal is
 // the constructor call itself, so the step follows the same rule — greater than zero — and a descending sequence is
-// still spelled with `start > stop`: `10..1:3` is `10, 7, 4`. See [language.md](../../language.md) for the grammar.
+// still spelled with `start > stop`: `10..1:3` is `10, 7, 4`. See [language.md](kavun:doc/language) for the grammar.
 //
 // ### From a components record
 //
