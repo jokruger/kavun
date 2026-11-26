@@ -2,13 +2,6 @@
 
 ## potential problems
 
-12. **Multi-arity functions.** Found 2026-10-15 (callable arity design, deferred). A member or builtin with an
-    optional tail or a gap (`range` 0/1/2/3, `fin.tiered_charges` 0/1/3, `date` 0/1/2) is one body that switches
-    on its count; the dispatcher checks only the floor, so a forgotten bound or gap is caught by
-    `TestMemberArity`, not by construction. Direction: one implementation per count form, routed by a
-    count-indexed table — for scripts (Clojure `defn` arities, Racket `case-lambda`) and natives together — which
-    makes gap bodies safe by construction. A language design question of its own: syntax, the callback form of a
-    multi-arity callable, bytecode layout, render.
 13. **Script-function count errors cannot name their parameters.** Found 2026-10-15. A native callable reports
     `(join) expected ([sep]), got 2 arguments`; a script function only `(call) expected 2 arguments, got 1
     argument`, because parameter names are not in the bytecode. Direction: a `CompiledFunction` field for the
@@ -621,3 +614,33 @@ It should be possible to avoid temp copying to stack !
 
 - type can register member functions as map instead of a generic call hook, so compiler can route to specific impl instead of runtime switch by method name!
 
+- **One declaration per arity form for natives (codegen)** — an internal improvement, not a language feature;
+  noted 2026-11-26 (was potential problem 12). A member, builtin or module function with several forms
+  (`range` `() | (components) | (start, stop[, step])`, `fin.tiered_charges` 0/1/3, `date`, `time`, `format`,
+  `splice`, `irr`, … — 22 declarations, 16 names today) is one body that switches on `len(args)`; the dispatcher
+  checks only the floor, so the upper bound and the gaps are refused by the body's own `ErrArgCount`, and a
+  forgotten one is caught by `TestMemberArity`, not by construction. Direction: each form gets its own Go
+  function with its own `//kavun:` directive (same name); `kavun-gen` gathers the directives of one name,
+  assembles the single `Signature` (the union of the forms — `Accepts`, render, `CallbackForm` and
+  `TestMemberArity` unchanged) and emits one wrapper per name, `switch len(args)` over the form bodies, registered
+  as the entry's `Func`. Every accepted count then has its implementation and every refused one none, by
+  construction. Notes:
+  - generated switch, not a central count-indexed dispatcher: `Method`/`BuiltinFunction`, the VM fast tracks,
+    the slot tables and bytecode stay as they are — no `coreVersion` bump;
+  - the generator refuses forms of one name that disagree on slot, purity, kind or owner, and forms whose counts
+    overlap (`(a[, b])` beside `(a, b)`);
+  - one directive per FORM, not per count: `(start, stop[, step])` stays one body covering 2 and 3, called only
+    with those;
+  - docs need a merge rule: which form carries the page summary (e.g. the lowest-count one), and whether each
+    form renders its own sub-block on the reference page;
+  - afterwards a body's `ErrArgCount` remains only for a variadic rest's bound or gap.
+  Pairs with multi-arity script functions (next entry): same model, separate task.
+
+- **Multi-arity script functions** — a language feature; noted 2026-11-26 (the script half of former potential
+  problem 12). One script function with several bodies, one per count form, the call routed by its argument
+  count (Clojure `defn` arities, Racket `case-lambda`), so a script gets what the natives get from the codegen
+  entry above: no count switch in a body, a gap refused by construction. To design: syntax; the callback form of
+  a multi-arity callable (`core.CallbackForm` assumes one arity + a variadic flag); the bytecode layout (several
+  bodies per `CompiledFunction` — a frozen-table change, `coreVersion` bump); the render of a non-contiguous count
+  set (`/N`, `/N+` today); bound members and `ArgCountError` naming the forms. Do it as a pair with the codegen
+  entry, as a separate task.
